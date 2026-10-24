@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="app_background">#0A0A0A</color>
+    <!-- fondo dell'icona adattiva: campionato dal render (bordo del glifo) -->
+    <color name="ic_launcher_background">#010C1A</color>
+</resources>

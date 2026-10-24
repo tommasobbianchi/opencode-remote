@@ -1,0 +1,60 @@
+data: {"id":"evt_fixture_0001","type":"server.connected","data":{}}
+
+: heartbeat
+
+data: {"id":"evt_16d986181001l9360W7i7qX0Ey","created":1792840065409,"type":"session.created","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","slug":"nimble-garden","version":"2.1.4","projectID":"9884ae44980a203aa1fb89969bdddb3a1ba33b96","location":{"directory":"/Users/patchouli"},"subpath":"","title":"capture reasoning"},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":0,"version":1}}
+
+data: {"id":"evt_16d9861a70010QI4glNEef5eof","created":1792840065447,"type":"session.model.selected","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","model":{"id":"deepseek-flash","providerID":"deepseek","variant":"max"}},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":1,"version":1}}
+
+data: {"id":"evt_16d9861c8001lCupKkEElhBl4c","created":1792840065480,"type":"session.inbox.enqueued","location":{"directory":"/Users/patchouli"},"data":{"inboxID":"msg_16d9861c6001iZsfqtNNp5dTJD","sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","item":{"type":"user","payload":{"text":"Pensa passo per passo prima di rispondere: un negozio vende 3 prodotti a 4,50, 12,90 e 7,35 euro. Applica uno sconto del 15% sul totale e poi aggiungi IVA 22%. Quanto paga il cliente? Spiega i passaggi in 3 righe."},"delivery":"steer"}},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":2,"version":1}}
+
+data: {"id":"evt_16d9861ca0011JvVBzJw89vu31","created":1792840065482,"type":"session.execution.started","data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D"},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":3,"version":1}}
+
+: heartbeat
+
+data: {"id":"evt_16d9861d4001PYor4bnHK32bqk","created":1792840065492,"metadata":{"instructions":{"initial":true}},"type":"session.instructions.updated","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","delta":{"core/codemode":"0567d05e3b8a92568c4f7a741095b922f288d09699fe8b8819d4b5c1b3d76e9a","core/skill-guidance":"9255168ddca68b39431a9f3b932091915122cd8ec423ef47b75e6c5618eada33","core/instructions":"27ef3224d36da83f8cfd33b6b69176894384ecd86b01c029721de87ad6a7ce77","core/date":"932178bd392af3da7479607a6b0d9688f43c73ea4950f374f13c919bbe578a83","core/environment":"b8407dae01c870659b7e79a9ff612ca7dd6ea4e836f7b373b4a7c73004527cbd"}},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":4,"version":2}}
+
+data: {"id":"evt_16d9861d6001QCeXkc6UfKI0Oz","created":1792840065494,"type":"session.inbox.delivered","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","inboxID":"msg_16d9861c6001iZsfqtNNp5dTJD"},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":5,"version":1}}
+
+data: {"id":"evt_16d98663400197e3wNwFXZQ7Pa","created":1792840066612,"type":"session.step.started","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","agent":"orchestrator","model":{"id":"deepseek-flash","providerID":"deepseek","variant":"max"},"assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","started":1792840065505},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":6,"version":1}}
+
+data: {"id":"evt_16d986637001WRU66LF5tVJSyu","created":1792840066615,"type":"session.reasoning.started","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"native":{"reasoningField":"reasoning_content"}},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":7,"version":1}}
+
+: heartbeat
+
+data: {"id":"evt_16d98669e001ZQuW94wr5vaZGu","created":1792840066718,"type":"session.reasoning.delta","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"delta":"Simple arithmetic. Direct work.\n\nTotal: 4.50 + 12.90 + 7.35 = 24.75\n15%"}}
+
+data: {"id":"evt_16d986708001zU5yokz5freMNi","created":1792840066824,"type":"session.reasoning.delta","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"delta":" discount: 24.75 * 0.85 = 21.0375 \u2192 21.04\nIVA 22%: 21.0375 * 1"}}
+
+data: {"id":"evt_16d986782001TT34s41WJBsjwp","created":1792840066946,"type":"session.reasoning.delta","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"delta":".22 = 25.66575 \u2192 25.67\n\nLet me compute precisely: 24.75 * 0.85 = 21.0375. * 1.22"}}
+
+data: {"id":"evt_16d9867c6001k24rtJ6cMmBasc","created":1792840067014,"type":"session.reasoning.delta","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"delta":" = 25.66575. Round to 25.67.\n\nThree lines explanation."}}
+
+: heartbeat
+
+data: {"id":"evt_16d9867c6002U1A9ckKxtj2W7D","created":1792840067014,"type":"session.text.started","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":8,"version":1}}
+
+data: {"id":"evt_16d98682f0011fP6EEDEPX8NAK","created":1792840067119,"type":"session.text.delta","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"delta":"**Totale: 25,67 \u20ac**\n\n1. Somma dei tre prodotti: 4,50 + 12"}}
+
+data: {"id":"evt_16d986899001fwXjs0Esjl3TKg","created":1792840067225,"type":"session.text.delta","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"delta":",90 + 7,35 = **24,75 \u20ac**\n2. Sconto 15%: 24,75 \u00d7 0,85 = **"}}
+
+data: {"id":"evt_16d986900001szC0PUjrIftCtO","created":1792840067328,"type":"session.text.delta","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"delta":"21,0375 \u20ac**\n3. IVA 22%: 21,0375 \u00d7 1,22 = **25,66575 \u20ac** \u2192 ar"}}
+
+: heartbeat
+
+data: {"id":"evt_16d986923001Bo0IlWw89D61je","created":1792840067363,"type":"session.reasoning.ended","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"text":"Simple arithmetic. Direct work.\n\nTotal: 4.50 + 12.90 + 7.35 = 24.75\n15% discount: 24.75 * 0.85 = 21.0375 \u2192 21.04\nIVA 22%: 21.0375 * 1.22 = 25.66575 \u2192 25.67\n\nLet me compute precisely: 24.75 * 0.85 = 21.0375. * 1.22 = 25.66575. Round to 25.67.\n\nThree lines explanation.","native":{"reasoningField":"reasoning_content"}},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":9,"version":1}}
+
+data: {"id":"evt_16d986926001zyLLvM828zmxd1","created":1792840067366,"type":"session.text.delta","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"delta":"rotondato **25,67 \u20ac**"}}
+
+data: {"id":"evt_16d986926002PaPKMi60LC0SMh","created":1792840067366,"type":"session.text.ended","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","ordinal":0,"text":"**Totale: 25,67 \u20ac**\n\n1. Somma dei tre prodotti: 4,50 + 12,90 + 7,35 = **24,75 \u20ac**\n2. Sconto 15%: 24,75 \u00d7 0,85 = **21,0375 \u20ac**\n3. IVA 22%: 21,0375 \u00d7 1,22 = **25,66575 \u20ac** \u2192 arrotondato **25,67 \u20ac**"},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":10,"version":1}}
+
+data: {"id":"evt_16d986928001Pa7vzwC44a0niS","created":1792840067368,"type":"session.step.streamed","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7"},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":11,"version":1}}
+
+: heartbeat
+
+data: {"id":"evt_16d986929001oOWj1N7YA3uBpI","created":1792840067369,"type":"session.step.ended","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","assistantMessageID":"msg_16d9861da001XpKeY0jb2XExm7","finish":"stop","rawFinish":"stop","cost":0.0017064,"tokens":{"input":10468,"output":103,"reasoning":124,"cache":{"read":0,"write":0}}},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":12,"version":1}}
+
+data: {"id":"evt_16d98692b001FDXIzbLGtXQhzc","created":1792840067371,"type":"session.usage.updated","data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D","cost":0.0017064,"tokens":{"input":10468,"output":103,"reasoning":124,"cache":{"read":0,"write":0}}}}
+
+data: {"id":"evt_16d98692c001AhycrjKzL6tkAc","created":1792840067372,"type":"session.execution.succeeded","data":{"sessionID":"ses_e92679e81ffeQT2fznnLcEsI8D"},"durable":{"aggregateID":"ses_e92679e81ffeQT2fznnLcEsI8D","seq":13,"version":1}}
+
