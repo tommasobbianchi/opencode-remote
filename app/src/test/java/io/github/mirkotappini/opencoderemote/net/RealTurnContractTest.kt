@@ -7,8 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Regressione sul contratto di streaming: replica il turno reale catturato su patchouli 2.1.4
- * (fixture = 38 righe SSE, 15 eventi) e controlla che la riduzione produca "pong".
+ * Regression on the streaming contract: replays the real turn captured on patchouli 2.1.4
+ * (fixture = 38 SSE lines, 15 events) and checks the reduction produces "pong".
  */
 class RealTurnContractTest {
 
@@ -18,7 +18,7 @@ class RealTurnContractTest {
         }.bufferedReader().use { it.readLines() }
 
     @Test
-    fun `turno reale ridotto fino a pong`() {
+    fun `real turn reduced down to pong`() {
         val sessionId = "ses_e953f10bfffeofk10zuK5BMVjf"
         var state = OpenChatState(sessionId = sessionId)
         var parsed = 0
@@ -40,16 +40,16 @@ class RealTurnContractTest {
         val assistant = state.messages.filter { it.role == Role.Assistant }
         println("REAL live=${state.stream.live?.text} persisted=${assistant.map { it.text }}")
 
-        assertEquals("nessun evento del turno deve essere perso", 15, parsed)
-        assertFalse("a fine turno non è più running", state.running)
+        assertEquals("no turn event may be lost", 15, parsed)
+        assertFalse("at end of turn it is no longer running", state.running)
         assertEquals("succeeded", state.outcome)
-        assertEquals("il testo sopravvive alla fine del turno", 1, assistant.size)
-        assertEquals("il testo è quello finale", "pong", assistant.single().text)
-        assertTrue("il live è stato chiuso", state.stream.live == null)
+        assertEquals("the text survives the end of the turn", 1, assistant.size)
+        assertEquals("the text is the final one", "pong", assistant.single().text)
+        assertTrue("the live has been closed", state.stream.live == null)
     }
 
     @Test
-    fun `riconciliazione di un invio ottimistico contro la verita del server`() {
+    fun `reconciliation of an optimistic send against the server truth`() {
         val serverUser = MessageUi(
             id = "msg_server_1",
             role = Role.User,
@@ -84,13 +84,13 @@ class RealTurnContractTest {
         )
 
         println("RECONCILE size=${merged.size} ids=${merged.map { it.id }}")
-        assertEquals("nessun duplicato e il pending nuovo resta", 3, merged.size)
+        assertEquals("no duplicate and the new pending remains", 3, merged.size)
         assertNotNull(merged.firstOrNull { it.id == "msg_local_nuovo" })
         assertTrue(merged.none { it.id == "msg_local_ottimistico" && it.pending })
     }
 
     @Test
-    fun `evento sconosciuto non rompe la riduzione`() {
+    fun `unknown event does not break the reduction`() {
         val raw = """{"id":"evt_x","created":1,"type":"session.tool.started","data":{"sessionID":"ses_1","tool":"bash"}}"""
         val incoming = EventParsing.parse(raw)
         println("UNKNOWN -> ${incoming?.event?.javaClass?.simpleName}")

@@ -189,7 +189,7 @@ private fun OmoDrawerBody(
         delay(9_000)
         if (pendingAgent != null) {
             pendingAgent = null
-            notice = DrawerNotice("Nessuna conferma dal server", success = false)
+            notice = DrawerNotice("No confirmation from server", success = false)
         }
     }
     LaunchedEffect(pendingModel) {
@@ -197,7 +197,7 @@ private fun OmoDrawerBody(
         delay(9_000)
         if (pendingModel != null) {
             pendingModel = null
-            notice = DrawerNotice("Nessuna conferma dal server", success = false)
+            notice = DrawerNotice("No confirmation from server", success = false)
         }
     }
     LaunchedEffect(state.error) {
@@ -319,20 +319,20 @@ private fun OmoDrawerBody(
         AlertDialog(
             onDismissRequest = { showDisconnectConfirm = false },
             icon = { GlyphWarning(size = 20.dp, color = oc.error) },
-            title = { Text("Disconnetti dal server?") },
+            title = { Text("Disconnect from server?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Il token salvato su questo dispositivo verrà cancellato " +
-                            "insieme alle credenziali cifrate: al prossimo avvio l'accesso " +
-                            "non sarà più automatico. Tornerai alla schermata di accesso " +
-                            "con i campi ancora compilati.",
+                        text = "The token saved on this device will be deleted " +
+                            "together with the encrypted credentials: on next launch, access " +
+                            "will no longer be automatic. You'll return to the sign-in screen " +
+                            "with the fields still filled in.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = scheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "La connessione in background e le notifiche di " +
-                            "approvazione si fermano.",
+                        text = "The background connection and approval " +
+                            "notifications stop.",
                         style = MaterialTheme.typography.labelSmall,
                         color = oc.mutedText,
                     )
@@ -468,7 +468,7 @@ private fun DrawerHeader(
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = directory ?: "directory non disponibile",
+                    text = directory ?: "directory not available",
                     style = monoStyle(fontSize = 10.5.sp, lineHeight = 15.sp),
                     color = scheme.onSurfaceVariant,
                     maxLines = 1,
@@ -519,9 +519,9 @@ private fun ConnectionPill(
             stream.label,
             stream.pulsing,
         )
-        is Connection.Connecting -> Triple(oc.warningInk, "connessione", true)
-        is Connection.Error -> Triple(oc.error, "non connesso", false)
-        is Connection.Incompatible -> Triple(oc.error, "versione non supportata", false)
+        is Connection.Connecting -> Triple(oc.warningInk, "connecting", true)
+        is Connection.Error -> Triple(oc.error, "not connected", false)
+        is Connection.Incompatible -> Triple(oc.error, "unsupported version", false)
         Connection.Disconnected -> Triple(oc.mutedText, "disconnesso", false)
     }
     StatusPill(
@@ -547,8 +547,8 @@ private fun TasksBadge(
         else -> "nessun task"
     }
     val description = when {
-        loading -> "caricamento dei task in background"
-        running > 0 -> "$running task in esecuzione: mostra i task in background"
+        loading -> "loading background tasks"
+        running > 0 -> "$running tasks running: display the background tasks"
         else -> "nessun task in esecuzione"
     }
 
@@ -654,7 +654,7 @@ private fun DrawerToolbar(
         Text(
             text = when {
                 refreshing -> "aggiorno…"
-                loadedAt == null -> "catalogo non caricato"
+                loadedAt == null -> "catalog not loaded"
                 else -> "aggiornato ${relativeAge(loadedAt)}"
             },
             style = monoStyle(fontSize = 10.sp, lineHeight = 13.sp),
@@ -742,7 +742,7 @@ private fun OpenSessionCard(
 
     if (session == null) {
         Text(
-            text = "nessuna sessione aperta",
+            text = "no open session",
             style = MaterialTheme.typography.bodySmall,
             color = oc.mutedText,
             maxLines = 1,
@@ -786,7 +786,7 @@ private fun OpenSessionCard(
                     if (status.pulsing) {
                         WorkingIndicator(
                             size = 12.dp,
-                            description = "sessione in esecuzione",
+                            description = "session running",
                         )
                     } else {
                         StatusDot(
@@ -843,7 +843,7 @@ private fun sessionStatusSpec(session: SessionUi): SessionStatusSpec {
     if (session.isActive) return SessionStatusSpec("attiva", oc.success, pulsing = true)
     return when (session.outcome?.lowercase(Locale.ROOT)) {
         "succeeded", "success", "done" -> SessionStatusSpec("ok", oc.success)
-        "failed", "failure", "error" -> SessionStatusSpec("errore", oc.error)
+        "failed", "failure", "error" -> SessionStatusSpec("error", oc.error)
         "interrupted", "aborted" -> SessionStatusSpec("interrotta", oc.warningInk)
         "running", "active" -> SessionStatusSpec("attiva", oc.success, pulsing = true)
         null, "" -> SessionStatusSpec("inattiva", oc.mutedText)
@@ -917,7 +917,7 @@ private fun TasksSheet(
                         .padding(horizontal = 20.dp, vertical = 6.dp),
                 ) {
                     ErrorBanner(
-                        title = "Task non aggiornati",
+                        title = "Tasks not updated",
                         message = state.error,
                         onAction = onDismissError,
                         actionLabel = "Chiudi",
@@ -932,8 +932,8 @@ private fun TasksSheet(
 
                 children.isEmpty() -> {
                     Text(
-                        text = "Nessun task in background. I task sono le sessioni figlie " +
-                            "della sessione aperta.",
+                        text = "No background tasks. Tasks are the child sessions " +
+                            "of the open session.",
                         style = MaterialTheme.typography.bodySmall,
                         color = scheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -973,7 +973,7 @@ private fun tasksSummary(running: Int, total: Int): String {
     return if (running > 0) {
         "$running in esecuzione · $count"
     } else {
-        "$count · nessuno in esecuzione"
+        "$count · none running"
     }
 }
 
@@ -1011,7 +1011,7 @@ private fun taskStateSpec(session: SessionUi): TaskStateSpec {
     if (session.isActive) return TaskStateSpec("in esecuzione", oc.success, pulsing = true)
     return when (session.outcome?.lowercase(Locale.ROOT)) {
         "succeeded", "success", "done" -> TaskStateSpec("concluso · ok", oc.success)
-        "failed", "failure", "error" -> TaskStateSpec("concluso · errore", oc.error)
+        "failed", "failure", "error" -> TaskStateSpec("finished · error", oc.error)
         "interrupted", "aborted" -> TaskStateSpec("interrotta", oc.warningInk)
         "running", "active" -> TaskStateSpec("in esecuzione", oc.success, pulsing = true)
         null, "" -> TaskStateSpec("in attesa", oc.mutedText)
@@ -1135,7 +1135,7 @@ private fun AgentsTab(
         }
         if (!canSwitch) {
             item(key = "hint") {
-                DrawerHint("Apri una sessione per cambiare agente o modello: il cambio vale solo sulla sessione aperta.")
+                DrawerHint("Open a session to change agent or model: the change applies only to the open session.")
             }
         } else {
             item(key = "agent-context") {
@@ -1156,8 +1156,8 @@ private fun AgentsTab(
 
             empty && catalog.loadedAt == null -> item(key = "empty") {
                 DrawerEmpty(
-                    title = "Catalogo non caricato",
-                    body = "Agenti, skill, MCP e modelli arrivano dal server. Riprova.",
+                    title = "Catalog not loaded",
+                    body = "Agents, skills, MCP and models come from the server. Retry.",
                     actionLabel = "Riprova",
                     onAction = onRefreshCatalog,
                 )
@@ -1165,8 +1165,8 @@ private fun AgentsTab(
 
             empty -> item(key = "empty") {
                 DrawerEmpty(
-                    title = "Nessun agente",
-                    body = "Il server non ha restituito agenti utilizzabili.",
+                    title = "No agents",
+                    body = "The server returned no usable agents.",
                     actionLabel = "Aggiorna",
                     onAction = onRefreshCatalog,
                 )
@@ -1201,7 +1201,7 @@ private fun AgentsTab(
                                 count = catalog.subagents.size,
                             )
                             Text(
-                                text = "richiamati automaticamente dall'agente primario",
+                                text = "invoked automatically by the primary agent",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(
@@ -1310,7 +1310,7 @@ private fun ModelSwitchCard(
                 .clip(RoundedCornerShape(14.dp))
                 .clickable(
                     enabled = enabled,
-                    onClickLabel = "Cambia il modello della sessione",
+                    onClickLabel = "Change the session model",
                     role = Role.Button,
                     onClick = onClick,
                 ),
@@ -1332,7 +1332,7 @@ private fun ModelSwitchCard(
                         Eyebrow(text = "Modello")
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = if (enabled) "tocca per cambiare" else "nessuna sessione aperta",
+                            text = if (enabled) "tap to change" else "no open session",
                             style = MaterialTheme.typography.labelSmall,
                             color = oc.mutedText,
                             maxLines = 1,
@@ -1405,7 +1405,7 @@ private fun AgentRow(
             )
             .clickable(
                 enabled = clickable,
-                onClickLabel = "Cambia agente in ${agent.name}",
+                onClickLabel = "Change agent in ${agent.name}",
                 role = Role.Button,
                 onClick = onClick,
             )
@@ -1519,7 +1519,7 @@ private fun SkillsTab(
         }
         if (!canActivate) {
             item(key = "hint") {
-                DrawerHint("Apri una sessione per attivare una skill.")
+                DrawerHint("Open a session to activate a skill.")
             }
         }
         when {
@@ -1529,8 +1529,8 @@ private fun SkillsTab(
 
             catalog.skills.isEmpty() && catalog.loadedAt == null -> item(key = "empty") {
                 DrawerEmpty(
-                    title = "Skill non caricate",
-                    body = "L'elenco delle skill arriva dal server. Riprova.",
+                    title = "Skills not loaded",
+                    body = "The skills list comes from the server. Retry.",
                     actionLabel = "Riprova",
                     onAction = onRefreshCatalog,
                 )
@@ -1539,7 +1539,7 @@ private fun SkillsTab(
             catalog.skills.isEmpty() -> item(key = "empty") {
                 DrawerEmpty(
                     title = "Nessuna skill",
-                    body = "Il server non ha restituito skill.",
+                    body = "The server returned no skills.",
                     actionLabel = "Aggiorna",
                     onAction = onRefreshCatalog,
                 )
@@ -1559,7 +1559,7 @@ private fun SkillsTab(
                             .alpha(if (canActivate) 1f else 0.55f)
                             .clickable(
                                 enabled = canActivate,
-                                onClickLabel = "Attiva la skill ${skill.name} nella sessione aperta",
+                                onClickLabel = "Activate skill ${skill.name} in the open session",
                                 role = Role.Button,
                                 onClick = { onActivateSkill(skill) },
                             )
@@ -1628,8 +1628,8 @@ private fun McpTab(
 
             catalog.mcps.isEmpty() && catalog.loadedAt == null -> item(key = "empty") {
                 DrawerEmpty(
-                    title = "Server MCP non caricati",
-                    body = "Lo stato dei server MCP arriva dal server. Riprova.",
+                    title = "MCP servers not loaded",
+                    body = "MCP server status comes from the server. Retry.",
                     actionLabel = "Riprova",
                     onAction = onRefreshCatalog,
                 )
@@ -1637,8 +1637,8 @@ private fun McpTab(
 
             catalog.mcps.isEmpty() -> item(key = "empty") {
                 DrawerEmpty(
-                    title = "Nessun server MCP",
-                    body = "Non risultano server MCP configurati sul server.",
+                    title = "No MCP servers",
+                    body = "No MCP servers configured on the server.",
                     actionLabel = "Aggiorna",
                     onAction = onRefreshCatalog,
                 )
@@ -1650,7 +1650,7 @@ private fun McpTab(
                 }
                 item(key = "mcp-note") {
                     Text(
-                        text = "Stato in sola lettura, così come lo riporta il server.",
+                        text = "Read-only status, exactly as reported by the server.",
                         style = MaterialTheme.typography.labelSmall,
                         color = scheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp),
@@ -1710,10 +1710,10 @@ private fun mcpStatusSpec(status: String): McpStatusSpec {
     val key = status.lowercase(Locale.ROOT)
     return when {
         key.contains("connect") -> McpStatusSpec("connesso", oc.success)
-        key.contains("fail") || key.contains("error") -> McpStatusSpec("errore", oc.error)
+        key.contains("fail") || key.contains("error") -> McpStatusSpec("error", oc.error)
         key.contains("auth") -> McpStatusSpec("richiede autenticazione", oc.warningInk)
         key.contains("disabled") -> McpStatusSpec("disabilitato", oc.mutedText)
-        key.isBlank() || key == "unknown" -> McpStatusSpec("stato sconosciuto", oc.warningInk)
+        key.isBlank() || key == "unknown" -> McpStatusSpec("unknown status", oc.warningInk)
         else -> McpStatusSpec(status, oc.warningInk)
     }
 }
@@ -1736,7 +1736,7 @@ private fun DrawerBanners(
                 .padding(horizontal = 18.dp, vertical = 6.dp),
         ) {
             ErrorBanner(
-                title = "Catalogo non aggiornato",
+                title = "Catalog not updated",
                 message = catalogError,
                 onAction = onRefreshCatalog,
                 actionLabel = "Riprova",
@@ -1751,7 +1751,7 @@ private fun DrawerBanners(
                 .padding(horizontal = 18.dp, vertical = 6.dp),
         ) {
             ErrorBanner(
-                title = "Operazione non riuscita",
+                title = "Operation failed",
                 message = actionError,
                 onAction = onDismissError,
                 actionLabel = "Chiudi",

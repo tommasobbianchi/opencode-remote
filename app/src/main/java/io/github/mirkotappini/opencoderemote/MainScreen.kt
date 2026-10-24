@@ -109,8 +109,8 @@ private fun ConnectedSurface(
             null
         } else {
             NotificationPromptUi(
-                message = "Notifiche non attive: le approvazioni restano qui in chat. " +
-                    "Puoi attivarle dalle impostazioni di Android.",
+                message = "Notifications off: approvals stay here in chat. " +
+                    "You can enable them from Android settings.",
                 actionLabel = "Impostazioni",
                 opensSettings = true,
             )
@@ -120,7 +120,7 @@ private fun ConnectedSurface(
     LaunchedEffect(Unit) {
         if (!NotificationOptInStore.shouldAsk(context)) return@LaunchedEffect
         notificationPrompt = NotificationPromptUi(
-            message = "Per approvare anche da fuori dall'app, consenti le notifiche.",
+            message = "To approve even from outside the app, allow notifications.",
             actionLabel = "Consenti",
         )
         NotificationOptInStore.markAsked(context)

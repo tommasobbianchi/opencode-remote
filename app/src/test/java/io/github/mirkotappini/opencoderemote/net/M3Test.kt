@@ -16,7 +16,7 @@ class M3Test {
     // 1. Agenti: nascosti fuori dal drawer, subagent in sezione separata ------
 
     @Test
-    fun `agenti nascosti esclusi dal drawer e subagent separati`() {
+    fun `hidden agents excluded from the drawer and subagents separate`() {
         val body = """
             {"location":{"directory":"/Users/patchouli"},"data":[
               {"id":"orchestrator","name":"orchestrator","mode":"primary","hidden":false,
@@ -51,14 +51,14 @@ class M3Test {
         val orchestrator = agents.first { it.id == "orchestrator" }
         assertEquals("deepseek-flash", orchestrator.modelId)
         assertEquals("deepseek", orchestrator.modelProvider)
-        // `system` e `permissions` non hanno un campo nel modello UI.
+        // `system` and `permissions` have no field in the UI model.
         assertNull(agents.firstOrNull { it.id == "build" }?.modelId)
     }
 
-    // 2. Modelli: settings/apiKey non può finire in ModelUi -------------------
+    // 2. Models: settings/apiKey must not end up in ModelUi -------------------
 
     @Test
-    fun `apiKey nei settings non compare nel modello normalizzato`() {
+    fun `apiKey in settings does not appear in the normalized model`() {
         val body = """
             {"location":{"directory":"/Users/patchouli"},"data":[
               {"id":"deepseek-flash","modelID":"deepseek-flash","providerID":"deepseek",
@@ -109,7 +109,7 @@ class M3Test {
     // 4. Sessioni figlie: mapping e parentID assente --------------------------
 
     @Test
-    fun `children mappate e parentID assente non rompe`() {
+    fun `children mapped and missing parentID does not break`() {
         val body = """
             {"data":[
               {"id":"ses_child","parentID":"ses_parent","agent":"fixer",
@@ -151,7 +151,7 @@ class M3Test {
     // 6. switchAgent: POST seguito da GET /api/session/{id} -------------------
 
     @Test
-    fun `switchAgent rilegge la sessione dopo il successo`() {
+    fun `switchAgent rereads the session after success`() {
         val fake = RecordingSessionApi(
             session = SessionUi(id = "ses_1", title = "sessione", agent = "fixer"),
         )
@@ -167,7 +167,7 @@ class M3Test {
     }
 
     @Test
-    fun `switchModel rilegge la sessione dopo il successo`() {
+    fun `switchModel rereads the session after success`() {
         val fake = RecordingSessionApi(
             session = SessionUi(
                 id = "ses_2",

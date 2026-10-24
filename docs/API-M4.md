@@ -1,11 +1,11 @@
-# Contratto API per M4 — approvazioni
+# API contract for M4 — approvals
 
-Verificato sul server di sviluppo 2.1.4 il 24 ott 2026 con chiamate reali.
+Verified against dev server 2.1.4 on Oct 24 2026 with real calls.
 
-## Richieste pendenti
+## Pending requests
 
 `GET /api/session/{sessionID}/permission` → `{"data":[Permission.Request]}`
-(sessione senza richieste: `{"data":[]}`)
+(session with no requests: `{"data":[]}`)
 
 ```json
 {"id":"per_…","sessionID":"ses_…","action":"bash","resources":["rm -rf /tmp/x"],
@@ -13,66 +13,66 @@ Verificato sul server di sviluppo 2.1.4 il 24 ott 2026 con chiamate reali.
  "message":"…"}
 ```
 
-- `id` ha pattern `^per`.
-- `action` è l'operazione (es. `bash`, `edit`, `webfetch`), `resources` le risorse coinvolte.
-- `save` elenca cosa verrebbe memorizzato in caso di "always".
-- `source.type` osservato: `tool` (con `messageID` e `id` del tool).
+- `id` has pattern `^per`.
+- `action` is the operation (e.g. `bash`, `edit`, `webfetch`), `resources` the resources involved.
+- `save` lists what would be remembered in the "always" case.
+- `source.type` observed: `tool` (with `messageID` and the tool `id`).
 
-## Risposta
+## Reply
 
 `POST /api/session/{sessionID}/permission/{requestID}/reply`
 
 ```json
 {"decision":"once"}          // once | always | reject
-{"decision":"reject","message":"motivo facoltativo"}
+{"decision":"reject","message":"optional reason"}
 ```
 
-- **Il campo si chiama `decision`**, non `reply`. Valori: `once`, `always`, `reject` (`Permission.Reply`).
-- Risposta **204 No Content**. Sessione inesistente → 404 `SessionNotFoundError`.
-- Richiesta scaduta/inesistente → **404** con corpo:
-  `{"_tag":"PermissionNotFoundError","requestID":"per_finto","message":"Permission request not found: per_finto"}`
-  La UI deve tradurlo in "richiesta non più valida" e rifare `GET …/permission`.
+- **The field is named `decision`**, not `reply`. Values: `once`, `always`, `reject` (`Permission.Reply`).
+- Reply is **204 No Content**. Nonexistent session → 404 `SessionNotFoundError`.
+- Expired/nonexistent request → **404** with body:
+  `{"_tag":"PermissionNotFoundError","requestID":"per_fake","message":"Permission request not found: per_fake"}`
+  The UI must translate this to "request no longer valid" and redo `GET …/permission`.
 
-## Cosa NON è
+## What it is NOT
 
-`POST /api/session/{sessionID}/permission` (senza `requestID`) **non crea una richiesta**: registra
-una regola/risposta e restituisce `{"data":{"id":"per_…","effect":"allow"}}`.
-Non usarlo in M4.
+`POST /api/session/{sessionID}/permission` (without `requestID`) **does not create a request**: it
+registers a rule/answer and returns `{"data":{"id":"per_…","effect":"allow"}}`.
+Do not use it in M4.
 
-## Eventi SSE — VERIFICATI
+## SSE events — VERIFIED
 
-Catturati dal vivo il 24 ott 2026 con una richiesta genuina (prompt che legge un `*.env`, regola
-`ask`), su una sessione usa-e-getta poi cancellata:
+Captured live on Oct 24 2026 with a genuine request (prompt reading a `*.env`, rule
+`ask`), on a throwaway session later deleted:
 
 ```json
 {"id":"evt_…","created":1792796421246,"type":"permission.asked",
- "location":{"directory":"/Users/<utente>"},
+ "location":{"directory":"/Users/<user>"},
  "data":{"id":"per_…","sessionID":"ses_…","action":"read",
          "resources":["perm-probe.env"],"save":["*"],
          "source":{"type":"tool","messageID":"msg_…","id":"call_…"}}}
 ```
 
-- **`permission.asked`** porta l'intero `Permission.Request` in `data` (stessa forma della GET).
-- **`permission.replied`** arriva dopo la risposta ed è la conferma di risoluzione (dedupe/annulla notifica).
-- Estrarre `data.id` (requestID) e `data.sessionID`; nessun involucro annidato.
+- **`permission.asked`** carries the whole `Permission.Request` in `data` (same shape as the GET).
+- **`permission.replied`** arrives after the reply and is the resolution confirmation (dedupe/cancel the notification).
+- Extract `data.id` (requestID) and `data.sessionID`; no nested wrapper.
 
-Quindi l'evento è la **fonte primaria**; la `GET /api/session/{id}/permission` resta come
-allineamento all'apertura, alla riconnessione e in foreground (utile se l'app era chiusa).
-Il polling periodico non è più necessario: se lo tieni, fallo solo come fallback dopo una
-riconnessione.
+So the event is the **primary source**; the `GET /api/session/{id}/permission` stands as
+alignment on open, on reconnection, and in the foreground (useful if the app had been closed).
+Periodic polling is no longer needed: if you keep it, use it only as a fallback after a
+reconnection.
 
-## Notifiche (lato app)
+## Notifications (app side)
 
-- Canale dedicato (importanza alta) + `POST_NOTIFICATIONS` runtime su Android 13+ (targetSdk 36).
-- Una notifica per richiesta, dedupe per `requestID`; azioni `Once` / `Reject` dirette, `Always`
-  **solo dopo conferma esplicita** (DESIGN §9: ha effetto permanente sul server, mai default).
-- Alla risoluzione (da app o da notifica) la notifica va annullata.
-- Il foreground service che tiene la SSE deve dichiarare `foregroundServiceType="dataSync"` e i
-  permessi `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_DATA_SYNC`; senza FCM non c'è garanzia di
-  consegna a processo ucciso (limite accettato, DESIGN §8.5).
+- Dedicated channel (high importance) + `POST_NOTIFICATIONS` runtime on Android 13+ (targetSdk 36).
+- One notification per request, dedupe by `requestID`; direct `Once` / `Reject` actions, `Always`
+  **only after explicit confirmation** (DESIGN §9: has a permanent effect on the server, never the default).
+- On resolution (from the app or the notification) the notification must be cancelled.
+- The foreground service holding the SSE must declare `foregroundServiceType="dataSync"` and the
+  `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_DATA_SYNC` permissions; without FCM there is no delivery
+  guarantee to a killed process (accepted limit, DESIGN §8.5).
 
-## Token per il servizio
+## Service token
 
-Il foreground service deve autenticarsi senza l'Activity: il token va persistito cifrato
-(AES/GCM con chiave in Android Keystore, preferenze private) al primo `connect()` riuscito e
-cancellato da "Disconnetti". Mai in chiaro, mai nei log.
+The foreground service must authenticate without the Activity: the token is stored encrypted
+(AES/GCM with the key in the Android Keystore, private preferences) on the first successful `connect()` and
+cleared by "Disconnect". Never in cleartext, never in the logs.

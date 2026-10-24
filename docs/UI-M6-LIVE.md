@@ -1,27 +1,27 @@
-# UI M6 — turno live (ragionamento, tool, testo)
+# UI M6 — live turn (reasoning, tools, text)
 
-Data: 24 ottobre 2026. Riferimenti: `docs/THEME.md`, `docs/DESIGN.md`,
+Date: Oct 24 2026. References: `docs/THEME.md`, `docs/DESIGN.md`,
 `docs/API-M2.md`, `docs/UI-M4.md`, `ChatScreen.kt`, `net/ChatReducer.kt`,
-`net/Events.kt`, screenshot del TUI `/tmp/ocm-screen.jpg`.
+`net/Events.kt`, TUI screenshot `/tmp/ocm-screen.jpg`.
 
-Obiettivo: durante il turno la chat deve mostrare **le stesse cose che mostra il
-TUI**, nello stesso ordine: pensiero, comando in scrittura, comando con output,
-poi il testo in streaming (e di nuovo tool → testo). Sparisce il placeholder
-unico "sta scrivendo…" come contenuto del turno.
+Goal: during the turn the chat must show **the same things shown by the
+TUI**, in the same order: reasoning, command being written, command with output,
+then the streaming text (and again tool → text). The single
+"writing…" placeholder disappears as turn content.
 
-Vincolo forte: **un solo renderer**. Il turno live e il messaggio persistito
-dopo il resync passano dallo stesso composable, con gli stessi stili. Nessun
-path "live" separato, nessuna copia dei colori o delle misure.
+Hard constraint: **a single renderer**. Live turns and the persisted
+message after resync pass through the same composable with the same styles.
+No separate "live" path, no duplication of colors or measurements.
 
 ---
 
-## 1. Albero dei widget (turno)
+## 1. Widget tree (turn)
 
-Un item della `LazyColumn`, chiave `turn:<messageId>`, che resta la stessa
-durante live → resync (niente rimbalzo, niente doppia bolla).
+A `LazyColumn` item, key `turn:<messageId>`, that stays the same
+during live → resync (no jumping, no double bubble).
 
 ```
-AssistantTurn(turn: AssistantTurnUi)          // unico entry point
+AssistantTurn(turn: AssistantTurnUi)          // sole entry point
 └ Column(fillMaxWidth)
   ├ Row(Start)
   │ └ Surface(AssistantBubbleShape, surfaceContainer,
@@ -36,414 +36,407 @@ AssistantTurn(turn: AssistantTurnUi)          // unico entry point
   │             is TextPartUi      -> MarkdownBody(part.text, streaming = ...)
   │           }
   │         }
-  │         if (part è l'ultimo && turn.running && nessuna part attiva)
+  │         if (part is the last && turn.running && no active part)
   │             ThinkingPlaceholder                        // §2.4
   │       }
   └ Row(Start) padding(top 4dp, start 3dp) → MessageTimestamp
 ```
 
-Regole dell'albero:
+Tree rules:
 
-- **Un solo `Surface` per messaggio assistente**: reasoning, tool e testo sono
-  figli della stessa bolla. Le card dei tool non escono dalla bolla.
-- `parts` è già ordinata dal reducer; il composable non riordina e non
-  raggruppa per tipo. È questo che oggi manca: `AssistantMessage` disegna
-  prima *tutto* il reasoning, poi *tutto* il testo, poi *tutti* i tool, quindi
-  l'interleaving del TUI si perde.
-- **Persistito = live**: dopo il resync `turn` è costruito da
-  `MessageUi.parts` (mappato da `content[]`, order = indice dell'array). Il
-  composable riceve lo stesso tipo e produce lo stesso albero. Zero stili
-  duplicati, zero differenze tra "prima" e "dopo".
-- Handoff: il reducer sostituisce il live con il messaggio server **con lo
-  stesso `id`**; l'item ha la stessa chiave, quindi la lista non salta e le
-  part espanse restano tali quando la `key` coincide (§3.5).
-- Scorrimento: la bolla usa `bubbleMax` già esistente
-  (`(maxWidth - 32dp) * 0.85`, minimo 220dp). Nessun blocco a piena larghezza.
+- **A single `Surface` for the assistant message**: reasoning, tools and text are
+  children of the same bubble. Tool cards do not escape the bubble.
+- `parts` is already ordered by the reducer; the composable neither reorders
+  nor groups by type. This is what is missing today: `AssistantMessage` renders
+  first *all* the reasoning, then *all* the text, then *all* the tools, so
+  the TUI interleaving is lost.
+- **Persisted = live**: after resync `turn` is built from
+  `MessageUi.parts` (mapped from `content[]`, order = array index).
+  The composable receives the same type and produces the same tree. Zero
+  duplicated styles, zero difference between "before" and "after".
+- Handoff: the reducer replaces the live turn with the server message **having
+  the same `id`**; the item has the same key, so the list does not jump and
+  expanded parts stay expanded when the `key` matches (§3.5).
+- Scrolling: the bubble uses the existing `bubbleMax`
+  (`(maxWidth - 32dp) * 0.85`, minimum 220dp). No full-width blocks.
 
 ---
 
-## 2. Le part, una per una
+## 2. Parts, one by one
 
-### 2.1 Ragionamento
+### 2.1 Reasoning
 
-Header cliccabile (target ≥48dp), una riga:
+Clickable header (target ≥48dp), single line:
 
-| Elemento | Stile |
+| Element | Style |
 |---|---|
-| chevron 14dp destra/giù | colore header (sotto) |
-| dot 5dp | solo in streaming, `warningInk`, `pulsing = true` |
-| "Ragionamento" | `labelMedium` (12sp), colore header |
-| " · 1,3 s" | `labelMedium`, `mutedText`; ticking mentre streama |
-| a destra "apri" / "chiudi" | `labelSmall` (11sp), `mutedText` |
+| chevron 14dp right/down | header color (below) |
+| dot 5dp | only while streaming, `warningInk`, `pulsing = true` |
+| "Reasoning" | `labelMedium` (12sp), header color |
+| " · 1.3 s" | `labelMedium`, `mutedText`; ticking while streaming |
+| "open" / "close" on the right | `labelSmall` (11sp), `mutedText` |
 
-Colore header, come oggi e come TUI (`THEME` §Mappatura 1):
-`text.base` in streaming → `warningInk` espanso → `warningInk` 60% (solo dark)
-collassato e concluso; nel chiaro `warningInk` pieno.
+Header color, as today and as in the TUI (`THEME` §Mapping 1):
+`text.base` while streaming → `warningInk` expanded → `warningInk` 60% (dark only)
+collapsed and finished; in light mode, full `warningInk`.
 
-- **Default collassato**, anche in streaming.
-- **In streaming** il corpo non si apre da solo: sotto l'header compare **una
-  riga di anteprima** (ultima riga non vuota del testo), `bodySmall`,
-  `mutedText`, `maxLines = 1`, ellissi. Dà il segno di vita senza far saltare
-  la chat a ogni token.
-- **Espanso**: superficie `surfaceContainerLowest` (dark = `#0a0a0a`), bordo
-  1dp `warningInk` 22% (35% in streaming), shape `shapes.small` (10dp),
-  padding 12dp, testo `bodySmall` 12.5sp/18sp in `mutedText`,
+- **Collapsed by default**, even while streaming.
+- **While streaming** the body does not open on its own: below the header
+  **a preview line** appears (last non-empty line of the text), `bodySmall`,
+  `mutedText`, `maxLines = 1`, ellipsis. It gives a sign of life without making
+  the chat jump at every token.
+- **Expanded**: surface `surfaceContainerLowest` (dark = `#0a0a0a`), border
+  1dp `warningInk` 22% (35% while streaming), shape `shapes.small` (10dp),
+  padding 12dp, text `bodySmall` 12.5sp/18sp in `mutedText`,
   `SelectionContainer`.
-- **Limite**: prime 14 righe (o 2400 caratteri) + riga "mostra tutto · N
-  righe" (48dp, `interactive`, `labelSmall`) che apre il foglio §2.5 con il
-  testo intero. Oltre il limite non si passa il testo completo a `Text`.
-- **Durata**: `reasoning.started` → `reasoning.ended`. Formato:
-  `<10 s` → "1,3 s" (virgola, un decimale); `<60 s` → "12 s";
-  oltre → "1 min 12 s". Se i tempi mancano (messaggi vecchi) si usa
-  " · N righe" / " · 1 riga", come oggi. Mai entrambi: la durata vince.
-- Accessibilità: `stateDescription` "espanso"/"collassato", `onClickLabel`
-  "Mostra ragionamento" / "Nascondi ragionamento".
+- **Limit**: first 14 lines (or 2400 characters) + "show all · N
+  lines" line (48dp, `interactive`, `labelSmall`) that opens the §2.5 sheet with
+  the full text. Beyond the limit the full text is never passed to `Text`.
+- **Duration**: `reasoning.started` → `reasoning.ended`. Format:
+  `<10 s` → "1.3 s" (decimal point, one decimal); `<60 s` → "12 s";
+  beyond → "1 min 12 s". If the times are missing (old messages),
+  " · N lines" / " · 1 line" is used, as today. Never both: duration wins.
+- Accessibility: `stateDescription` "expanded"/"collapsed", `onClickLabel`
+  "Show reasoning" / "Hide reasoning".
 
 ### 2.2 Tool
 
-Card sempre visibile, **sempre aperta** (il TUI non ha collapse): niente
-chevron, niente tap sull'intera card (romperebbe la selezione del testo).
-Solo la riga "mostra tutto" è cliccabile.
+Card always visible, **always open** (the TUI has no collapse): no
+chevron, no tap on the whole card (that would break text selection).
+Only the "show all" line is clickable.
 
-Struttura:
+Structure:
 
 ```
-Column(surfaceContainerLow, bordo 1dp border 50%, shapes.small, padding 10/8)
+Column(surfaceContainerLow, border 1dp border 50%, shapes.small, padding 10/8)
 ├ Row 1 (min 48dp, spacedBy 7dp)
-│  ├ StatusDot 5dp                     // colore = fase
-│  ├ nome tool  mono 12sp/16sp Medium  // interactive, maxLines 1, max 40% riga
-│  ├ label stato  labelSmall 11sp      // colore = fase
-│  ├ exit chip (se exit ≠ 0) mono 10sp // error, es. "exit 1"
-│  └ Spacer(weight 1) + durata mono 10sp/13sp lineNumber
-├ riga comando (se presente)
-│  "$ " mono 12sp lineNumber + comando mono 12sp/17sp text.base
-└ blocco output (se presente)
-   └ mono 11.5sp/17sp text, ultime 6 righe, + "mostra tutto · N righe"
+│  ├ StatusDot 5dp                     // color = phase
+│  ├ tool name  mono 12sp/16sp Medium  // interactive, maxLines 1, max 40% of the row
+│  ├ status label  labelSmall 11sp     // color = phase
+│  ├ exit chip (if exit ≠ 0) mono 10sp // error, e.g. "exit 1"
+│  └ Spacer(weight 1) + duration mono 10sp/13sp lineNumber
+├ command line (if any)
+│  "$ " mono 12sp lineNumber + command mono 12sp/17sp text.base
+└ output block (if any)
+   └ mono 11.5sp/17sp text, last 6 lines, + "show all · N lines"
 ```
 
-- **Nome**: `bash`, `read`, `edit`… `interactive`, mono 12sp Medium, 1 riga,
-  ellissi, massimo ~40% della riga.
-- **Comando**: riga propria, `$ ` in `lineNumber`, comando in `text.base`
-  (nel TUI il comando è bianco, il `$` è spento). Mono 12sp/17sp, **wrap
-  fino a 4 righe**, poi ellissi + la riga "mostra tutto" apre il foglio con
-  il comando intero **in scroll orizzontale** (`softWrap = false`), così un
-  one-liner lunghissimo resta leggibile senza spezzare i token.
-- **Soggetto non-comando** (`read`, `write`, `edit`, `grep`…): niente `$`;
-  si mostra il primo campo utile fra `path` / `filePath` / `pattern` /
-  `query` / `url` / `description`. Stessa riga, stesso mono.
-- **Stato** (dot + label, colori `THEME` §Mappatura 2):
+- **Name**: `bash`, `read`, `edit`… `interactive`, mono 12sp Medium, 1 line,
+  ellipsis, at most ~40% of the line.
+- **Command**: its own line, `$ ` in `lineNumber`, command in `text.base`
+  (in the TUI the command is white, the `$` is dim). Mono 12sp/17sp, **wrap
+  up to 4 lines**, then ellipsis + the "show all" line opens the sheet with
+  the full command **in horizontal scroll** (`softWrap = false`), so
+  a very long one-liner stays readable without breaking tokens.
+- **Non-command subject** (`read`, `write`, `edit`, `grep`…): no `$`;
+  the first useful field between `path` / `filePath` / `pattern` /
+  `query` / `url` / `description` is shown. Same line, same mono.
+- **Status** (dot + label, colors `THEME` §Mapping 2):
 
-| fase | dot | label | colore |
+| phase | dot | label | color |
 |---|---|---|---|
-| input in arrivo, comando non ancora estraibile | warning pulsante | "scrivo il comando…" | `warningInk` |
-| chiamata partita, in esecuzione | warning pulsante | "in corso" | `warningInk` |
-| concluso | success | "ok" | `success` |
-| fallito | error | "errore" | `error` |
-| negato / non eseguito (`executed=false`) | error | "negato" | `error` |
-| interrotto (turno fermato) | warning | "interrotto" | `warningInk` |
+| input arriving, command not yet extractable | pulsing warning | "writing the command…" | `warningInk` |
+| call started, running | pulsing warning | "in progress" | `warningInk` |
+| finished | success | "ok" | `success` |
+| failed | error | "error" | `error` |
+| denied / not run (`executed=false`) | error | "denied" | `error` |
+| interrupted (turn stopped) | warning | "interrupted" | `warningInk` |
 
-- **Durata**: da inizio chiamata a esito, stesso formato del ragionamento.
-  Compare solo se ≥1 s; in esecuzione ticka. Per "negato" non c'è durata.
-- **Exit**: chip `exit 1` in mono 10sp `error` accanto allo stato quando
-  `exit != 0`; per "ok" con exit 0 non si mostra nulla. Se `truncated` è vero,
-  chip `output troncato` (`labelSmall`, `lineNumber`).
-- **Output**: ultime **6 righe** (il fondo è dove stanno gli errori, come nel
-  terminale), mono 11.5sp/17sp `text`, nessuno sfondo aggiuntivo (la card è
-  già `surfaceContainerLow`), 8dp sotto il comando. Se il tool non ha prodotto
-  testo: riga "(nessun output)" in `lineNumber` mono 11.5sp. Mentre è in
-  corso l'output cresce in coda, senza animazioni di layout.
-- **Fallito**: stesso layout, dot/label `error`, output visibile in coda; il
-  bordo **non** diventa rosso (il TUI non colora i bordi; lo stato è già
-  veicolato da dot, label ed exit).
-- **Negato**: si mostra nome + comando, poi la nota "non eseguito" in
-  `mutedText`; nessun blocco output.
-- **"mostra tutto · N righe"**: riga da 48dp, `labelSmall` `interactive`,
-  allineata a sinistra, sotto l'output. Apre il foglio §2.5 con comando e
-  output completi. N = righe totali dell'output.
-- **Selezione**: `SelectionContainer` su comando e output (separati), mai
-  sull'intera card, così il tap sulla riga "mostra tutto" resta affidabile.
+- **Duration**: from call start to outcome, same format as reasoning.
+  Shown only when ≥1 s; ticks while running. Not shown for "denied".
+- **Exit**: chip `exit 1` in mono 10sp `error` next to the status when
+  `exit != 0`; for "ok" with exit 0 nothing is shown. If `truncated` is true,
+  chip `output truncated` (`labelSmall`, `lineNumber`).
+- **Output**: last **6 lines** (the tail is where the errors are, as in the
+  terminal), mono 11.5sp/17sp `text`, no extra background (the card is
+  already `surfaceContainerLow`), 8dp below the command. If the tool produced
+  no text: line "(no output)" in `lineNumber` mono 11.5sp. While running,
+  the output grows at the tail, with no layout animations.
+- **Failed**: same layout, dot/label `error`, output visible at the tail; the
+  border does **not** turn red (the TUI does not color borders; the status is
+  already carried by dot, label and exit).
+- **Denied**: name + command are shown, then the "not run" note in
+  `mutedText`; no output block.
+- **"show all · N lines"**: 48dp line, `labelSmall` `interactive`,
+  left-aligned, below the output. Opens the §2.5 sheet with the full
+  command and output. N = total lines of the output.
+- **Selection**: `SelectionContainer` on command and output (separately),
+  never on the whole card, so the tap on the "show all" line stays reliable.
 
-### 2.3 Testo
+### 2.3 Text
 
-- Riuso di `MarkdownBody` (heading/link/code/quote già a tema), `bodyLarge`
-  16sp/24sp, `oc.text`, `SelectionContainer` per blocco.
-- **Cursore**: `▌` accodato all'ultima part text **solo** con
-  `phase == Streaming`, colore `interactive`, stessa `bodyLarge`; lampeggio
-  1 ↔ 0.35 in 900 ms (a fine testo resta pieno se gli animatori sono spenti).
-  Un solo cursore per turno: quello dell'ultima part text in streaming.
-- Niente label "sta rispondendo": lo stato lo danno cursore e part attive.
-- Il testo non si tronca mai: è il contenuto principale.
-- Ogni blocco ha `key = "text:<ordinal>"`; il markdown si ricalcola con
-  throttle (§4.4).
+- Reuse of `MarkdownBody` (heading/link/code/quote already themed), `bodyLarge`
+  16sp/24sp, `oc.text`, `SelectionContainer` per block.
+- **Cursor**: `▌` appended to the last text part **only** when
+  `phase == Streaming`, color `interactive`, same `bodyLarge`; blink
+  1 ↔ 0.35 in 900 ms (at the end of the text it stays full if animators are off).
+  One cursor per turn: the one of the last streaming text part.
+- No "is responding" label: the cursor and the active parts convey the state.
+- The text is never truncated: it is the main content.
+- Every block has `key = "text:<ordinal>"`; the markdown is recomputed with
+  a throttle (§4.4).
 
-### 2.4 Nessuna part ancora (fallback)
+### 2.4 No part yet (fallback)
 
-Vale per due casi: `step.started` senza part, oppure turno in corso con
-l'ultima part già conclusa (pausa fra testo e tool successivo).
+Covers two cases: `step.started` with no part, or in-progress turn with
+the last part already finished (pause between text and the next tool).
 
-- Dentro la bolla, al posto del contenuto / dopo l'ultima part, su una riga:
-  `WorkingIndicator(12dp, success)` + "sta scrivendo…" (`labelMedium`,
-  `mutedText`). Sostituisce i tre puntini: un solo arco, come il resto
-  dell'app.
-- Compare **solo** se `turn.running && nessuna part Streaming/Running`.
-- **Grazia 400 ms** (`LaunchedEffect` + `delay`) prima di comparire: evita il
-  lampeggio nel passaggio text.ended → tool.started.
-- TalkBack: l'arco è decorativo (`description = "attesa"`), la riga annuncia
-  una volta sola "sta scrivendo…".
-- Con `running == false` e zero part non si disegna nulla (la bolla non
-  esiste): l'errore eventuale lo porta già l'`ErrorBanner`.
+- Inside the bubble, in place of the content / after the last part, on one line:
+  `WorkingIndicator(12dp, success)` + "writing…" (`labelMedium`,
+  `mutedText`). Replaces the three dots: a single arc, like the rest
+  of the app.
+- Appears **only** if `turn.running && no part is Streaming/Running`.
+- **400 ms grace** (`LaunchedEffect` + `delay`) before appearing: avoids the
+  flicker in the text.ended → tool.started transition.
+- TalkBack: the arc is decorative (`description = "waiting"`), the line
+  announces "writing…" only once.
+- With `running == false` and zero parts nothing is drawn (the bubble
+  does not exist): any error is already carried by the `ErrorBanner`.
 
-### 2.5 Foglio di dettaglio (unico, condiviso)
+### 2.5 Detail sheet (single, shared)
 
-`ModalBottomSheet` (Material 3), `surfaceContainer` = `raised`, angoli
-superiori `shapes.large`.
+`ModalBottomSheet` (Material 3), `surfaceContainer` = `raised`, top corners
+`shapes.large`.
 
-- Titolo: `output · bash` (mono 11sp, `mutedText` in `Eyebrow` uppercase) e a
-  destra "chiudi" (48dp, `labelSmall` `mutedText`).
-- Corpo: sezioni "comando" e "output" con `Eyebrow`; testo mono 11.5sp/17sp
-  in **scroll orizzontale** (no wrap) e verticale, altezza max 80% schermo.
-- Azione "copia" (`interactive`, 48dp) copia la sezione visibile; conferma
-  discreta "copiato" per 1,5 s.
-- Usato da: output/comando del tool, ragionamento lungo. Un solo composable,
-  parametri `title`, `sections`.
+- Title: `output · bash` (mono 11sp, `mutedText` in `Eyebrow` uppercase) and
+  on the right "close" (48dp, `labelSmall` `mutedText`).
+- Body: "command" and "output" sections with `Eyebrow`; text mono 11.5sp/17sp
+  in **horizontal** (no wrap) and vertical scroll, max height 80% of the screen.
+- "copy" action (`interactive`, 48dp) copies the visible section; discreet
+  "copied" confirmation for 1.5 s.
+- Used by: tool output/command, long reasoning. A single composable,
+  parameters `title`, `sections`.
 
 ---
 
-## 3. Ordine, duplicati, reducer (contratto)
+## 3. Order, duplicates, reducer (contract)
 
-### 3.1 Identità e ordine
+### 3.1 Identity and order
 
-- Turno = `assistantMessageID`. Al massimo **un turno live** per sessione.
-- `order` è un cursore monotono **per messaggio**, incrementato al primo
-  evento di una part (`reasoning.started`, `text.started`,
-  `tool.input.started`, oppure `tool.called` se l'input non è arrivato) e mai
-  riusato. Non è l'`ordinal`: l'`ordinal` è per tipo, i tool non ce l'hanno, e
-  un contatore unico è l'unica cosa che ricostruisce l'interleaving.
-- Dopo il resync `order` = indice della part in `content[]`. Stessa semantica,
-  stesso ordinamento, stesso renderer.
-- `ordinal` resta un campo della part (`reasoning`/`text`) perché identifica
-  i delta SSE, non la posizione visiva.
-- `key` stabile, mai dipendente da testo o stato:
+- Turn = `assistantMessageID`. At most **one live turn** per session.
+- `order` is a monotonic cursor **per message**, incremented on the first
+  event of a part (`reasoning.started`, `text.started`,
+  `tool.input.started`, or `tool.called` if the input never arrived) and never
+  reused. It is not the `ordinal`: the `ordinal` is per type, tools do not have
+  it, and a single counter is the only thing that reconstructs the interleaving.
+- After resync `order` = index of the part in `content[]`. Same semantics,
+  same ordering, same renderer.
+- `ordinal` remains a part field (`reasoning`/`text`) because it identifies
+  the SSE delta, not the visual position.
+- Stable `key`, never dependent on text or state:
   `reasoning:<ordinal>`, `text:<ordinal>`, `tool:<callId>`.
-  Persistito senza call id: `tool:<indice>`; senza ordinal: `<tipo>:<indice>`.
+  Persisted without call id: `tool:<index>`; without ordinal: `<type>:<index>`.
 
-### 3.2 Mappa eventi → stato
+### 3.2 Events → state map
 
-| evento | effetto |
+| event | effect |
 |---|---|
-| `session.step.started` | crea il turno `running`, `startedAt`; se esiste un turno live **non vuoto con altro id**, prima lo materializza in `messages` (turni multi-step) |
-| `reasoning.started` | crea `ReasoningPartUi(phase=Streaming, order=cursore++)`; idempotente se esiste |
-| `reasoning.delta` | **accoda** solo se la part non è terminale; se manca la part la crea (recupero) |
-| `reasoning.ended` | sostituisce il testo con `text` del server, `phase=Done`, `endedAt`; chiude la part |
-| `text.*` | identico, con `TextPartUi` |
-| `tool.input.started` | crea `ToolPartUi(phase=Streaming, order=cursore++, callId=id, name)`; idempotente per `callId` |
-| `tool.input.delta` | accumula in un buffer privato; **non** renderizza il JSON. Tenta l'estrazione tollerante di `command` dal JSON parziale: se riesce, aggiorna `command`; se no, resta "scrivo il comando…" |
-| `tool.input.ended` | `text` = JSON completo: estrae `command`/soggetto e `inputPreview`; la fase **non** cambia (aspetta `called`) |
-| `tool.called` | input strutturato disponibile: aggiorna nome/comando; `executed=false` → `phase=Denied`; altrimenti `phase=Running`, `startedAt` |
-| `tool.progress` | aggiorna solo metadati (exit, truncated); nessuna riga di output inventata |
-| `tool.success` | `output` = join delle `content[].text`, `exitCode`, `truncated`, `phase=Ok`, `endedAt` |
-| `tool.failed` | come sopra, `phase=Failed` (o `Denied` se `executed=false`) |
-| `session.step.streamed` | nessun cambio visivo (il cursore dipende dalla fase della part text) |
-| `session.step.ended` | turno `running=false`, `finish`; **non** cancella le part; il turno resta finché il resync non lo sostituisce con lo stesso id |
-| `session.step.failed` | tutte le part `Streaming/Running` → `Interrupted`; turno `running=false` |
+| `session.step.started` | creates the turn `running`, `startedAt`; if a **non-empty live turn with a different id** already exists, materialize it into `messages` first (multi-step turns) |
+| `reasoning.started` | creates `ReasoningPartUi(phase=Streaming, order=cursor++)`; idempotent if it exists |
+| `reasoning.delta` | **appends** only if the part is not terminal; if the part is missing it creates it (recovery) |
+| `reasoning.ended` | replaces the text with the server's `text`, `phase=Done`, `endedAt`; closes the part |
+| `text.*` | identical, with `TextPartUi` |
+| `tool.input.started` | creates `ToolPartUi(phase=Streaming, order=cursor++, callId=id, name)`; idempotent on `callId` |
+| `tool.input.delta` | accumulates into a private buffer; does **not** render the JSON. Tries to leniently extract `command` from the partial JSON: on success updates `command`; otherwise stays "writing the command…" |
+| `tool.input.ended` | `text` = full JSON: extracts `command`/subject and `inputPreview`; the phase does **not** change (waiting for `called`) |
+| `tool.called` | structured input available: updates name/command; `executed=false` → `phase=Denied`; otherwise `phase=Running`, `startedAt` |
+| `tool.progress` | updates metadata only (exit, truncated); no invented output line |
+| `tool.success` | `output` = join of `content[].text`, `exitCode`, `truncated`, `phase=Ok`, `endedAt` |
+| `tool.failed` | as above, `phase=Failed` (or `Denied` if `executed=false`) |
+| `session.step.streamed` | no visual change (the cursor depends on the text part phase) |
+| `session.step.ended` | turn `running=false`, `finish`; does **not** remove the parts; the turn stays until resync replaces it with the same id |
+| `session.step.failed` | all `Streaming/Running` parts → `Interrupted`; turn `running=false` |
 
-### 3.3 Late, duplicate, ripetute
+### 3.3 Late, duplicate, repeated
 
-- Ogni handler è **idempotente**: `started` su part esistente non fa nulla;
-  `ended` sostituisce il testo (il server vince sui delta accumulati);
-  `success`/`failed` su part già terminale ignorano.
-- Dopo `step.ended` per quel `messageId`: si ignorano nuovi delta/part
-  (`finishedMessages`, come oggi). Fa eccezione solo il resync.
-- Una part che arriva **dopo** altre con `order` minore viene **inserita** al
-  suo posto (lista ordinata), non accodata; `key` stabile conserva lo stato
-  di espansione.
-- Delta senza `started`, `ended` senza delta: si recupera creando/completando
-  la part al cursore corrente. Mai un crash, mai un JSON a schermo.
-- `tool.input.ended` senza `tool.called`: si tiene il comando estratto e la
-  fase `Streaming`; se arriva `success` senza `called`, si passa direttamente
-  a `Ok`.
-- Doppio `tool.success` con contenuti diversi: vince il primo esito terminale
-  (nessun "rimbalzo" dell'output a schermo).
+- Every handler is **idempotent**: `started` on an existing part does
+  nothing; `ended` replaces the text (the server wins over the accumulated
+  delta); `success`/`failed` on an already terminal part is ignored.
+- After `step.ended` for that `messageId`: new delta/parts are
+  ignored (`finishedMessages`, as today). Only resync is the exception.
+- A part that arrives **after** others with a lower `order` is **inserted**
+  into its place (sorted list), not appended; the stable `key` preserves
+  the expansion state.
+- Delta without `started`, `ended` without delta: recover by creating/finishing
+  the part at the current cursor. Never a crash, never JSON on screen.
+- `tool.input.ended` without `tool.called`: keep the extracted command and
+  the `Streaming` phase; if `success` arrives without `called`, go directly
+  to `Ok`.
+- Double `tool.success` with different content: the first terminal outcome wins
+  (no "bouncing" of the output on screen).
 
-### 3.4 Turni multipli
+### 3.4 Multiple turns
 
-`step.started` con id diverso mentre il turno live è non vuoto: il vecchio
-turno viene materializzato in `messages` (stesso id, stesse part, `running =
-false`) e il nuovo parte live. Le bolle precedenti non spariscono in attesa
-del resync finale (comportamento già presente, da estendere alle part).
+`step.started` with a different id while the live turn is non-empty: the old
+turn is materialized into `messages` (same id, same parts, `running =
+false`) and the new one starts live. Earlier bubbles do not disappear waiting
+for the final resync (behavior already present, to be extended to parts).
 
-### 3.5 Handoff live → persistito
+### 3.5 Handoff live → persisted
 
-- `GET …/message` restituisce il messaggio con lo stesso `id` e le part
-  complete: il reducer **sostituisce** la voce live con quella server,
-  chiavi di lista invariate (`message.id`).
-- Le `key` delle part devono coincidere quando possibile (call id e ordinal
-  sono nel payload); se non coincidono, lo stato espanso si azzera: accettabile,
-  mai uno stile diverso.
-- Se il resync fallisce a fine turno, il turno live resta materializzato in
-  `messages` (già oggi): non si perde il contenuto.
+- `GET …/message` returns the message with the same `id` and the complete
+  parts: the reducer **replaces** the live entry with the server one,
+  list keys unchanged (`message.id`).
+- The parts' `key` must coincide whenever possible (call id and ordinal
+  are in the payload); if they do not, the expanded state is reset: acceptable,
+  never a different style.
+- If the resync fails at the end of the turn, the live turn stays materialized
+  in `messages` (already the case today): no content is lost.
 
 ---
 
-## 4. Misure, token, mobile, performance
+## 4. Measures, tokens, mobile, performance
 
-### 4.1 Token (tutti già in `Theme.kt` / `OpenPalette`)
+### 4.1 Tokens (all already in `Theme.kt` / `OpenPalette`)
 
-| uso | token |
+| use | token |
 |---|---|
-| bolla, card tool | `surfaceContainer` (`raised` #141414) / `surfaceContainerLow` (#101010) |
-| corpo ragionamento | `surfaceContainerLowest` (#0a0a0a) |
-| testo | `oc.text`; secondario `oc.mutedText`; meta `oc.lineNumber` |
-| bordi | `oc.border` 50–55%; ragionamento `warningInk` 22/35% |
-| ragionamento | `oc.warningInk` (60% solo dark, collassato e concluso) |
-| nome tool, cursore, "mostra tutto", link | `oc.interactive` |
-| ok | `oc.success`; in corso/interrotto `oc.warningInk`; errore/negato `oc.error` |
-| sfondo codice markdown | `oc.formField` (invariato) |
+| bubble, tool card | `surfaceContainer` (`raised` #141414) / `surfaceContainerLow` (#101010) |
+| reasoning body | `surfaceContainerLowest` (#0a0a0a) |
+| text | `oc.text`; secondary `oc.mutedText`; meta `oc.lineNumber` |
+| borders | `oc.border` 50–55%; reasoning `warningInk` 22/35% |
+| reasoning | `oc.warningInk` (60% dark only, collapsed and finished) |
+| tool name, cursor, "show all", links | `oc.interactive` |
+| ok | `oc.success`; in progress/interrupted `oc.warningInk`; error/denied `oc.error` |
+| markdown code background | `oc.formField` (unchanged) |
 
-Nessun colore nuovo. Nessun font nuovo. `monoStyle()` per ogni dato tecnico.
+No new colors. No new fonts. `monoStyle()` for every piece of technical data.
 
-### 4.2 Tipografia e spazi
+### 4.2 Typography and spacing
 
-| elemento | misura |
+| element | measure |
 |---|---|
-| padding bolla | 14dp H / 12dp V (invariato) |
-| gap fra part | 10dp (invariato) |
-| header ragionamento | min 48dp; corpo 12dp; gap header→corpo 6dp |
-| card tool | padding 10dp H / 8dp V; radius `shapes.small` 10dp; gap interni 6dp; comando→output 8dp |
-| nome tool | mono 12sp/16sp Medium |
-| comando | mono 12sp/17sp |
+| bubble padding | 14dp H / 12dp V (unchanged) |
+| gap between parts | 10dp (unchanged) |
+| reasoning header | min 48dp; body 12dp; header→body gap 6dp |
+| tool card | padding 10dp H / 8dp V; radius `shapes.small` 10dp; inner gaps 6dp; command→output 8dp |
+| tool name | mono 12sp/16sp Medium |
+| command | mono 12sp/17sp |
 | output | mono 11.5sp/17sp |
-| label stato | `labelSmall` 11sp |
-| durata / exit | mono 10sp/13sp |
-| ragionamento (header) | `labelMedium` 12sp; anteprima/corpo `bodySmall` 12.5sp/18sp |
-| testo | `bodyLarge` 16sp/24sp |
-| "mostra tutto" | `labelSmall` 11sp, riga 48dp |
+| status label | `labelSmall` 11sp |
+| duration / exit | mono 10sp/13sp |
+| reasoning (header) | `labelMedium` 12sp; preview/body `bodySmall` 12.5sp/18sp |
+| text | `bodyLarge` 16sp/24sp |
+| "show all" | `labelSmall` 11sp, 48dp line |
 
-### 4.3 Vincoli mobile
+### 4.3 Mobile constraints
 
-- Larghezza: tutto dentro `bubbleMax`; il foglio di dettaglio è l'unica
-  superficie a piena larghezza.
-- **Nessuno scroll verticale annidato illimitato**: inline si usano solo
-  limiti di righe (output 6, comando 4, ragionamento 14) e il resto va nel
-  foglio. Lo scroll orizzontale è ammesso solo dentro il foglio.
-- Target ≥48dp: header ragionamento, riga "mostra tutto", azioni del foglio,
-  "chiudi"/"copia". La card tool non è cliccabile.
-- Troncamento: nomi 1 riga con ellissi; comandi 4 righe; output 6 righe;
-  ragionamento 14 righe. Il testo del modello non si tronca.
-- Selezione: un `SelectionContainer` per blocco (testo, ragionamento, output),
-  mai uno solo per tutta la bolla.
-- `maxLines` non basta: al `Text` si passa **solo la porzione visibile**
-  (ultime 6 righe per l'output, prime 14 per il ragionamento). Il resto resta
-  nello stato e va al foglio.
+- Width: everything inside `bubbleMax`; the detail sheet is the only
+  full-width surface.
+- **No unlimited nested vertical scroll**: inline only
+  line limits are used (output 6, command 4, reasoning 14) and the rest goes
+  to the sheet. Horizontal scroll is allowed only inside the sheet.
+- Target ≥48dp: reasoning header, "show all" line, sheet actions,
+  "close"/"copy". The tool card is not clickable.
+- Truncation: names 1 line with ellipsis; commands 4 lines; output 6 lines;
+  reasoning 14 lines. The model's text is never truncated.
+- Selection: one `SelectionContainer` per block (text, reasoning, output),
+  never a single one for the whole bubble.
+- `maxLines` is not enough: to `Text` **only the visible portion** is passed
+  (last 6 lines for output, first 14 for reasoning). The rest stays
+  in state and goes to the sheet.
 
-### 4.4 Performance con delta frequenti
+### 4.4 Performance with frequent deltas
 
-- **Un item solo** per il turno (`turn:<id>`): i delta non ricostruiscono la
-  `LazyColumn`, solo la bolla. Dentro la bolla, part in `Column` con `key`
-  stabile (un turno ha poche decine di part; niente `LazyColumn` annidata).
-- **Publish throttled**: il reducer accumula i delta (economico); la UI
-  riceve uno snapshot al massimo ogni **80–120 ms**, tranne gli eventi
-  terminali (`ended`, `success`, `failed`, `step.ended`) che pubblicano
-  subito. Evita 30–60 ricomposizioni/s.
-  *Implementato in 0.9.1*: `net/PublishGate.kt` (finestra 100 ms, `now`
-  iniettato) + `ChatReducer.publishedImmediately()` (throttled solo i delta
-  puri); lo snapshot pubblicato è `ChatSnapshot` in `AppViewModel`.
-- **Markdown incrementale**: `parseMarkdown` memoizzato su
-  `(key, lunghezza/hash del testo)`; i blocchi già chiusi restano in cache,
-  si ri-analizza solo la coda aperta. Il cursore non fa parte del testo
-  parsato: si disegna in coda, così il parse non cambia a ogni blink.
-- **Una sola animazione per turno**: un `rememberInfiniteTransition` per il
-  cursore (alpha via `graphicsLayer`), uno per il dot attivo, non uno per
-  part. Se `ValueAnimator.areAnimatorsEnabled()` è falso, cursore e dot restano
-  pieni.
-- **Un solo ticker** per il turno (`produceState`, 100 ms) attivo solo se
-  esiste almeno una part `Streaming/Running`; si ferma a turno concluso.
-  La durata mostra i decimi solo sotto i 10 s.
-- **Niente animazioni di layout** sulla crescita di testo/output: un
-  `AnimatedVisibility` per delta è la causa principale di jank. L'unica
-  transizione ammessa è l'apertura/chiusura del ragionamento (azione utente).
-- **Auto-scroll**: follow *sticky*, con throttle ~150 ms. Non si campiona
-  "sono in fondo?" dopo la crescita del contenuto (falliva con più righe
-  aggiunte insieme): un `DragInteraction.Start` spegne il follow, l'arrivo in
-  fondo lo riaccende, l'invio lo riaccende. La firma del contenuto è
-  `partsScrollSignal` sulla riga in coda: testo e ragionamento contano,
-  la crescita dell'output di un tool no. All'apertura/chiusura della tastiera
-  (inset IME) si riallinea al fondo solo se il follow è attivo.
-- **Niente misurazione**: nessun `onTextLayout` per i limiti di riga; si
-  tronca la stringa prima del rendering.
-- `output` e `command` sono campi già calcolati nello stato: nessun join o
-  parsing dentro la composable a ogni frame.
+- **A single item** for the turn (`turn:<id>`): deltas do not rebuild the
+  `LazyColumn`, only the bubble. Inside the bubble, parts in a `Column` with
+  stable `key` (a turn has a few dozen parts; no nested `LazyColumn`).
+- **Throttled publish**: the reducer accumulates deltas (cheap); the UI
+  receives a snapshot at most every **80–120 ms**, except terminal
+  events (`ended`, `success`, `failed`, `step.ended`) that publish
+  immediately. Avoids 30–60 recompositions/s.
+- **Incremental markdown**: `parseMarkdown` memoized on
+  `(key, text length/hash)`; already closed blocks stay cached,
+  only the open tail is re-parsed. The cursor is not part of the
+  parsed text: it is drawn at the tail, so the parse does not change on every blink.
+- **One animation per turn only**: one `rememberInfiniteTransition` for
+  the cursor (alpha via `graphicsLayer`), one for the active dot, not one per
+  part. If `ValueAnimator.areAnimatorsEnabled()` is false, the cursor and dot stay
+  full.
+- **A single ticker** for the turn (`produceState`, 100 ms), active only if
+  there is at least one `Streaming/Running` part; stops when the turn ends.
+  Duration shows decimals only below 10 s.
+- **No layout animations** for text/output growth: an
+  `AnimatedVisibility` per delta is the main cause of jank. The only
+  allowed transition is opening/closing the reasoning (user action).
+- **Auto-scroll**: only if the user is at the bottom (logic already present),
+  throttled ~150 ms, tied to `turn.revision`, never while the user has
+  scrolled up. Tool output growth must not force the scroll.
+- **No measurement**: no `onTextLayout` for the line limits; strings
+  are truncated before rendering.
+- `output` and `command` are fields already computed in state: no join or
+  parsing inside the composable on every frame.
 
 ---
 
-## 5. Copy (italiano, minuscolo, breve)
+## 5. Copy (English, lowercase, short)
 
-| contesto | testo |
+| context | text |
 |---|---|
-| ragionamento | "Ragionamento" |
-| durata | "1,3 s" · "12 s" · "1 min 12 s" |
-| fallback durata | "4 righe" · "1 riga" |
-| apri/chiudi | "apri" · "chiudi" |
-| tool input in corso | "scrivo il comando…" |
-| tool in esecuzione | "in corso" |
-| esiti | "ok" · "errore" · "negato" · "interrotto" |
-| tool non eseguito | "non eseguito" |
+| reasoning | "Reasoning" |
+| duration | "1.3 s" · "12 s" · "1 min 12 s" |
+| duration fallback | "4 lines" · "1 line" |
+| open/close | "open" · "close" |
+| tool input in flight | "writing the command…" |
+| tool running | "in progress" |
+| outcomes | "ok" · "error" · "denied" · "interrupted" |
+| tool not run | "not run" |
 | exit | "exit 1" (mono) |
-| output vuoto | "(nessun output)" |
-| output tagliato dal server | "output troncato" |
-| espansione | "mostra tutto · 42 righe" |
-| nessuna part | "sta scrivendo…" |
-| foglio | "comando" · "output" · "copia" · "copiato" · "chiudi" |
-| TalkBack | "Mostra ragionamento" · "Nascondi ragionamento" · "Mostra tutto l'output di bash" · "Ragionamento in corso" · "Tool in corso" · "Tool completato" · "Tool fallito" · "Tool negato" |
+| empty output | "(no output)" |
+| output truncated by the server | "output truncated" |
+| expansion | "show all · 42 lines" |
+| no parts | "writing…" |
+| sheet | "command" · "output" · "copy" · "copied" · "close" |
+| TalkBack | "Show reasoning" · "Hide reasoning" · "Show the full output of bash" · "Reasoning in progress" · "Tool in progress" · "Tool completed" · "Tool failed" · "Tool denied" |
 
-Nessun punto esclamativo, nessun "prego", nessun titolo in maiuscolo nel
-sorgente (`Eyebrow` fa l'uppercase lui).
-
----
-
-## 6. Cosa rimuovere o cambiare
-
-1. **`StreamingMessage`** (bolla separata + "sta rispondendo"): eliminata.
-   Il turno live è `AssistantTurn` come il persistito; la label sparisce.
-2. **`TypingIndicator`**: resta un solo caso d'uso, il fallback §2.4, con
-   `WorkingIndicator` al posto dei tre puntini. Non è più il contenuto del
-   turno: compare solo se non c'è nessuna part attiva.
-3. **`ToolChipView`**: eliminata. Il dump JSON troncato dello stato non è
-   informazione utile ed è la ragione per cui il tool sembrava vuoto.
-   Sostituita da `ToolCard` (§2.2) con comando, output, stato, durata, exit.
-4. **`highlightToolOutput`**: non più usata per il JSON di stato. L'output dei
-   tool è testo semplice in mono; se resta per altri usi, non viene chiamata
-   dalla chat.
-5. **`toolStatusOf` / `ToolChip.state`**: lo stato non si ricava più con regex
-   dal JSON in UI; arriva tipizzato dagli eventi (§3.2) e dal `content[]` al
-   resync. `summarize()` non serve più al rendering.
-6. **`AssistantMessage`**: non raggruppa più reasoning → testo → tool. Itera
-   `parts`. I campi `text`/`reasoning`/`tools` di `MessageUi` non sono più la
-   fonte di verità per il disegno (restano per ricerca/copia/compatibilità).
-7. **`ReasoningSection`**: header con durata (+ fallback righe), anteprima di
-   una riga in streaming, limite 14 righe con "mostra tutto".
-8. **Logica `showLive` / `showTyping` in `ChatScreen`**: sostituita da un solo
-   `liveTurn`; `extraRows` non dipende più dalla presenza di testo.
-9. **Animazioni di espansione dei tool**: rimosse (non c'è più collapse).
-   Resta solo quella del ragionamento, su azione dell'utente.
-
-Invariati: bolle utente, timestamp, `MetaDivider`, header chat, composer,
-banner, approvazioni, markdown, palette e tipografia.
+No exclamation marks, no "please", no uppercase titles in the
+source (`Eyebrow` does the uppercasing itself).
 
 ---
 
-## 7. Contratto dati richiesto (per chi implementa il reducer)
+## 6. What to remove or change
 
-Tipi che la UI vuole. Nessun JSON, nessun `JsonElement` oltre il confine del
-reducer.
+1. **`StreamingMessage`** (separate bubble + "is responding"): removed.
+   The live turn is `AssistantTurn` like the persisted one; the label disappears.
+2. **`TypingIndicator`**: a single use case remains, the §2.4 fallback, with
+   `WorkingIndicator` instead of the three dots. It is no longer the content
+   of the turn: it appears only if there is no active part.
+3. **`ToolChipView`**: removed. The truncated JSON dump of the state is not
+   useful information and is the reason the tool looked empty.
+   Replaced by `ToolCard` (§2.2) with command, output, status, duration, exit.
+4. **`highlightToolOutput`**: no longer used for the state JSON. Tool
+   output is plain mono text; if it remains for other uses, it is not called
+   from the chat.
+5. **`toolStatusOf` / `ToolChip.state`**: the status is no longer derived with
+   a regex from the JSON in the UI; it arrives typed from the events (§3.2) and
+   from the `content[]` at resync. `summarize()` is no longer needed for rendering.
+6. **`AssistantMessage`**: no longer groups reasoning → text → tool. It
+   iterates `parts`. The `text`/`reasoning`/`tools` fields of `MessageUi` are no longer
+   the source of truth for rendering (they remain for search/copy/compatibility).
+7. **`ReasoningSection`**: header with duration (+ line fallback), one-line
+   preview while streaming, 14-line limit with "show all".
+8. **`showLive` / `showTyping` logic in `ChatScreen`**: replaced with a single
+   `liveTurn`; `extraRows` no longer depends on the presence of text.
+9. **Tool expand animations**: removed (no more collapse).
+   Only the one for reasoning remains, on user action.
+
+Unchanged: user bubbles, timestamps, `MetaDivider`, chat header, composer,
+banners, approvals, markdown, palette and typography.
+
+---
+
+## 7. Data contract required (for the reducer implementer)
+
+Types the UI wants. No JSON, no `JsonElement` beyond the
+reducer's boundary.
 
 ```kotlin
-// Done = text/reasoning conclusi; Ok/Failed/Denied = esiti di un tool.
+// Done = finished text/reasoning; Ok/Failed/Denied = outcomes of a tool.
 enum class PartPhase { Streaming, Running, Done, Ok, Failed, Denied, Interrupted }
 
 sealed interface TurnPartUi {
-    val key: String      // stabile: "reasoning:0" | "text:1" | "tool:call_abc"
-    val order: Int       // cursore per messaggio; resync = indice in content[]
+    val key: String      // stable: "reasoning:0" | "text:1" | "tool:call_abc"
+    val order: Int       // per-message cursor; resync = index in content[]
     val phase: PartPhase
 }
 
@@ -469,8 +462,8 @@ data class ToolPartUi(
     override val phase: PartPhase,
     val callId: String,
     val name: String,            // "bash", "read", ...
-    val command: String? = null, // comando o soggetto, già estratto
-    val output: String? = null,  // content[].text già unito
+    val command: String? = null, // command or subject, already extracted
+    val output: String? = null,  // content[].text already joined
     val exitCode: Int? = null,
     val truncated: Boolean = false,
     val executed: Boolean = true,
@@ -480,29 +473,29 @@ data class ToolPartUi(
 
 data class AssistantTurnUi(
     val id: String,                       // assistantMessageID
-    val parts: List<TurnPartUi>,          // ordinate per order
+    val parts: List<TurnPartUi>,          // sorted by order
     val createdAt: Long? = null,
     val finish: String? = null,
     val running: Boolean = false,
-    val revision: Long = 0,               // bump a ogni modifica; auto-scroll/throttle
+    val revision: Long = 0,               // bumped on every change; auto-scroll/throttle
 )
 ```
 
-Modifiche minime di stato:
+Minimal state changes:
 
-- `ChatStream`: `liveTurn: AssistantTurnUi?` al posto di `LiveMessage`/
-  `LivePart`; `nextOrder` per messaggio; `closedParts` e `finishedMessages`
-  restano; `materialized` per i turni multi-step.
-- `MessageUi`: `parts: List<TurnPartUi>` popolata da `content[]` (indice →
-  `order`); `text`/`reasoning`/`tools` restano come campi derivati per
-  compatibilità, non per il rendering.
-- Mappatura dal payload: `tool` → `ToolPartUi` con
+- `ChatStream`: `liveTurn: AssistantTurnUi?` instead of `LiveMessage`/
+  `LivePart`; `nextOrder` per message; `closedParts` and `finishedMessages`
+  stay; `materialized` for the multi-step turns.
+- `MessageUi`: `parts: List<TurnPartUi>` populated from `content[]` (index →
+  `order`); `text`/`reasoning`/`tools` remain as derived fields for
+  compatibility, not for rendering.
+- Mapping from the payload: `tool` → `ToolPartUi` with
   `state.status` → `PartPhase`, `state.input.command`/`path`/`pattern` →
   `command`, `state.content[].text` → `output`, `state.metadata.exit` /
-  `truncated` → campi omonimi, `time.start`/`time.end` → `startedAt`/`endedAt`.
+  `truncated` → fields of the same name, `time.start`/`time.end` → `startedAt`/`endedAt`.
 
-Criterio di accettazione: durante un turno con tool, la chat mostra in
-sequenza ragionamento (durata), riga "scrivo il comando…", comando con `$` e
-output entro pochi decimi di secondo dall'evento, testo in streaming con
-cursore; al resync la stessa bolla resta al suo posto con gli stessi stili,
-senza placeholder residui e senza dump JSON.
+Acceptance criterion: during a turn with tools, the chat shows in
+sequence the reasoning (duration), the "writing the command…" line, the command with `$`
+and the output within a few tenths of a second from the event, the streaming
+text with the cursor; at resync the same bubble stays in its place with the
+same styles, without residual placeholders and without JSON dumps.

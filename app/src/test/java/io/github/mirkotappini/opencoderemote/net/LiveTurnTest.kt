@@ -7,22 +7,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Contratto dati UI-M6 §3/§7: turno live con reasoning, tool e testo
- * interleaved, idempotenza, late/duplicate e mapping REST → parts.
+ * UI-M6 §3/§7 data contract: live turn with interleaved reasoning, tools and
+ * text, idempotency, late/duplicate events and the REST → parts mapping.
  */
 class LiveTurnTest {
 
-    // --- fixture reali -------------------------------------------------------
+    // --- real fixtures -------------------------------------------------------
 
     @Test
-    fun `fixture tool shell produce una part tool strutturata e poi il testo`() {
+    fun `shell tool fixture produces a structured tool part then the text`() {
         val state = replayFixture("fixtures/sse_tool.jsonl")
 
         val assistant = state.messages.filter { it.role == Role.Assistant }
         val toolTurns = assistant.filter { message ->
             message.parts.any { it is ToolPartUi }
         }
-        assertEquals("un solo turno con il tool", 1, toolTurns.size)
+        assertEquals("exactly one turn with the tool", 1, toolTurns.size)
 
         val tool = toolTurns.single().parts.filterIsInstance<ToolPartUi>().single()
         assertEquals("shell", tool.name)
@@ -30,22 +30,22 @@ class LiveTurnTest {
         assertEquals("Darwin", tool.output)
         assertEquals(0, tool.exitCode)
         assertEquals(PartPhase.Ok, tool.phase)
-        // `executed` è normalizzato per la UI: false solo per un diniego esplicito.
-        assertTrue("executed=false non deve rendere negato un tool completato", tool.executed)
+        // `executed` is normalized for the UI: false only for an explicit denial.
+        assertTrue("executed=false must not mark a completed tool as denied", tool.executed)
         assertFalse(tool.truncated)
         assertEquals("tool:call_00_ET_i42WHK1I2MY3ACf91rWw4200", tool.key)
 
-        // Lo step successivo porta il testo finale, dopo il turno del tool.
+        // The next step delivers the final text, after the tool turn.
         val textTurn = assistant.last()
-        assertTrue("il testo arriva dopo il tool", assistant.indexOf(textTurn) > assistant.indexOf(toolTurns.single()))
+        assertTrue("text arrives after the tool", assistant.indexOf(textTurn) > assistant.indexOf(toolTurns.single()))
         val finalText = textTurn.parts.filterIsInstance<TextPartUi>().single()
         assertEquals("`Darwin`", finalText.text)
         assertEquals(PartPhase.Done, finalText.phase)
-        assertNull("a fine turno il live è chiuso", state.stream.liveTurn)
+        assertNull("at end of turn the live turn is closed", state.stream.liveTurn)
     }
 
     @Test
-    fun `fixture reasoning accumula i delta e il testo finale del server vince`() {
+    fun `reasoning fixture accumulates deltas and the final server text wins`() {
         val state = replayFixture("fixtures/sse_reasoning.jsonl")
 
         val assistant = state.messages.single { it.role == Role.Assistant }
@@ -77,7 +77,7 @@ class LiveTurnTest {
     }
 
     @Test
-    fun `la chiusura del reasoning non blocca il testo con lo stesso ordinal`() {
+    fun `closing reasoning does not block text with the same ordinal`() {
         var state = OpenChatState("ses_1")
         state = ChatReducer.reduce(state, ServerEvent.StepStarted("ses_1", null, null, "msg_a"))
         state = ChatReducer.reduce(state, ServerEvent.ReasoningStarted("ses_1", "msg_a", 0))
@@ -91,7 +91,7 @@ class LiveTurnTest {
         assertEquals(PartPhase.Streaming, text.phase)
     }
 
-    // --- ordine / interleaving ----------------------------------------------
+    // --- order / interleaving ----------------------------------------------
 
     @Test
     fun `text tool text mantiene l ordine di arrivo`() {
@@ -108,13 +108,13 @@ class LiveTurnTest {
     }
 
     @Test
-    fun `una part aggiornata tardi resta al suo posto per order`() {
+    fun `a part updated late stays in place by order`() {
         var state = OpenChatState("ses_1")
         state = ChatReducer.reduce(state, ServerEvent.StepStarted("ses_1", null, null, "msg_a"))
         state = ChatReducer.reduce(state, ServerEvent.TextStarted("ses_1", "msg_a", 0))
         state = ChatReducer.reduce(state, ServerEvent.TextDelta("ses_1", "msg_a", 0, "prima"))
-        // La part successiva (tool) nasce dopo, ma il delta tardivo della text
-        // aggiorna la part esistente senza spostarla in coda.
+        // The next part (tool) is created after the text one, but the late delta
+        // of the text updates the existing part without moving it to the end.
         state = ChatReducer.reduce(state, ServerEvent.ToolInputStarted("ses_1", "msg_a", "call_1", "bash"))
         state = ChatReducer.reduce(state, ServerEvent.TextDelta("ses_1", "msg_a", 0, " aggiornato"))
 
@@ -124,16 +124,16 @@ class LiveTurnTest {
         assertEquals("prima aggiornato", parts.filterIsInstance<TextPartUi>().single().text)
     }
 
-    // --- idempotenza / duplicati -------------------------------------------
+    // --- idempotency / duplicates -------------------------------------------
 
     @Test
-    fun `started ended e success ripetuti sono idempotenti`() {
+    fun `repeated started, ended and success are idempotent`() {
         var state = OpenChatState("ses_1")
         state = ChatReducer.reduce(state, ServerEvent.StepStarted("ses_1", null, null, "msg_a"))
         state = text(state, "msg_a", 0, "risposta")
         state = tool(state, "msg_a", "call_1", "bash", "echo ok", "ok")
 
-        // Re-delivery identica (stessi eventi due volte).
+        // Identical re-delivery (same events twice).
         state = ChatReducer.reduce(state, ServerEvent.TextStarted("ses_1", "msg_a", 0))
         state = ChatReducer.reduce(state, ServerEvent.TextEnded("ses_1", "msg_a", 0, "risposta"))
         state = ChatReducer.reduce(state, ServerEvent.ToolInputStarted("ses_1", "msg_a", "call_1", "bash"))
@@ -143,17 +143,17 @@ class LiveTurnTest {
         )
 
         val parts = state.stream.liveTurn!!.parts
-        assertEquals("nessuna part duplicata", 2, parts.size)
+        assertEquals("no duplicated part", 2, parts.size)
         assertEquals("risposta", parts.filterIsInstance<TextPartUi>().single().text)
         assertEquals(
-            "il primo esito terminale vince",
+            "the first terminal outcome wins",
             "ok",
             parts.filterIsInstance<ToolPartUi>().single().output,
         )
     }
 
     @Test
-    fun `input delta con JSON parziale non crasha e non mostra JSON`() {
+    fun `input delta with partial JSON does not crash and shows no JSON`() {
         var state = OpenChatState("ses_1")
         state = ChatReducer.reduce(state, ServerEvent.StepStarted("ses_1", null, null, "msg_a"))
         state = ChatReducer.reduce(state, ServerEvent.ToolInputStarted("ses_1", "msg_a", "call_1", "bash"))
@@ -163,7 +163,7 @@ class LiveTurnTest {
         )
 
         val partial = state.stream.liveTurn!!.parts.filterIsInstance<ToolPartUi>().single()
-        assertNull("comando non estraibile dal JSON parziale", partial.command)
+        assertNull("command not extractable from partial JSON", partial.command)
         assertEquals(PartPhase.Streaming, partial.phase)
 
         state = ChatReducer.reduce(
@@ -175,7 +175,7 @@ class LiveTurnTest {
     }
 
     @Test
-    fun `executed false non rende negato un tool chiamato`() {
+    fun `executed false does not make a called tool denied`() {
         var state = OpenChatState("ses_1")
         state = ChatReducer.reduce(state, ServerEvent.StepStarted("ses_1", null, null, "msg_a"))
         state = ChatReducer.reduce(state, ServerEvent.ToolInputStarted("ses_1", "msg_a", "call_1", "bash"))
@@ -189,8 +189,8 @@ class LiveTurnTest {
         )
 
         val tool = state.stream.liveTurn!!.parts.filterIsInstance<ToolPartUi>().single()
-        assertEquals("executed non decide la fase", PartPhase.Running, tool.phase)
-        assertTrue("executed è normalizzato per la UI", tool.executed)
+        assertEquals("executed does not decide the phase", PartPhase.Running, tool.phase)
+        assertTrue("executed is normalized for the UI", tool.executed)
         assertEquals("uname -s", tool.command)
     }
 
@@ -208,7 +208,7 @@ class LiveTurnTest {
         assertEquals(PartPhase.Failed, tool.phase)
         assertEquals("boom", tool.output)
         assertEquals(1, tool.exitCode)
-        assertTrue("un fallimento generico ha comunque eseguito il tool", tool.executed)
+        assertTrue("a generic failure still executed the tool", tool.executed)
     }
 
     @Test
@@ -229,11 +229,11 @@ class LiveTurnTest {
     }
 
     @Test
-    fun `success dopo un denied lo corregge in Ok`() {
+    fun `success after a denied fixes it to Ok`() {
         var state = OpenChatState("ses_1")
         state = ChatReducer.reduce(state, ServerEvent.StepStarted("ses_1", null, null, "msg_a"))
         state = ChatReducer.reduce(state, ServerEvent.ToolInputStarted("ses_1", "msg_a", "call_1", "shell"))
-        // Diniego esplicito via metadata.status (come un fallimento esplicito).
+        // Explicit denial via metadata.status (like an explicit failure).
         state = ChatReducer.reduce(
             state,
             ServerEvent.ToolFailed(
@@ -252,7 +252,7 @@ class LiveTurnTest {
         )
 
         val tool = state.stream.liveTurn!!.parts.filterIsInstance<ToolPartUi>().single()
-        assertEquals("un successo corregge un Denied precedente", PartPhase.Ok, tool.phase)
+        assertEquals("a success corrects a previous Denied", PartPhase.Ok, tool.phase)
         assertEquals("Darwin", tool.output)
         assertEquals(0, tool.exitCode)
         assertTrue(tool.executed)
@@ -278,7 +278,7 @@ class LiveTurnTest {
     }
 
     @Test
-    fun `success senza called passa direttamente a Ok`() {
+    fun `success without called goes straight to Ok`() {
         var state = OpenChatState("ses_1")
         state = ChatReducer.reduce(state, ServerEvent.StepStarted("ses_1", null, null, "msg_a"))
         state = ChatReducer.reduce(state, ServerEvent.ToolInputStarted("ses_1", "msg_a", "call_1", "read"))
@@ -292,10 +292,10 @@ class LiveTurnTest {
         assertEquals("contenuto", tool.output)
     }
 
-    // --- multi-step / handoff ----------------------------------------------
+    // --- multi-step / handoff ------------------------------------------------
 
     @Test
-    fun `step successivi materializzano il turno precedente`() {
+    fun `subsequent steps materialize the previous turn`() {
         var state = OpenChatState("ses_1")
         state = ChatReducer.reduce(state, ServerEvent.StepStarted("ses_1", null, null, "msg_1"))
         state = text(state, "msg_1", 0, "primo")
@@ -350,7 +350,7 @@ class LiveTurnTest {
         assertEquals(1200L, tool.endedAt)
 
         assertEquals("text:3", parts[3].key)
-        // I campi derivati restano popolati per ricerca/copia/vecchia UI.
+        // Derived fields remain populated for search/copy/legacy UI.
         assertEquals("prima \ndopo", message.text)
         assertEquals("penso", message.reasoning)
         assertEquals("shell", message.tools.single().name)
@@ -403,7 +403,7 @@ class LiveTurnTest {
             .firstNotNullOfOrNull { event ->
                 event.sessionId?.takeIf { it.startsWith("ses_") }
             }
-            ?: error("fixture senza sessionID")
+            ?: error("fixture without sessionID")
 
         var state = OpenChatState(sessionId)
         readLines(resource).forEach { raw ->
@@ -416,6 +416,6 @@ class LiveTurnTest {
 
     private fun readLines(resource: String): List<String> =
         checkNotNull(javaClass.classLoader?.getResourceAsStream(resource)) {
-            "fixture mancante: $resource"
+            "missing fixture: $resource"
         }.bufferedReader().use { it.readLines() }
 }

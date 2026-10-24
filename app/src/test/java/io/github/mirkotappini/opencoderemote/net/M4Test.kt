@@ -12,8 +12,8 @@ import org.junit.Test
 
 /**
  * Test JVM di M4: parsing Permission.Request, mapping delle decisioni,
- * distinzione dei 404, dedupe notifiche, id stabile, throttle e backoff.
- * Tutto offline; AndroidKeyStore non è testato (non esiste in JVM).
+ * distinction of 404s, notification dedupe, stable id, throttle and backoff.
+ * All offline; AndroidKeyStore is not tested (it does not exist in the JVM).
  */
 class M4Test {
 
@@ -48,7 +48,7 @@ class M4Test {
     }
 
     @Test
-    fun `lista permessi vuota e campi opzionali mancanti`() {
+    fun `empty permission list and missing optional fields`() {
         assertTrue(ApprovalParsing.parsePermissions("""{"data":[]}""").isEmpty())
 
         val body = """
@@ -67,7 +67,7 @@ class M4Test {
     // 2. Mapping decisione → body JSON ---------------------------------------
 
     @Test
-    fun `decisione mappata nel body senza message`() {
+    fun `decision mapped in body without message`() {
         assertEquals("""{"decision":"once"}""", ApprovalReply.bodyJson("once"))
         assertEquals("""{"decision":"always"}""", ApprovalReply.bodyJson("always"))
         assertEquals("""{"decision":"reject"}""", ApprovalReply.bodyJson("reject"))
@@ -81,12 +81,12 @@ class M4Test {
         assertEquals("reject", obj["decision"]?.jsonPrimitive?.content)
         assertEquals("non serve", obj["message"]?.jsonPrimitive?.content)
 
-        // Messaggio vuoto: viene omesso, non inviato come stringa vuota.
+        // Empty message: omitted, not sent as an empty string.
         val blank = Json.parseToJsonElement(ApprovalReply.bodyJson("once", "  ")).jsonObject
         assertFalse(blank.containsKey("message"))
     }
 
-    // 3. 404 PermissionNotFound ≠ 404 sessione --------------------------------
+    // 3. 404 PermissionNotFound ≠ 404 session --------------------------------
 
     @Test
     fun `404 permission not found diventa ApprovalExpiredException`() {
@@ -102,7 +102,7 @@ class M4Test {
     }
 
     @Test
-    fun `404 sessione resta ApiException distinta`() {
+    fun `404 session stays a distinct ApiException`() {
         val error = ApprovalErrors.fromHttpFailure(
             404,
             """{"_tag":"SessionNotFoundError","message":"session not found"}""",
@@ -113,10 +113,10 @@ class M4Test {
         assertEquals(404, (error as ApiException).code)
     }
 
-    // 4. Dedupe notifiche ------------------------------------------------------
+    // 4. Notification dedupe ------------------------------------------------------
 
     @Test
-    fun `stesso requestID notificato una volta e annullato alla risoluzione`() {
+    fun `same requestID notified once and cancelled at resolution`() {
         val tracker = ApprovalNotificationTracker()
 
         assertTrue(tracker.markShown("per_1"))
@@ -125,14 +125,14 @@ class M4Test {
 
         assertTrue(tracker.markResolved("per_1"))
         assertFalse(tracker.isShown("per_1"))
-        // Una seconda risoluzione non deve ri-annullare nulla.
+        // A second resolution must not cancel again.
         assertFalse(tracker.markResolved("per_1"))
     }
 
-    // 5. Id di notifica stabile ------------------------------------------------
+    // 5. Stable notification id ------------------------------------------------
 
     @Test
-    fun `id notifica stabile per requestID`() {
+    fun `stable notification id per requestID`() {
         val first = ApprovalIds.notificationId("per_abc")
         val second = ApprovalIds.notificationId("per_abc")
         val other = ApprovalIds.notificationId("per_xyz")
@@ -150,7 +150,7 @@ class M4Test {
     // 6. Throttle puro e backoff ----------------------------------------------
 
     @Test
-    fun `throttle watcher per sessione`() {
+    fun `throttle watcher per session`() {
         var now = 0L
         val throttle = ApprovalThrottle(minIntervalMs = 2_000L) { now }
 
@@ -177,7 +177,7 @@ class M4Test {
     // 7. Eventi SSE verificati ------------------------------------------------
 
     @Test
-    fun `permission asked porta l intero request`() {
+    fun `permission asked carries the whole request`() {
         val raw = """
             {"id":"evt_1","created":1792796421246,"type":"permission.asked",
              "location":{"directory":"/Users/patchouli"},
@@ -197,7 +197,7 @@ class M4Test {
     }
 
     @Test
-    fun `permission replied porta il request id`() {
+    fun `permission replied carries the request id`() {
         val raw = """
             {"id":"evt_2","created":1792796421247,"type":"permission.replied",
              "data":{"sessionID":"ses_1","requestID":"per_1",
@@ -212,7 +212,7 @@ class M4Test {
     }
 
     @Test
-    fun `permission asked senza id scartato senza eccezioni`() {
+    fun `permission asked without id discarded without exceptions`() {
         val raw = """{"type":"permission.asked","data":{"action":"read"}}"""
         assertEquals(null, EventParsing.parseEvent(raw))
         assertEquals(null, EventParsing.parse("""{"type":"permission.asked","data":{}}"""))

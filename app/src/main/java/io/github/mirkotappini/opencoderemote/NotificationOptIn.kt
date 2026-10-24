@@ -111,7 +111,7 @@ fun NotificationNoticeBar(
                     onClick = onDismiss,
                     modifier = Modifier
                         .size(48.dp)
-                        .semantics { contentDescription = "Chiudi avviso notifiche" },
+                        .semantics { contentDescription = "Close notifications notice" },
                 ) {
                     GlyphClose(size = 15.dp)
                 }

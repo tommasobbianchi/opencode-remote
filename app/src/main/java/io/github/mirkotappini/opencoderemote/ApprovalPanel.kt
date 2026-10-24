@@ -152,7 +152,7 @@ fun ApprovalPanel(
                 val hidden = approvals.size - 1 - collapsed.size
                 if (hidden > 0) {
                     Text(
-                        text = "+$hidden altre richieste · usa le frecce per scorrerle",
+                        text = "+$hidden more requests · use the arrows to scroll",
                         style = MaterialTheme.typography.labelSmall,
                         color = oc.mutedText,
                         modifier = Modifier.padding(start = 4.dp, top = 2.dp),
@@ -197,8 +197,8 @@ fun ApprovalExpiredNotice(
         ) {
             StatusDot(oc.info, size = 5.dp)
             Text(
-                text = "Richiesta non più attiva: era già stata risolta. " +
-                    "La lista delle approvazioni è stata aggiornata.",
+                text = "Request no longer active: it was already resolved. " +
+                    "The approvals list has been updated.",
                 style = MaterialTheme.typography.bodySmall,
                 color = oc.mutedText,
                 modifier = Modifier.weight(1f),
@@ -234,7 +234,7 @@ private fun ApprovalPanelHeader(
         GlyphWarning(size = 16.dp, color = oc.warningInk)
         Spacer(Modifier.width(7.dp))
         Text(
-            text = if (count == 1) "Approvazione richiesta" else "Approvazioni",
+            text = if (count == 1) "Approval requested" else "Approvals",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
@@ -296,7 +296,7 @@ private fun ApprovalPanelHeader(
                 onClick = onRefresh,
                 modifier = Modifier
                     .size(48.dp)
-                    .semantics { contentDescription = "Aggiorna le richieste di approvazione" },
+                    .semantics { contentDescription = "Refresh approval requests" },
             ) {
                 GlyphRefresh(size = 16.dp)
             }
@@ -398,7 +398,7 @@ private fun ExpandedApprovalCard(
                 }
             }
 
-            val origin = approval.sourceLabel?.let { "origine $it · " } ?: "origine server · "
+            val origin = approval.sourceLabel?.let { "source $it · " } ?: "server source · "
             Text(
                 text = origin + shortApprovalId(approval.id),
                 style = monoStyle(fontSize = 10.5.sp, lineHeight = 14.sp),
@@ -441,7 +441,7 @@ private fun ExpandedApprovalCard(
                         ActionSpinner(color = oc.onInteractive)
                     } else {
                         Text(
-                            text = "Consenti una volta",
+                            text = "Allow once",
                             style = MaterialTheme.typography.labelLarge,
                             maxLines = 1,
                         )
@@ -474,7 +474,7 @@ private fun ExpandedApprovalCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "vale per sempre sul server",
+                    text = "applies forever on the server",
                     style = MaterialTheme.typography.labelSmall,
                     color = oc.mutedText,
                 )
@@ -492,7 +492,7 @@ private fun ExpandedApprovalCard(
                     if (currentSending?.decision == DECISION_ALWAYS) {
                         ActionSpinner(color = oc.warningInk)
                     } else {
-                        Text("Consenti sempre", style = MaterialTheme.typography.labelLarge)
+                        Text("Always allow", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -553,12 +553,12 @@ private fun ApprovalErrorNote(
     onRefresh: () -> Unit,
 ) {
     val oc = OpenColors.current
-    val expired = message.contains("non più valida", ignoreCase = true)
+    val expired = message.contains("no longer valid", ignoreCase = true)
     val tone = if (expired) oc.info else oc.warningInk
     val text = if (expired) {
-        "Richiesta non più attiva: era già stata risolta. La lista è stata aggiornata."
+        "Request no longer active: it was already resolved. The list has been updated."
     } else {
-        "Non è stato possibile inviare la risposta. Controlla la connessione e riprova."
+        "Could not send the reply. Check the connection and retry."
     }
 
     Row(
@@ -602,21 +602,21 @@ private fun AlwaysConfirmationDialog(
         icon = { GlyphWarning(size = 20.dp, color = oc.warningInk) },
         title = {
             Text(
-                text = "Consenti sempre?",
+                text = "Always allow?",
                 style = MaterialTheme.typography.titleLarge,
             )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "Questa scelta vale per sempre sul server OpenCode, non solo " +
-                        "per questa richiesta. Le richieste future con la stessa regola " +
-                        "non ti verranno più chieste.",
+                    text = "This choice applies forever on the OpenCode server, not just " +
+                        "for this request. Future requests with the same rule " +
+                        "will no longer be asked.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "Verrà salvato sul server:",
+                    text = "It will be saved on the server:",
                     style = MaterialTheme.typography.labelLarge,
                     color = scheme.onSurface,
                 )
@@ -632,7 +632,7 @@ private fun AlwaysConfirmationDialog(
                     ) {
                         if (approval.save.isEmpty()) {
                             Text(
-                                text = "Il server non ha indicato i dettagli della regola.",
+                                text = "The server did not provide the rule details.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = oc.mutedText,
                             )
@@ -655,7 +655,7 @@ private fun AlwaysConfirmationDialog(
                     }
                 }
                 Text(
-                    text = "Puoi revocare la regola dal server quando vuoi.",
+                    text = "You can revoke the rule from the server anytime.",
                     style = MaterialTheme.typography.labelSmall,
                     color = oc.mutedText,
                 )
@@ -674,7 +674,7 @@ private fun AlwaysConfirmationDialog(
                 if (sending?.decision == DECISION_ALWAYS) {
                     ActionSpinner(color = oc.warningInk)
                 } else {
-                    Text("Consenti sempre", style = MaterialTheme.typography.labelLarge)
+                    Text("Always allow", style = MaterialTheme.typography.labelLarge)
                 }
             }
         },

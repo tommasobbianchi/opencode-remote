@@ -13,27 +13,27 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Watchdog del canale SSE.
+ * Watchdog for the SSE channel.
  *
- * Il server manda `: heartbeat` ogni ~10-12 s: 30 s senza alcun byte sono una
- * connessione morta, anche se il socket TCP non è ancora stato chiuso (caso
- * tipico della modalità aereo). Politica pura per i test JVM offline.
+ * The server sends `: heartbeat` every ~10-12 s: 30 s without any byte is a
+ * dead connection, even if the TCP socket has not been closed yet (typical
+ * of airplane mode). Pure policy for offline JVM tests.
  */
 object SseWatchdog {
 
     const val TIMEOUT_MS = 30_000L
     const val CHECK_INTERVAL_MS = 5_000L
 
-    /** Nessun byte da più di [timeoutMs]: connessione da riconnettere. */
+    /** No byte for more than [timeoutMs]: connection to be reconnected. */
     fun isStale(lastActivityAt: Long, now: Long, timeoutMs: Long = TIMEOUT_MS): Boolean =
         lastActivityAt <= 0L || now - lastActivityAt > timeoutMs
 
-    /** Simulazione deterministica: [silenceMs] di silenzio dopo l'ultimo byte. */
+    /** Deterministic simulation: [silenceMs] of silence after the last byte. */
     fun expiredAfter(lastActivityAt: Long, silenceMs: Long, timeoutMs: Long = TIMEOUT_MS): Boolean =
         isStale(lastActivityAt, lastActivityAt + silenceMs, timeoutMs)
 }
 
-/** Evento osservato sul canale SSE `GET /api/event`. */
+/** Event observed on the SSE channel `GET /api/event`. */
 sealed interface SseEvent {
     data object Opened : SseEvent
     data class Message(val type: String?, val data: String) : SseEvent
@@ -42,11 +42,11 @@ sealed interface SseEvent {
 }
 
 /**
- * Stream SSE live-only (nessun replay).
+ * Live-only SSE stream (no replay).
  *
- * Lettura raw della risposta per poter osservare anche le righe `: heartbeat`:
- * il timeout di 30 s scatta solo se il server non manda *nulla*, non se è
- * semplicemente una sessione senza eventi. Nessun payload viene loggato qui.
+ * Raw reading of the response so that `: heartbeat` lines can be observed
+ * too: the 30 s timeout fires only if the server sends *nothing*, not if it
+ * is simply a session without events. No payload is logged here.
  */
 class EventStream(
     private val client: OkHttpClient,
@@ -72,7 +72,7 @@ class EventStream(
                 if (SseWatchdog.isStale(lastActivity.get(), System.currentTimeMillis(), heartbeatTimeoutMs)) {
                     trySend(
                         SseEvent.Failure(
-                            "nessun dato dal server da ${heartbeatTimeoutMs / 1000}s",
+                            "no data from server for ${heartbeatTimeoutMs / 1000}s",
                         ),
                     )
                     call.cancel()
@@ -95,7 +95,7 @@ class EventStream(
 
                     val source = response.body?.source()
                     if (source == null) {
-                        trySend(SseEvent.Failure("risposta SSE senza corpo"))
+                        trySend(SseEvent.Failure("SSE response without body"))
                         close()
                         return@use
                     }

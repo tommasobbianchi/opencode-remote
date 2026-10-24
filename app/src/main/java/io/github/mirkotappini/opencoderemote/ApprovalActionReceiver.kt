@@ -13,10 +13,11 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
 /**
- * Azioni "Once" e "Reject" direttamente dalla notifica.
+ * "Once" and "Reject" actions directly from the notification.
  *
- * Risponde subito all'API con le credenziali cifrate e annulla la notifica.
- * "Always" non passa da qui: apre l'app per la conferma esplicita.
+ * It answers the API immediately with the encrypted credentials and cancels
+ * the notification. "Always" does not go through here: it opens the app for
+ * the explicit confirmation.
  */
 class ApprovalActionReceiver : BroadcastReceiver() {
 
@@ -47,7 +48,7 @@ class ApprovalActionReceiver : BroadcastReceiver() {
                     api.replyPermission(sessionId, requestId, decision)
                 }
             } catch (_: Exception) {
-                // Richiesta scaduta o rete assente: la notifica va comunque via.
+                // Expired request or no network: the notification is dismissed anyway.
             } finally {
                 ApprovalNotifier.cancelFor(appContext, requestId)
                 pending.finish()

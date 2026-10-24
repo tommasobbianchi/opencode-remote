@@ -9,26 +9,26 @@ import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 
 // ---------------------------------------------------------------------------
-// M5 — hardening: versione del server, errori parlanti, politica dei 401.
-// Tutto puro (nessun Android) così i test JVM restano offline.
+// M5 — hardening: server version, readable errors, 401 policy.
+// All pure (no Android) so JVM tests stay offline.
 // ---------------------------------------------------------------------------
 
-/** Esito del controllo su `GET /api/info.version`. */
+/** Outcome of the check on `GET /api/info.version`. */
 sealed interface VersionCheck {
-    /** Major 2.x: si può procedere. */
+    /** Major 2.x: safe to proceed. */
     data object Supported : VersionCheck
 
     /**
-     * Versione non parsabile: non blocca. Lo stato resta `Connected` con la
-     * stringa grezza mostrata come versione del server.
+     * Unparseable version: not blocking. The state stays `Connected` with the
+     * raw string shown as the server version.
      */
     data object Unknown : VersionCheck
 
-    /** Major diverso da 2: schermata bloccante, nessuna chiamata ulteriore. */
+    /** Major different from 2: blocking screen, no further calls. */
     data class Unsupported(val found: String) : VersionCheck
 }
 
-/** Gate di versione: accetta solo la 2.x. */
+/** Version gate: accepts only 2.x. */
 object ServerVersion {
 
     const val REQUIRED_MAJOR = 2
@@ -44,13 +44,13 @@ object ServerVersion {
         }
     }
 
-    /** Testo unico della schermata bloccante (nessun URL, nessun dettaglio interno). */
+    /** Single text for the blocking screen (no URL, no internal detail). */
     fun unsupportedMessage(found: String): String =
-        "server OpenCode $found non supportato: serve la 2.x"
+        "OpenCode server $found unsupported: 2.x required"
 
     /**
-     * Estrae il major da stringhe come `2.1.4`, `2.1.4-beta.1`, `v2.0`.
-     * `null` se non c'è una componente numerica iniziale.
+     * Extracts the major from strings like `2.1.4`, `2.1.4-beta.1`, `v2.0`.
+     * `null` if there is no leading numeric component.
      */
     fun majorOf(raw: String): Int? {
         val normalized = raw.trim().removePrefix("v").removePrefix("V")
@@ -62,52 +62,53 @@ object ServerVersion {
     }
 }
 
-/** Contesto della chiamata: un 400 di paginazione ha un messaggio dedicato. */
+/** Call context: a pagination 400 has a dedicated message. */
 enum class ErrorContext { Generic, Pagination }
 
 /**
- * Messaggi utente per gli errori di rete/HTTP. Mai stack trace, mai header,
- * mai URL con credenziali: solo testo fisso o un fallback ripulito.
+ * User-facing messages for network/HTTP errors. Never stack traces, never
+ * headers, never URLs with credentials: fixed text only, or a scrubbed
+ * fallback.
  */
 object ConnectionErrors {
 
-    const val TLS_INVALID = "certificato TLS non valido"
-    const val CONNECTION_LOST = "connessione interrotta"
+    const val TLS_INVALID = "invalid TLS certificate"
+    const val CONNECTION_LOST = "connection interrupted"
     const val ACCESS_DENIED = "accesso negato"
-    const val SERVER_ERROR = "server in errore (HTTP 5xx)"
-    const val PAGE_EXPIRED = "pagina non più valida"
-    const val INVALID_RESPONSE = "risposta non valida dal server"
-    const val CREDENTIALS_REJECTED = "credenziali rifiutate"
+    const val SERVER_ERROR = "server error (HTTP 5xx)"
+    const val PAGE_EXPIRED = "page no longer valid"
+    const val INVALID_RESPONSE = "invalid response from server"
+    const val CREDENTIALS_REJECTED = "credentials rejected"
 
     fun describe(error: Throwable, context: ErrorContext = ErrorContext.Generic): String = when {
         error is ApiException && error.code == 401 -> CREDENTIALS_REJECTED
         error is ApiException && error.code == 403 -> ACCESS_DENIED
         error is ApiException && error.code == 400 && context == ErrorContext.Pagination ->
             PAGE_EXPIRED
-        error is ApiException && error.code == 400 -> "richiesta non valida"
+        error is ApiException && error.code == 400 -> "invalid request"
         error is ApiException && error.code in 500..599 -> SERVER_ERROR
-        error is ApiException && error.code == 404 -> "sessione non trovata"
+        error is ApiException && error.code == 404 -> "session not found"
         error is ApiException && error.code == 409 ->
-            "sessione occupata: attendi la fine o interrompi"
-        // Handshake, pinning, certificato scaduto: tutti indistinguibili per l'utente.
+            "session busy: wait for it to finish or interrupt"
+        // Handshake, pinning, expired certificate: all indistinguishable for the user.
         error is SSLException -> TLS_INVALID
-        error is SocketTimeoutException -> "server non raggiungibile (timeout)"
-        error is UnknownHostException -> "server non raggiungibile (host sconosciuto)"
+        error is SocketTimeoutException -> "server unreachable (timeout)"
+        error is UnknownHostException -> "server unreachable (unknown host)"
         error is ConnectException || error is NoRouteToHostException ->
-            "server non raggiungibile"
+            "server unreachable"
         error is SocketException || error is EOFException -> CONNECTION_LOST
         isUnknownService(error) -> INVALID_RESPONSE
         else -> safeFallback(error)
     }
 
     /**
-     * `android.net.http.UnknownServiceException` vive nell'SDK Android (non nel
-     * jar JVM dei test): si riconosce dal nome, senza dipendere dalla classe.
+     * `android.net.http.UnknownServiceException` lives in the Android SDK (not in
+     * the JVM test jar): it is recognized by name, without depending on the class.
      */
     private fun isUnknownService(error: Throwable): Boolean =
         error is java.io.IOException && error.javaClass.name.endsWith(".UnknownServiceException")
 
-    /** Il messaggio di OkHttp può contenere l'URL: si tiene solo testo innocuo. */
+    /** The OkHttp message may contain the URL: only harmless text is kept. */
     private fun safeFallback(error: Throwable): String {
         val raw = error.message?.take(160)?.trim().orEmpty()
         if (raw.isEmpty()) return error.javaClass.simpleName
@@ -117,8 +118,8 @@ object ConnectionErrors {
 }
 
 /**
- * Effetti obbligatori di un 401 su una qualunque chiamata REST.
- * Il token resta: serve a precompilare il setup, non si ritenta da soli.
+ * Mandatory effects of a 401 on any REST call.
+ * The token is kept: it pre-fills the setup, no automatic retry is made.
  */
 data class AuthFailurePolicy(
     val stopStream: Boolean,
@@ -138,7 +139,7 @@ object AuthPolicy {
         retryFailedRequest = false,
     )
 
-    /** `null` se il codice non è 401. */
+    /** `null` if the code is not 401. */
     fun forHttpCode(code: Int): AuthFailurePolicy? =
         if (code == 401) onUnauthorized else null
 }

@@ -3,15 +3,15 @@ package io.github.mirkotappini.opencoderemote.net
 import kotlin.random.Random
 
 /**
- * Backoff esponenziale della riconnessione SSE: 1s, 2s, 4s, … max 30s,
- * con jitter additivo fino al 20% del valore corrente.
+ * Exponential backoff for SSE reconnection: 1s, 2s, 4s, … max 30s,
+ * with additive jitter up to 20% of the current value.
  */
 object Backoff {
 
     const val BASE_MS = 1_000L
     const val MAX_MS = 30_000L
 
-    /** Valore nominale per il tentativo `attempt` (1-based), senza jitter. */
+    /** Nominal value for attempt `attempt` (1-based), without jitter. */
     fun baseDelayMs(attempt: Int): Long {
         if (attempt <= 1) return BASE_MS
         var delay = BASE_MS
@@ -21,7 +21,7 @@ object Backoff {
         return delay
     }
 
-    /** Ritardo effettivo: nominale + jitter, mai oltre [MAX_MS]. */
+    /** Effective delay: nominal + jitter, never more than [MAX_MS]. */
     fun delayMs(attempt: Int, random: Random = Random.Default): Long {
         val base = baseDelayMs(attempt)
         if (base >= MAX_MS) return MAX_MS

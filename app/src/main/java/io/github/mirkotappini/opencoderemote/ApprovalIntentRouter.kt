@@ -5,10 +5,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Ponte tra il tap sulla notifica (Activity) e il ViewModel.
+ * Bridge between the notification tap (Activity) and the ViewModel.
  *
- * Non contiene stato UI: solo l'id di sessione da aprire. Il ViewModel lo
- * consuma appena la connessione è pronta, anche se l'app era chiusa.
+ * It holds no UI state: only the id of the session to open. The ViewModel
+ * consumes it as soon as the connection is ready, even if the app was closed.
  */
 object ApprovalIntentRouter {
 

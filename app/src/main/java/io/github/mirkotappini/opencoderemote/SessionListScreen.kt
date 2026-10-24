@@ -148,7 +148,7 @@ fun SessionListScreen(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .semantics {
-                                        contentDescription = "Nuova sessione"
+                                        contentDescription = "New session"
                                     },
                             ) {
                                 if (state.creatingSession) {
@@ -171,7 +171,7 @@ fun SessionListScreen(
                             modifier = Modifier
                                 .size(48.dp)
                                 .semantics {
-                                    contentDescription = "Apri il pannello di agenti, skill e MCP"
+                                    contentDescription = "Open the agents, skills and MCP panel"
                                 },
                         ) {
                             GlyphSidebar(size = 20.dp)
@@ -236,7 +236,7 @@ fun SessionListScreen(
                             .padding(horizontal = 20.dp, vertical = 8.dp),
                     ) {
                         ErrorBanner(
-                            title = "Ultima operazione non riuscita",
+                            title = "Last operation failed",
                             message = state.error.orEmpty(),
                             onAction = onRetryConnection,
                             onDismiss = onDismissError,
@@ -265,7 +265,7 @@ fun SessionListScreen(
                                     ReconnectPolicy.bannerLabel(state.reconnectInSeconds, false)
                                 connecting -> ReconnectPolicy.NEW_ATTEMPT
                                 state.error != null -> state.error.orEmpty()
-                                else -> "SSE ferma · dati non aggiornati"
+                                else -> "SSE stopped · data not up to date"
                             },
                             tone = when {
                                 suspended -> oc.warningInk
@@ -308,9 +308,9 @@ fun SessionListScreen(
                                 ) {
                                     EmptyState(
                                         symbol = ">_",
-                                        title = "Nessuna sessione",
-                                        body = "Avvia una sessione con +, oppure aggiorna la lista. " +
-                                            "Il server deve essere acceso e raggiungibile via Tailscale.",
+                                        title = "No sessions",
+                                        body = "Start a session with +, or refresh the list. " +
+                                            "The server must be on and reachable via Tailscale.",
                                         action = {
                                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                                 Button(
@@ -406,8 +406,8 @@ private fun ServerChip(
     }
     val description = buildString {
         append("Server $host")
-        version?.let { append(", versione $it") }
-        append(". Apri le opzioni per cambiare server.")
+        version?.let { append(", version $it") }
+        append(". Open the options to change server.")
     }
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -517,7 +517,7 @@ private fun ServerSheet(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = version?.let { "OpenCode v$it" }
-                        ?: "OpenCode · versione non dichiarata",
+                        ?: "OpenCode · version not declared",
                     style = MaterialTheme.typography.labelMedium,
                     color = scheme.onSurfaceVariant,
                 )
@@ -531,11 +531,11 @@ private fun ServerSheet(
             Spacer(Modifier.height(16.dp))
 
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                Eyebrow("Cambia server")
+                Eyebrow("Change server")
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Torna alla schermata di accesso, con i campi ancora compilati: " +
-                        "puoi riconnetterti allo stesso server o sceglierne un altro.",
+                    text = "Return to the sign-in screen, with the fields still filled in: " +
+                        "you can reconnect to the same server or pick another.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onSurfaceVariant,
                 )
@@ -558,14 +558,14 @@ private fun ServerSheet(
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Text(
-                                text = "Le credenziali cifrate vengono cancellate: al " +
-                                    "prossimo avvio l'accesso non sarà più automatico.",
+                                text = "Encrypted credentials will be deleted: on " +
+                                    "next launch, access will no longer be automatic.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = scheme.onSurface,
                             )
                             Text(
-                                text = "La connessione in background e le notifiche di " +
-                                    "approvazione si fermano.",
+                                text = "The background connection and approval " +
+                                    "notifications stop.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = oc.mutedText,
                             )
@@ -594,7 +594,7 @@ private fun ServerSheet(
                         modifier = Modifier.heightIn(min = 48.dp),
                         shape = MaterialTheme.shapes.medium,
                     ) {
-                        Text("Cambia server", style = MaterialTheme.typography.labelLarge)
+                        Text("Change server", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -664,7 +664,7 @@ private fun StreamNotice(
 
 @Composable
 private fun SessionCountPill(count: Int) {
-    val description = if (count == 1) "1 sessione" else "$count sessioni"
+    val description = if (count == 1) "1 session" else "$count sessions"
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -693,7 +693,7 @@ private fun SessionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
-                onClickLabel = "Apri sessione ${session.title}",
+                onClickLabel = "Open session ${session.title}",
                 role = Role.Button,
                 onClick = onClick,
             )
@@ -757,7 +757,7 @@ private fun sessionBadge(session: SessionUi): BadgeSpec? {
     val oc = OpenColors.current
     if (session.isActive) return BadgeSpec("in corso", oc.success, pulsing = true)
     return when (session.outcome?.lowercase()) {
-        "failed", "failure", "error" -> BadgeSpec("errore", oc.error, pulsing = false)
+        "failed", "failure", "error" -> BadgeSpec("error", oc.error, pulsing = false)
         "interrupted", "aborted" -> BadgeSpec("interrotta", oc.warningInk, pulsing = false)
         else -> outcomeLabel(session.outcome)?.let {
             BadgeSpec(it, oc.mutedText, pulsing = false)

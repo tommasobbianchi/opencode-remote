@@ -7,8 +7,8 @@ import org.junit.Test
 
 /**
  * Regressione sul crash `Key "model-openai/gpt-4.1" was already used`:
- * `modelID` è la famiglia e si ripete (gpt-4.1 / gpt-4.1-fast), il riferimento
- * concreto è `id` (quello che accetta `Model.Ref`).
+ * `modelID` is the family and repeats (gpt-4.1 / gpt-4.1-fast); the concrete
+ * reference is `id` (the one `Model.Ref` accepts).
  */
 class ModelRefTest {
 
@@ -22,7 +22,7 @@ class ModelRefTest {
     """.trimIndent()
 
     @Test
-    fun `le chiavi delle voci sono univoche anche se modelID si ripete`() {
+    fun `entry keys are unique even if modelID repeats`() {
         val models = CatalogParsing.parseModels(payload)
         val keys = models.map { it.pickerKey() }
 
@@ -34,21 +34,21 @@ class ModelRefTest {
     }
 
     @Test
-    fun `la selezione usa id e non la famiglia modelID`() {
+    fun `selection uses id and not the modelID family`() {
         val models = CatalogParsing.parseModels(payload)
         val fast = models.single { it.id == "gpt-4.1-fast" }
         val base = models.single { it.id == "gpt-4.1" }
 
-        // sessione impostata sul modello veloce: solo la voce concreto deve risultare selezionata
+        // session set to the fast model: only the concrete entry must be selected
         assertTrue(fast.referencesSession("gpt-4.1-fast", "openai"))
         assertFalse(base.referencesSession("gpt-4.1-fast", "openai"))
-        // stessa famiglia ma id diverso non deve combaciare
+        // same family but different id must not match
         assertFalse(fast.referencesSession("gpt-4.1", "openai"))
-        // provider diverso non deve combaciare
+        // different provider must not match
         assertFalse(fast.referencesSession("gpt-4.1-fast", "azure"))
-        // provider assente nella sessione: accetta il match sull'id
+        // provider absent from the session: accept the match on id
         assertTrue(fast.referencesSession("gpt-4.1-fast", null))
-        // sessione senza modello
+        // session without model
         assertFalse(fast.referencesSession(null, null))
     }
 }

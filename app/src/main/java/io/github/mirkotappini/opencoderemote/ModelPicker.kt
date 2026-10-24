@@ -119,7 +119,7 @@ private fun ModelPickerContent(
             }
         }
         filtered
-            .groupBy { it.providerID.ifBlank { "altro" } }
+            .groupBy { it.providerID.ifBlank { "other" } }
             .toSortedMap(String.CASE_INSENSITIVE_ORDER)
             .mapValues { (_, list) -> list.sortedBy { it.displayName().lowercase(Locale.ROOT) } }
     }
@@ -151,7 +151,7 @@ private fun ModelPickerContent(
                         onClick = onDismiss,
                         modifier = Modifier
                             .size(48.dp)
-                            .semantics { contentDescription = "Chiudi l'elenco dei modelli" },
+                            .semantics { contentDescription = "Close the model list" },
                     ) {
                         GlyphChevron(direction = ChevronDirection.Left, size = 20.dp)
                     }
@@ -166,7 +166,7 @@ private fun ModelPickerContent(
                             text = if (current != null) {
                                 "Sessione: ${current.title}"
                             } else {
-                                "Nessuna sessione aperta"
+                                "No open session"
                             },
                             style = MaterialTheme.typography.labelMedium,
                             color = scheme.onSurfaceVariant,
@@ -189,7 +189,7 @@ private fun ModelPickerContent(
                         enabled = !loading,
                         modifier = Modifier
                             .size(48.dp)
-                            .semantics { contentDescription = "Aggiorna l'elenco dei modelli" },
+                            .semantics { contentDescription = "Refresh the model list" },
                     ) {
                         if (loading) {
                             CircularProgressIndicator(
@@ -223,7 +223,7 @@ private fun ModelPickerContent(
                     loading && models.isEmpty() -> PickerSkeleton()
                     models.isEmpty() -> PickerBlank(
                         title = "Nessun modello",
-                        body = "Il catalogo dei modelli non è ancora arrivato dal server.",
+                        body = "The model catalog has not arrived from the server yet.",
                         actionLabel = "Riprova",
                         onAction = onRefresh,
                     )
@@ -379,7 +379,7 @@ private fun ModelSearchField(
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (query.isEmpty()) {
                             Text(
-                                text = "Cerca per nome o provider",
+                                text = "Search by name or provider",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = oc.mutedText,
                                 maxLines = 1,

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Server minimale per distribuire l'APK su una rete privata (APK locale).
+"""Minimal server to distribute the APK over a private network (local APK).
 
-Perche' non `python3 -m http.server`: serve un URL stabile (/app.apk) che punta
-sempre alla build corrente, niente cache del browser e redirect dei vecchi nomi
-(`app-0.2.0-m2.apk`, `opencode-m1.apk`, ...) verso l'ultima build.
+Why not `python3 -m http.server`: it serves a stable URL (/app.apk) that always
+points to the current build, no browser cache, and redirects old names
+(`app-0.2.0-m2.apk`, `opencode-m1.apk`, ...) to the latest build.
 """
 import os
 import sys
@@ -76,7 +76,7 @@ class Handler(BaseHTTPRequestHandler):
                             self.wfile.write(chunk)
                 return
 
-        # Qualsiasi vecchio nome di APK: manda all'ultima build (i browser hanno in cache i link vecchi).
+        # Any old APK name: point it to the latest build (browsers have the old links cached).
         if route.endswith(".apk"):
             self._headers(302, "text/plain; charset=utf-8", 0, {"Location": "/app.apk"})
             return

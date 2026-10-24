@@ -9,11 +9,11 @@ import org.junit.Test
 
 /**
  * Test JVM di M2: eventi, accumulo streaming, dedupe, backoff e isolamento
- * tra sessioni. Tutto offline, payload inline presi da docs/API-M2.md §2.
+ * between sessions. All offline, inline payloads taken from docs/API-M2.md §2.
  */
 class M2Test {
 
-    // 1. Accumulo delta su più ordinal e chiusura su text.ended ---------------
+    // 1. Delta accumulation over multiple ordinals and close on text.ended ---------------
 
     @Test
     fun `delta su piu ordinal accumulati e chiusura su text ended`() {
@@ -55,7 +55,7 @@ class M2Test {
         assertTrue(part0?.ended == true)
         assertTrue(state.stream.closedParts.contains("msg_a" to 0))
 
-        // Un delta tardivo sulla part chiusa non sporca il testo finale.
+        // A late delta on the closed part does not dirty the final text.
         state = ChatReducer.reduce(
             state,
             ServerEvent.TextDelta("ses_1", "msg_a", ordinal = 0, delta = "-late"),
@@ -66,8 +66,8 @@ class M2Test {
     // 2. Type sconosciuto: mai eccezioni --------------------------------------
 
     @Test
-    fun `type sconosciuto diventa Unknown senza eccezioni`() {
-        // Payload reale della sequenza M2 (§2), con un type non modellato.
+    fun `unknown type becomes Unknown without exceptions`() {
+        // Real payload from the M2 sequence (§2), with an unmodeled type.
         val raw = """
             {"id":"evt_1792792392494","created":1792792392494,
              "type":"session.instructions.updated",
@@ -82,13 +82,13 @@ class M2Test {
         assertEquals("session.instructions.updated", (event as ServerEvent.Unknown).type)
         assertEquals("ses_...", event.sessionId)
 
-        // Anche un payload non-JSON non deve far esplodere il parser.
+        // Even a non-JSON payload must not crash the parser.
         assertNull(EventParsing.parse("{non-json"))
         assertNull(EventParsing.parseEvent(""))
     }
 
     @Test
-    fun `evento noto con delta viene normalizzato`() {
+    fun `known event with delta is normalized`() {
         val raw = """
             {"id":"evt_1","created":1792792392493,"type":"session.text.delta",
              "location":{"directory":"/Users/patchouli"},
@@ -100,21 +100,21 @@ class M2Test {
         val event = EventParsing.parseEvent(raw)
         assertEquals(ServerEvent.TextDelta("ses_1", "msg_a", 0, "pong"), event)
 
-        // Senza sessionID l'evento di sessione viene scartato.
+        // Without a sessionID the session event is dropped.
         val withoutSession = """{"type":"session.text.delta","data":{"delta":"x"}}"""
         assertNull(EventParsing.parseEvent(withoutSession))
     }
 
-    // 3. Dedupe dopo resync e sostituzione dell'ottimistico --------------------
+    // 3. Dedupe after resync and optimistic replacement --------------------
 
     @Test
-    fun `resync non duplica e sostituisce il messaggio ottimistico`() {
+    fun `resync does not duplicate and replaces the optimistic message`() {
         val server = listOf(
             MessageUi(id = "msg_u", role = Role.User, text = "ciao", createdAt = 1_000L),
             MessageUi(id = "msg_a", role = Role.Assistant, text = "risposta", createdAt = 2_000L),
         )
         val local = listOf(
-            // stesso testo, id provvisorio: va scartato in favore del server
+            // same text, provisional id: must be discarded in favor of the server
             MessageUi(
                 id = "local-1",
                 role = Role.User,
@@ -122,9 +122,9 @@ class M2Test {
                 createdAt = 1_500L,
                 pending = true,
             ),
-            // stesso id ma contenuto vecchio: vince la versione server
+            // same id but old content: the server version wins
             MessageUi(id = "msg_a", role = Role.Assistant, text = "vecchia", createdAt = 2_000L),
-            // pending non ancora sul server: resta in coda
+            // pending not yet on the server: stays queued
             MessageUi(
                 id = "local-2",
                 role = Role.User,
@@ -161,16 +161,16 @@ class M2Test {
             val base = Backoff.baseDelayMs(attempt)
             val delay = Backoff.delayMs(attempt, random)
             assertTrue("delay $delay < base $base", delay >= base)
-            assertTrue("delay $delay oltre il tetto", delay <= Backoff.MAX_MS)
+            assertTrue("delay $delay above the cap", delay <= Backoff.MAX_MS)
             val maxJitter = if (base >= Backoff.MAX_MS) 0L else base / 5L
             assertTrue("jitter eccessivo a $attempt", delay <= base + maxJitter)
         }
     }
 
-    // 5. Evento di un'altra sessione non tocca la chat aperta -----------------
+    // 5. Another session's event does not touch the open chat -----------------
 
     @Test
-    fun `evento di un'altra sessione non tocca la chat aperta`() {
+    fun `another session's event does not touch the open chat`() {
         val before = OpenChatState(
             sessionId = "ses_1",
             messages = listOf(

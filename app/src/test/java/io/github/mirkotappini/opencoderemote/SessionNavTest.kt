@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Test JVM offline della pila padre → figlio (`SessionNav`). */
+/** Offline JVM test of the parent → child stack (`SessionNav`). */
 class SessionNavTest {
 
     private fun session(id: String, title: String = id) = SessionUi(id = id, title = title)
@@ -16,7 +16,7 @@ class SessionNavTest {
         SessionFrame(session(id), readOnly)
 
     @Test
-    fun `apertura dalla lista parte con pila vuota e sessione scrivibile`() {
+    fun `opening from list starts with empty stack and writable session`() {
         val plan = SessionNav.planOpen(
             stack = listOf(frame("stale")),
             current = null,
@@ -57,7 +57,7 @@ class SessionNavTest {
     }
 
     @Test
-    fun `retry della stessa sessione non impila duplicati`() {
+    fun `retrying the same session does not stack duplicates`() {
         val stack = listOf(frame("parent"))
         val plan = SessionNav.planOpen(
             stack = stack,
@@ -70,7 +70,7 @@ class SessionNavTest {
     }
 
     @Test
-    fun `id gia in pila non crea cicli e chiude i livelli sopra`() {
+    fun `id already on stack does not create cycles and closes levels above`() {
         val stack = listOf(frame("root"), frame("child", readOnly = true))
         val plan = SessionNav.planOpen(
             stack = stack,

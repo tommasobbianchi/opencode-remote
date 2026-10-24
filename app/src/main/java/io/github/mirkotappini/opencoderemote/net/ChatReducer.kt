@@ -12,7 +12,7 @@ data class LivePart(
     val ended: Boolean = false,
 )
 
-@Deprecated("La chat usa AssistantTurnUi. LiveMessage resta per ChatScreen fino alla lane UI.")
+@Deprecated("Chat uses AssistantTurnUi. LiveMessage stays for ChatScreen until the UI lane.")
 data class LiveMessage(
     val messageId: String,
     val parts: List<LivePart> = emptyList(),

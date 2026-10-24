@@ -1,264 +1,108 @@
-# Stato del progetto (chiusura sessione, 24 ott 2026)
+# Project status (session close, Oct 24 2026)
 
-Client Android generico per controllare un server **OpenCode 2.x** dal telefono
-(nessun preset personale: URL vuoto, credenziali dell'utente).
+Generic Android client to control an **OpenCode 2.x** server from the phone
+(no personal preset: empty URL, user's credentials).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.11.3**, `versionCode 33`, sha256 `294ea77a…` (31 MB) (nome app **OC Remote**).
+Last delivered build: **0.9.0-m7**, `versionCode 19`, sha256 `4d71b1e7…` (app name **OC Remote**, neon OC icon).
 
-## Dove
+## Where
 
-| Cosa | Dove |
+| What | Where |
 |---|---|
-| Sorgente | `serber:/home/mirko/opencode-mobile` (**non è un repo git**) |
-| Build | `build-host:/Users/<utente>/opencode-mobile` (JDK+SDK in `~/android-toolchain`) |
-| Distribuzione | `serber:python3 serve.py` → `http://<ip-tailnet>:8091/app.apk` (sempre l'ultima da `dist/current.txt`) |
-| Documenti | `docs/DESIGN.md`, `docs/API-M1..M4.md`, `docs/UI-M1..M4.md`, `docs/THEME.md`, `docs/M5-CHECKLIST.md`, `docs/M2-NOTE.md` |
+| Source | `serber:/home/mirko/opencode-mobile` (**not a git repo**) |
+| Build | `build-host:/Users/<user>/opencode-mobile` (JDK+SDK in `~/android-toolchain`) |
+| Distribution | `serber:python3 serve.py` → `http://<ip-tailnet>:8091/app.apk` (always the latest from `dist/current.txt`) |
+| Docs | `docs/DESIGN.md`, `docs/API-M1..M4.md`, `docs/UI-M1..M4.md`, `docs/THEME.md`, `docs/M5-CHECKLIST.md`, `docs/M2-NOTE.md` |
 
-## Stato per milestone
+## Status by milestone
 
-- **M0** trasporto (Tailscale serve, Basic auth, SSE) — fatto
-- **M1** lista sessioni + chat read-only + storico — fatto
-- **M2** invio prompt, streaming live, interrupt, riconnessione con resync — fatto
-- **M3** drawer OMO (3 tab: Agenti/Skill/MCP), picker modello con ricerca, riga sessione, badge task, subagent informativi, indicatore agenti al lavoro — fatto
-- **M4** approvazioni: pannello in chat, badge, notifiche con azioni, foreground service, credenziali cifrate (Keystore) + auto-connect — fatto
-- **M5** hardening: version gate, tassonomia errori, politica 401, sessione sparita, NetworkCallback, watchdog SSE 30 s, countdown corretto, icona launcher — fatto
-- **M7** identità: nome OC Remote, nuova icona (adaptive senza wordmark, legacy con wordmark, monochrome) — fatto
-- **M6** vista turno live: ragionamento con durata, card tool con comando/output/stato/exit,
-  testo in streaming, step consecutivi in un'unica bolla — fatto (spec in `docs/UI-M6-LIVE.md`)
+- **M0** transport (Tailscale serve, Basic auth, SSE) — done
+- **M1** session list + read-only chat + history — done
+- **M2** prompt send, live streaming, interrupt, reconnection with resync — done
+- **M3** OMO drawer (3 tabs: Agents/Skill/MCP), model picker with search, session row, task badge, informational subagents, working-agents indicator — done
+- **M4** approvals: in-chat panel, badge, notifications with actions, foreground service, encrypted credentials (Keystore) + auto-connect — done
+- **M5** hardening: version gate, error taxonomy, 401 policy, vanished session, NetworkCallback, 30 s SSE watchdog, correct countdown, launcher icon — done
+- **M7** identity: OC Remote name, new icon (adaptive without wordmark, legacy with wordmark, monochrome) — done
+- **M6** live turn view: reasoning with duration, tool card with command/output/state/exit,
+  text in streaming, consecutive steps in a single bubble — done (spec in `docs/UI-M6-LIVE.md`)
 
-Test: **132 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
+Tests: **78 JVM**, all green, run with `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` on the dev server.
 
-## Throttle di pubblicazione dei delta (0.9.1)
+## Change server from the list (0.6.4-m5)
 
-§4.4 di `docs/UI-M6-LIVE.md`: il reducer accumula ogni delta (economico), ma la
-UI riceve uno snapshot della chat **al massimo ogni 100 ms**, tranne gli eventi
-di fase e fine turno che passano subito. Da 30–60 ricomposizioni/s a ~10.
+There was no way to get back to the login screen from the session list (only
+the OMO drawer → "Disconnect", too hidden). Now in the header the old host/version
+eyebrow is a **tappable pill** (`ServerChip`) with a status dot and a
+chevron: it opens a "Server" `ModalBottomSheet` with host, URL, version, and the
+`Cancel` / `Change server` buttons. `Change server` = `AppViewModel.disconnect()`: it stops
+the stream, the service, and the notifications, deletes the encrypted credentials, and returns
+to `SetupScreen` **pre-filled** with the last URL/user/password (no new
+state machine). The drawer stays unchanged, with the same copy about the consequences.
 
-- `net/PublishGate.kt`: cancello puro (nessun orologio interno, `now` è un
-  parametro) con `offer` / `dueIn` / `takePending` / `dropPending` / `reset`.
-  Il pending contiene sempre l'ultimo snapshot: nulla si perde se un evento
-  terminale arriva prima dello scadere della finestra.
-- `ChatReducer.publishedImmediately()`: throttled solo i delta puri
-  (`text.delta`, `reasoning.delta`, `tool.input.delta`, `tool.progress`).
-  Tutto il resto (started/ended, `tool.called`, success/failed, step, execution)
-  è immediato: i cambi di fase non devono mai aspettare.
-- `AppViewModel`: `ChatSnapshot` (messaggi + `ChatStream` + running + outcome) è
-  l'unità pubblicata; `scheduleChatFlush` pubblica l'ultimo snapshot allo
-  scadere, `flushChatNow` è obbligatorio prima di ogni mutazione di
-  `messages`/`chat` fuori dal reducer (`sendPrompt`, rename del messaggio
-  ottimistico, `loadOlder`, `resyncOpenSession`), altrimenti lo snapshot in
-  attesa tornerebbe sopra scrivendola. `resetChatPublish` su apertura sessione,
-  `backToList`, `stopStream`.
-- Test: `PublishGateTest` (finestra, terminali, pending, 60 Hz → ~10
-  pubblicazioni/s, classificazione eventi).
+## Technical findings not to rediscover
 
-## Icona 0.9.3 (render 3D "OC remote")
+- `/api/experimental/session/{id}/log?seq=N` **does not** replay the history: it answers `log.synced` with the current seq.
+- Real approval events: `permission.asked` (carries the whole request) and `permission.replied`.
+- The approval reply uses the **`decision`** field (`once|always|reject`), not `reply`.
+- `GET /api/model` exposes `settings.apiKey`: the client must discard `settings`.
+- In the model catalog `modelID` is the family (duplicated), `id` is the concrete reference: list keys and `Model.Ref` use `id`.
+- An `opencode service stop` on the dev server **does not hold** the service: it restarts by itself in ~8 s.
+- SSE heartbeat every ~10–12 s; client watchdog 30 s.
 
-Nuovo render fornito dall'utente: "OC" glossy (O giallo, C viola) con wordmark
-"remote" verde neon, piastra nera arrotondata. Rigenerata con
-`tools/icon/make_icon.py` da `tools/icon/icon-source.png`.
+## Turn events contract (M6)
 
-- **Adattiva**: marchio **intero** (glifo + wordmark) senza piastra, alpha dalla
-  luminanza, al 66% della tela (safe zone). Niente riquadro annidato: il fondo
-  nero del render diventa trasparente e sotto c'è `@color/ic_launcher_background`.
-  Il wordmark resta dentro la maschera circolare, quindi non viene tagliato.
-  (Decisione M7 "adattiva senza wordmark" superata da questo render: il taglio
-  al wordmark produceva un bordo netto sul fondo di O e C.)
-- **Legacy/round**: piastra intera, come prima.
-- **Monochrome**: "OC" in JetBrains Mono.
-- Fondo icona: `#040407` (prima `#121510`). Il colore ora è preso dal quantile
-  basso di luminanza della cornice (`dark_background`), non dalla media: il glow
-  giallo/viola trascinava la media su un marrone `#302219`.
-- Anteprima rigenerata: `dist/icon-preview-0.9.3.png` (fuori dal repo).
-
-## Domande del server (form) e comandi slash (M9, 0.11.0→0.11.2)
-
-Specifica: `docs/UI-M9-DOMANDE-E-COMANDI.md`.
-
-- **Form**: quando l'agente chiede qualcosa resta in attesa e il turno non
-  finisce (composer bloccato). Ora `form.created`/`form.replied`/`form.cancelled`
-  alimentano `UiState.forms` (+ resync con `GET /api/form` a connect, apertura
-  sessione e riapertura SSE) e un **pannello "domanda"** sopra il composer
-  permette di rispondere (`POST …/form/{id}/reply` con `answer` tipizzato) o
-  annullare (`DELETE`). Composer spento con domanda pendente, "Ferma" sempre
-  disponibile. 404 → banner "domanda scaduta".
-- **Scoperta sul campo**: il tool `question` usa `string` **con** `options`
-  (scelta singola), non `multiselect`. Il parsing scartava le opzioni per i
-  campi string e la UI mostrava un testo libero: corretto in `FormParsing`
-  (`options` anche per `string`) e in `Forms.kt` (`FormControl.Choice` → chip
-  con `Role.RadioButton`).
-- **Comandi slash** (0.11.3: "annulla" sopprime la palette finché il testo non
-  cambia; prima si confrontava il draft e la lambda del foglio poteva essere
-  quella di una composizione precedente, quindi la tendina tornava su) (9 comandi su patchouli: init, review,
-  deepwork, reflect, loop, interview, implement, close, resume) con TTL 5 min;
-  digitando `/` si apre la **palette scorrevole** con filtro; l'invio di
-  `/nome argomenti` passa da `POST /api/session/{id}/command` (prima il testo
-  arrivava letterale al modello, il comando non veniva espanso).
-- Verificato sul Fold: pannello con chip, round-trip della risposta (il turno
-  riprende), annulla; build e 132 test JVM. Non verificato visivamente: palette
-  comandi e riordino dei tap sui chip (impossibile digitare via adb con la
-  finestra senza focus).
-
-## Icona 0.10.2 — "CC remote" monocroma
-
-Nuovo render (bianco su piastra nera, wordmark "remote" ricavato nel bianco).
-Rigenerata da `tools/icon/icon-source.png` con lo stesso flusso di 0.9.3:
-adattiva = marchio intero senza piastra al 66%, legacy = piastra, fondo
-`#030202`. **Cambio nel generatore**: il monochrome non è più "OC" nel font ma
-la **silhouette del marchio** (bianco pieno + alpha dalla luminanza), perché ora
-il lettering fa parte del marchio.
-
-## Tastiera: riallineamento passo-passo (0.10.3)
-
-Aprendo la tastiera la coda restava ferma e saltava alla fine (delay di 150 ms
-sull'ultimo passo dell'animazione IME): percepito come lag all'apertura, mentre
-alla chiusura il salto non si nota perché l'IME si ritira in un passo solo. Ora
-`LaunchedEffect(imeBottom)` riallinea **senza attesa** a ogni passo
-dell'animazione, così la lista resta incollata all'IME.
-
-Alla chiusura però restava jitter: `scrollToItem(ultimo)` + `scrollBy` fanno
-**due layout per frame** e, quando il contenuto entra nel viewport che cresce,
-il primo passo è inutile. Ora `scrollToBottom()` va su indice solo se l'ultimo
-item non è disegnato, poi fa **un solo** `scrollBy` con la distanza esatta; se
-il contenuto è già tutto visibile non fa nulla.
-
-## Allegati nel prompt (M8, 0.10.0)
-
-Specifica: `docs/UI-M8-ALLEGATI.md` (contratto API verificato sul server 2.1.4).
-
-- `POST …/prompt` accetta `files: [{uri, name?, description?}]`; `uri` inline
-  `data:<mime>;base64,…` o `file://…` (file sul server). Il messaggio salvato
-  espone `files[].data` (inline) + `mime` + `source{type}`.
-- **Limite misurato**: 4 MB inline ok, 6 MB → 500 (`Schema validation failed …
-  Prompt.Base64`). Il client comprime prima: immagini a 1600 px / JPEG 80,
-  secondo passo 1280 px / 70; non-immagini solo entro 4 MB.
-- Un allegato per messaggio, massimo 50 MB in ingresso. Galleria (Photo
-  Picker), fotocamera (FileProvider `${applicationId}.fileprovider`), file
-  generici (`OpenDocument`).
-- UI: graffetta nel composer, foglio "galleria/fotocamera/file/annulla", riga
-  allegato con miniatura/peso/X, errore chiudibile; nella bolla utente
-  miniature (tap → visore) e chip documento; pending con miniatura locale.
-- Stato: `UiState.attachment/attachmentPreparing/attachmentError`,
-  `attach(uri)` / `clearAttachment()` / `dismissAttachmentError()`;
-  `MessageUi.files: List<MessageFileUi>`.
-- File nuovi: `attachments/AttachmentRules.kt` (puro), `attachments/AttachmentPreparer.kt`,
-  `Attachments.kt` (UI), `net/PromptFile.kt`, `res/xml/file_paths.xml`.
-- Test: `AttachmentRulesTest`, `PromptFilesTest`, `MessageFilesTest` (15 casi).
-- **Non verificato su device**: flusso reale galleria/fotocamera/file e resa
-  delle miniature.
-
-## Auto-scroll della chat (0.9.2)
-
-Sintomo riportato: quando i messaggi di OpenCode si susseguono la chat non
-seguiva il fondo, con tastiera aperta o chiusa; bisognava trascinare a mano.
-
-Causa: si decideva "sono in fondo?" **dopo** la crescita del contenuto, con una
-tolleranza di 2 item (`lastVisible >= totalItemsCount - 2`). Se il contenuto
-cresceva mentre la lista si assestava — step fusi in un'unica bolla, resync,
-messaggi consecutivi — il confronto falliva e il flag `autoScrolled` restava
-`true` senza più scrollare.
-
-Ora c'è un follow **sticky** (`followBottom`), che non campiona mai la
-posizione dopo la crescita:
-
-- `DragInteraction.Start` dell'utente → follow spento;
-- lista che si ferma in fondo (`isScrollInProgress == false` + `isAtBottom()`)
-  → follow riacceso; "invia" lo riaccende comunque.
-- La firma del contenuto viene dalla riga in coda (`partsScrollSignal`), che
-  include già il turno live: conta testo e ragionamento, **non** l'output dei
-  tool (leggere un output lungo non deve trascinare la vista).
-- **`scrollToItem(ultimo)` non basta**: allinea il *top* dell'item al top del
-  viewport, quindi con una bolla di turno più alta dello schermo si finiva a
-  mostrare l'inizio e la coda restava sotto il bordo (verificato sul Fold: a
-  metà turno il visibile era indietro di ~4 tool). Ora `scrollToBottom()`
-  allinea e poi recupera lo scarto misurato (`viewportEndOffset` −
-  `afterContentPadding`) con `scrollBy`, così la fine del contenuto tocca il
-  fondo. Verificato sul Fold con turni da 8 tool: la card nuova resta
-  agganciata al fondo per tutta la durata; fine turno idem.
-- **Tastiera (0.9.5)**: aprendo l'IME il `Column` è paddato da `safeDrawing`
-  (che include l'IME), quindi il viewport si accorcia e la coda della chat
-  finiva sotto la tastiera. Ora un `LaunchedEffect(imeBottom)` riallinea al
-  fondo (delay 150 ms per far assestare il layout) **solo se** `followBottom`
-  è attivo: se l'utente sta leggendo più su non si muove nulla e alla chiusura
-  resta com'era.
-- `docs/UI-M6-LIVE.md` §4.4 aggiornato. Test: `ScrollSignalTest` (6 casi).
-
-## Cambio server dalla lista (0.6.4-m5)
-
-Non c'era modo di tornare alla schermata di accesso dalla lista sessioni (solo
-drawer OMO → "Disconnetti", troppo nascosto). Ora nell'header il vecchio eyebrow
-host/versione è una **pillola tappabile** (`ServerChip`) con pallino di stato e
-chevron: apre un `ModalBottomSheet` "Server" con host, URL, versione e i pulsanti
-`Annulla` / `Cambia server`. `Cambia server` = `AppViewModel.disconnect()`: ferma
-stream, servizio e notifiche, cancella le credenziali cifrate, e riporta al
-`SetupScreen` **precompilato** con l'ultimo URL/utente/password (nessuna nuova
-macchina a stati). Il drawer resta invariato, con la stessa copy sulle conseguenze.
-
-## Scoperte tecniche da non riscoprire
-
-- `/api/experimental/session/{id}/log?seq=N` **non** riproduce la storia: risponde `log.synced` con la seq corrente.
-- Eventi approvazione reali: `permission.asked` (porta l'intero request) e `permission.replied`.
-- La risposta alle approvazioni usa il campo **`decision`** (`once|always|reject`), non `reply`.
-- `GET /api/model` espone `settings.apiKey`: il client deve scartare `settings`.
-- Nel catalogo modelli `modelID` è la famiglia (duplicata), `id` è il riferimento concreto: chiavi di lista e `Model.Ref` usano `id`.
-- Un `opencode service stop` sul server di sviluppo **non tiene fermo** il servizio: riparte da solo in ~8 s.
-- Heartbeat SSE ogni ~10-12 s; watchdog client 30 s.
-
-## Contratto eventi del turno (M6)
-
-Catturato dal server 2.1.4 e messo in fixture (`app/src/test/resources/fixtures/sse_tool.jsonl`,
+Captured from server 2.1.4 and put in fixtures (`app/src/test/resources/fixtures/sse_tool.jsonl`,
 `sse_reasoning.jsonl`):
 
 - `session.reasoning.started {assistantMessageID, ordinal, native}` / `.delta {delta}` / `.ended {text}`
-- `session.tool.input.started {id, name}` / `.delta` / `.ended {text = JSON dell'input}`
+- `session.tool.input.started {id, name}` / `.delta` / `.ended {text = JSON of the input}`
 - `session.tool.called {id, input, executed}` / `.progress {metadata}`
 - `session.tool.success {content[], metadata{status,truncated,exit}, executed}` / `.failed`
 - `session.text.started {ordinal}` / `.delta {delta}` / `.ended {text}`
 
-Gotcha: **`executed` non significa "permesso di eseguire"** — su 170 tool part reali
-vale `false` anche con `state.status = completed`. L'esito vero è `state.status`
-(`completed` / `error`); `Denied` solo con messaggi espliciti ("Permission denied", …).
-Le part REST hanno `time.{created,ran,completed}`: la durata si calcola da lì.
+Gotcha: **`executed` does not mean "permission to execute"** — on 170 real tool parts
+it is `false` even with `state.status = completed`. The real outcome is `state.status`
+(`completed` / `error`); `Denied` only with explicit messages ("Permission denied", …).
+The REST parts have `time.{created,ran,completed}`: the duration is computed from there.
 
-## Thread aperti
+## Open threads
 
-1. ~~Ripristinare la password generata~~ → **decisione dell'utente: NON toccarla.**
-   La password di test del servizio resta quella impostata a mano: niente
-   `opencode service unset password`, niente restart per rigenerarla (24 ott 2026).
-2. ~~**git init + primo commit**~~ → fatto: repo privata `github.com/mirkotappini/opencode-remote`.
-3. ~~**Color i del pannello OMO**~~ → **risolto il 24 ott** (vedi sotto)
-4. ~~**Ricolorazione dell'icona** al petrolio `#8ED8C6`~~ → **decaduto** (24 ott 2026):
-   non interessa. La formulazione "dal blu elettrico" era comunque superata da M7,
-   che ha rigenerato l'icona dal render neon dell'utente (fondo `#121510`).
-5. Licenza OFL dei font da includere come nota nel repo.
+1. ~~Restore the generated password~~ → **user's decision: do not touch it.**
+   The service test password stays the one set by hand: no
+   `opencode service unset password`, no restart to regenerate it (Oct 24 2026).
+2. ~~**git init + first commit**~~ → done: private repo `github.com/mirkotappini/opencode-remote`.
+3. ~~**Colors of the OMO panel**~~ → **resolved Oct 24** (see below)
+4. Eventual **icon recoloring** from electric blue to petrol `#8ED8C6`.
+5. OFL font license to be included as a note in the repo.
 
-## Fix colori pannello OMO (patch locale, 24 ott)
+## OMO panel colors fix (local patch, Oct 24)
 
-Il plugin `oh-my-opencode-slim` (fino a 3.0.5) mappa il tema v2 con chiavi
-vecchie: `background.default`, `text.default`, `text.subdued`, `border.default`.
-L'host 2.1.4 espone `currentTokens()` con `background.base`, `text.base`,
-`text.muted`, `border.base` (e `text.feedback.*.base`), quindi sfondo, testo e
-bordo del pannello cadevano sui default opentui.
+The `oh-my-opencode-slim` plugin (up to 3.0.5) maps the v2 theme with old
+keys: `background.default`, `text.default`, `text.subdued`, `border.default`.
+The 2.1.4 host exposes `currentTokens()` with `background.base`, `text.base`,
+`text.muted`, `border.base` (and `text.feedback.*.base`), so the panel background, text, and
+border fell back to the opentui defaults.
 
-- Script idempotente: `build-host:~/.config/opencode/omo-theme-fix.py` (`-v` per il dettaglio).
-- Patcher riscrive `v2ThemeView()` in **tutte** le copie caricate dal plugin:
-  `~/.cache/opencode/packages/oh-my-opencode-slim*/…` **e**
-  `~/.cache/opencode/npm/<pkg>@latest/<hash>/…` (quest'ultima è quella davvero
-  in uso: lo ha rivelato `OMO_THEME_DEBUG=1`, che scrive la vista risolta in
+- Idempotent script: `build-host:~/.config/opencode/omo-theme-fix.py` (`-v` for the detail).
+- The patcher rewrites `v2ThemeView()` in **all** the copies loaded by the plugin:
+  `~/.cache/opencode/packages/oh-my-opencode-slim*/…` **and**
+  `~/.cache/opencode/npm/<pkg>@latest/<hash>/…` (the latter is the one actually
+  in use: revealed by `OMO_THEME_DEBUG=1`, which writes the resolved view to
   `/tmp/omo-theme-debug.json`).
-- I token sono oggetti colore (`toInts() -> [r,g,b,a]`), non stringhe: la patch li
-  converte in `#rrggbb` prima di passarli al renderer.
-- Vista risolta verificata: `#9d7cd8` accent, `#0a0a0a` bg, `#141414` raised,
+- The tokens are color objects (`toInts() -> [r,g,b,a]`), not strings: the patch
+  converts them to `#rrggbb` before passing them to the renderer.
+- Resolved view verified: `#9d7cd8` accent, `#0a0a0a` bg, `#141414` raised,
   `#484848` border, `#eeeeee` text, `#808080` muted, `#1e1e1e` hover,
   `#7fd88f` success, `#f5a742` warning.
-- **Da rilanciare dopo ogni update del plugin** (la dipendenza è `@latest`, quindi
-  un update reintroduce il bug): in `~/.zshrc` del server di sviluppo c'è la funzione
-  `opencode()` che esegue lo script prima del binario
+- **To re-run after every plugin update** (the dependency is `@latest`, so
+  an update reintroduces the bug): in the dev server's `~/.zshrc` there is the `opencode()`
+  function that runs the script before the binary
   (`command /opt/homebrew/bin/opencode`), backup `.zshrc.bak-omo-theme`.
-  Non usare `command -v opencode` dentro la funzione: in zsh ritorna il nome della
-  funzione e va in ricorsione.
+  Do not use `command -v opencode` inside the function: in zsh it returns the function name
+  and recurses.
 
-## Prossimo passo suggerito
+## Suggested next step
 
-Fatto il throttle (§4.4). Resta: nota licenza OFL, release con APK firmato.
-Ripresa: "riprendiamo opencode remote".
+Remaining: eventual icon recoloring (petrol `#8ED8C6`), OFL license note,
+delta publish throttling (§4.4 of `docs/UI-M6-LIVE.md`) if stutters are noticed.
+Pick up again: "let's resume opencode mobile".
