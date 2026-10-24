@@ -41,9 +41,12 @@ import androidx.compose.ui.unit.sp
  * ViewModel azzera `subagentFlash` dopo un paio di secondi.
  */
 
-/** Entrata 170 ms (fade + breve salita), uscita 120 ms (solo fade). */
+/**
+ * Entrata 170 ms (fade + breve salita), uscita 260 ms: la dissolvenza deve
+ * leggersi come tale, non come uno sfarfallio.
+ */
 private const val FLASH_IN_MS = 170
-private const val FLASH_OUT_MS = 120
+private const val FLASH_OUT_MS = 260
 
 /**
  * Mostra il bubble finché `flash` non è nullo. La chiave è il `token`: una

@@ -2460,7 +2460,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private const val CHAT_PUBLISH_INTERVAL_MS = 100L
 
         /** Quanto resta a schermo il nome del subagente appena attivato. */
-        private const val SUBAGENT_FLASH_MS = 2_800L
+        private const val SUBAGENT_FLASH_MS = 3_800L
 
         /** Memoria dei figli già flashati (bounded). */
         private const val MAX_FLASHED_CHILDREN = 200

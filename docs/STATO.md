@@ -3,7 +3,7 @@
 Generic Android client to control an **OpenCode 2.x** server from the phone
 (no personal preset: empty URL, user's credentials).
 Package `io.github.mirkotappini.opencoderemote`, app name **OC Remote**.
-Last delivered build: **0.13.0**, `versionCode 39`, sha256 `88f54e41…`.
+Last delivered build: **0.13.1**, `versionCode 40`, sha256 `bc6e8c69…`.
 
 ## Where
 
@@ -105,7 +105,7 @@ in the user bubble with a full-screen viewer, document chip otherwise.
 
 When the server creates or updates a **child session** (`session.created` /
 `session.updated` with `parentID`), the open chat shows a small chip in the
-top-right corner for 2.8 s: agent name in mono plus the child session title.
+top-right corner for 3.8 s, with a 260 ms fade-out: agent name in mono plus the child session title.
 `ServerEvent.ChildAgentStarted` carries the mother session as `sessionId` (the
 payload's `sessionID` is the child), so the existing per-session filter works.
 Duplicate updates for the same child are ignored (bounded set), and the tint is
