@@ -205,14 +205,19 @@ fun ChatScreen(
     val pendingForm = state.forms.firstOrNull()
 
     // M9 — palette dei comandi. Vive finché il draft è un comando in scrittura
-    // (inizia con "/" e non ha ancora spazi); "annulla" la nasconde per quel
-    // testo esatto, ricominciare a scrivere la riapre.
-    var paletteHiddenFor by remember(session?.id) { mutableStateOf<String?>(null) }
+    // (inizia con "/" e non ha ancora spazi). "annulla" la sopprime finché il
+    // testo non cambia: prima si confrontava il testo del draft, ma la lambda
+    // del foglio poteva essere quella di una composizione precedente e il
+    // confronto falliva (la tendina tornava su).
+    var paletteSuppressed by remember(session?.id) { mutableStateOf(false) }
     val commandQuery = commandQueryOf(state.draft)
     val paletteOpen = commandQuery != null &&
-        paletteHiddenFor != state.draft &&
+        !paletteSuppressed &&
         pendingForm == null &&
         !state.openReadOnly
+
+    // Ricominciare a scrivere riapre la palette.
+    LaunchedEffect(state.draft) { paletteSuppressed = false }
 
     LaunchedEffect(paletteOpen) {
         // TTL e "solo se serve" sono del ViewModel: qui si chiede l'elenco
@@ -617,10 +622,10 @@ fun ChatScreen(
                 error = state.commandsError,
                 query = commandQuery.orEmpty(),
                 onPick = { name ->
-                    paletteHiddenFor = null
+                    paletteSuppressed = true
                     onDraftChange("/$name ")
                 },
-                onDismiss = { paletteHiddenFor = state.draft },
+                onDismiss = { paletteSuppressed = true },
             )
         }
     }

@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.11.2**, `versionCode 32`, sha256 `4bb95d27…` (31 MB) (nome app **OC Remote**).
+Ultima build consegnata: **0.11.3**, `versionCode 33`, sha256 `294ea77a…` (31 MB) (nome app **OC Remote**).
 
 ## Dove
 
@@ -87,7 +87,9 @@ Specifica: `docs/UI-M9-DOMANDE-E-COMANDI.md`.
   campi string e la UI mostrava un testo libero: corretto in `FormParsing`
   (`options` anche per `string`) e in `Forms.kt` (`FormControl.Choice` → chip
   con `Role.RadioButton`).
-- **Comandi slash**: `GET /api/command` (9 comandi su patchouli: init, review,
+- **Comandi slash** (0.11.3: "annulla" sopprime la palette finché il testo non
+  cambia; prima si confrontava il draft e la lambda del foglio poteva essere
+  quella di una composizione precedente, quindi la tendina tornava su) (9 comandi su patchouli: init, review,
   deepwork, reflect, loop, interview, implement, close, resume) con TTL 5 min;
   digitando `/` si apre la **palette scorrevole** con filtro; l'invio di
   `/nome argomenti` passa da `POST /api/session/{id}/command` (prima il testo
