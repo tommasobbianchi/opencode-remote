@@ -6,11 +6,14 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
+import io.github.mirkotappini.opencoderemote.attachments.AttachmentPreparer
+import io.github.mirkotappini.opencoderemote.attachments.AttachmentResult
 import io.github.mirkotappini.opencoderemote.net.AgentUi
 import io.github.mirkotappini.opencoderemote.net.ApiException
 import io.github.mirkotappini.opencoderemote.net.ApprovalExpiredException
@@ -27,10 +30,12 @@ import io.github.mirkotappini.opencoderemote.net.EventStream
 import io.github.mirkotappini.opencoderemote.net.LiveMessage
 import io.github.mirkotappini.opencoderemote.net.LocationUi
 import io.github.mirkotappini.opencoderemote.net.McpUi
+import io.github.mirkotappini.opencoderemote.net.MessageFileUi
 import io.github.mirkotappini.opencoderemote.net.MessageUi
 import io.github.mirkotappini.opencoderemote.net.ModelUi
 import io.github.mirkotappini.opencoderemote.net.OpenChatState
 import io.github.mirkotappini.opencoderemote.net.OpenCodeApi
+import io.github.mirkotappini.opencoderemote.net.PromptFile
 import io.github.mirkotappini.opencoderemote.net.PublishGate
 import io.github.mirkotappini.opencoderemote.net.ReconnectPolicy
 import io.github.mirkotappini.opencoderemote.net.RetryState
@@ -108,6 +113,19 @@ sealed interface StreamState {
 }
 
 /**
+ * Allegato pronto da mostrare nel composer. `previewUri` resta l'URI locale
+ * scelto (content://) per la miniatura; il contenuto viaggia solo nell'invio.
+ */
+data class AttachmentUi(
+    val name: String,
+    val mime: String,
+    /** Byte originali dichiarati dal provider. */
+    val sizeBytes: Long,
+    val isImage: Boolean,
+    val previewUri: String,
+)
+
+/**
  * Unico stato UI.
  *
  * Le credenziali sono persistite cifrate (`TokenStore`, Keystore) per il
@@ -139,6 +157,10 @@ data class UiState(
     val events: List<String> = emptyList(),
     // M2: invio, streaming live e riconnessione.
     val draft: String = "",
+    // M8: un solo allegato per prompt, con i suoi stati di preparazione/errore.
+    val attachment: AttachmentUi? = null,
+    val attachmentPreparing: Boolean = false,
+    val attachmentError: String? = null,
     val running: Boolean = false,
     val sessionOutcome: String? = null,
     val chat: ChatStream = ChatStream(),
@@ -288,6 +310,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val seenEventIds = LinkedHashSet<String>()
 
     private var optimisticSeq = 0
+
+    /**
+     * Allegato già letto/compresso, tenuto accanto ad [AttachmentUi]: l'invio
+     * non rilegge il file e non lo ricomprime.
+     */
+    private var preparedAttachment: PromptFile? = null
+
+    /** Preparazione in corso: annullabile con `clearAttachment()`. */
+    private var attachJob: Job? = null
 
     /**
      * §4.4: i delta arrivano a raffica; lo stato ridotto è sempre completo ma
@@ -465,6 +496,81 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onDraftChange(value: String) = _state.update { it.copy(draft = value) }
 
+    // --- M8: allegati -------------------------------------------------------
+
+    /**
+     * Prepara l'allegato scelto (lettura, ridimensionamento, cap) e lo espone
+     * nello stato. Un solo allegato per messaggio: il precedente viene sostituito.
+     */
+    fun attach(uri: Uri) {
+        attachJob?.cancel()
+        preparedAttachment = null
+        _state.update {
+            it.copy(
+                attachment = null,
+                attachmentPreparing = true,
+                attachmentError = null,
+            )
+        }
+        val preparer = AttachmentPreparer(getApplication())
+        attachJob = viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { preparer.prepare(uri) }
+            when (result) {
+                is AttachmentResult.Ok -> {
+                    preparedAttachment = result.file
+                    _state.update {
+                        it.copy(
+                            attachment = result.ui,
+                            attachmentPreparing = false,
+                            attachmentError = null,
+                        )
+                    }
+                }
+
+                AttachmentResult.TooLarge ->
+                    failAttachment("file troppo grande: massimo 50 MB")
+
+                AttachmentResult.NotReadable ->
+                    failAttachment("non riesco a leggere il file")
+
+                is AttachmentResult.TooLargeAfterCompression -> failAttachment(
+                    if (result.isImage) {
+                        "immagine troppo grande: massimo 4 MB dopo la compressione"
+                    } else {
+                        "il server accetta fino a 4 MB per i file non immagine"
+                    },
+                )
+            }
+        }
+    }
+
+    /** Rimuove allegato ed errore; annulla anche una preparazione in corso. */
+    fun clearAttachment() {
+        attachJob?.cancel()
+        attachJob = null
+        preparedAttachment = null
+        _state.update {
+            it.copy(
+                attachment = null,
+                attachmentPreparing = false,
+                attachmentError = null,
+            )
+        }
+    }
+
+    fun dismissAttachmentError() = _state.update { it.copy(attachmentError = null) }
+
+    private fun failAttachment(message: String) {
+        preparedAttachment = null
+        _state.update {
+            it.copy(
+                attachment = null,
+                attachmentPreparing = false,
+                attachmentError = message,
+            )
+        }
+    }
+
     fun clearError() = _state.update { it.copy(error = null) }
 
     /** Connessione + `GET /api/info` + `GET /api/session`, poi stream e lista. */
@@ -603,6 +709,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         stopApprovalService()
         tokenStore.clear()
         unregisterNetworkCallback()
+        attachJob?.cancel()
+        attachJob = null
+        preparedAttachment = null
         networkAbsent = false
         retryState = RetryTransitions.clear()
         api = null
@@ -624,6 +733,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 error = null,
                 events = emptyList(),
                 draft = "",
+                attachment = null,
+                attachmentPreparing = false,
+                attachmentError = null,
                 running = false,
                 sessionOutcome = null,
                 chat = ChatStream(),
@@ -1406,7 +1518,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         flushChatNow()
         val session = _state.value.openSession
         val text = _state.value.draft.trim()
-        if (client == null || session == null || text.isEmpty()) return
+        val attachment = preparedAttachment
+        if (client == null || session == null || (text.isEmpty() && attachment == null)) return
+        val sentAttachment = _state.value.attachment
 
         val localId = "local-${++optimisticSeq}"
         val now = System.currentTimeMillis()
@@ -1420,19 +1534,40 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     text = text,
                     createdAt = now,
                     pending = true,
+                    // Miniatura locale immediata: il server restituirà il
+                    // `data` base64 al resync, non serve aspettarlo.
+                    files = listOfNotNull(
+                        sentAttachment?.let { attachment ->
+                            MessageFileUi(
+                                name = attachment.name,
+                                mime = attachment.mime,
+                                uri = attachment.previewUri,
+                            )
+                        },
+                    ),
                 ),
             )
         }
 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
-                runCatching { client.prompt(session.id, text, delivery = "steer") }
+                runCatching {
+                    client.prompt(
+                        sessionId = session.id,
+                        text = text,
+                        delivery = "steer",
+                        files = listOfNotNull(attachment),
+                    )
+                }
             }
             result
                 .onSuccess { serverId ->
                     // I delta trattenuti potrebbero contenere ancora il
                     // messaggio ottimistico: si pubblicano prima di rinominarlo.
                     flushChatNow()
+                    // Solo se è ancora lo stesso allegato: uno scelto nel
+                    // frattempo non va perso.
+                    if (preparedAttachment === attachment) preparedAttachment = null
                     _state.update { current ->
                         val serverMessageId = serverId?.takeIf { it.isNotBlank() }
                         val updated = if (serverMessageId == null) {
@@ -1449,7 +1584,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                             }.distinctBy { it.id }
                         }
-                        current.copy(messages = updated)
+                        val sameAttachment = sentAttachment != null &&
+                            current.attachment?.previewUri == sentAttachment.previewUri
+                        current.copy(
+                            messages = updated,
+                            attachment = if (sameAttachment) null else current.attachment,
+                            attachmentPreparing = if (sameAttachment) {
+                                false
+                            } else {
+                                current.attachmentPreparing
+                            },
+                        )
                     }
                 }
                 .onFailure { error ->

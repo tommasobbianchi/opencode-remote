@@ -73,6 +73,25 @@ data class SessionDto(
 )
 
 @Serializable
+data class MessageFileSourceDto(
+    val type: String? = null,
+    val uri: String? = null,
+)
+
+/**
+ * Allegato di un messaggio salvato. Gli inline portano `data` (base64), quelli
+ * da percorso server portano `source.type = "uri"` e `source.uri`.
+ */
+@Serializable
+data class MessageFileDto(
+    val name: String? = null,
+    val mime: String? = null,
+    val description: String? = null,
+    val data: String? = null,
+    val source: MessageFileSourceDto? = null,
+)
+
+@Serializable
 data class MessageDto(
     val id: String = "",
     val type: String = "",
@@ -84,6 +103,8 @@ data class MessageDto(
     val outcome: String? = null,
     val finish: String? = null,
     val cost: Double? = null,
+    /** Allegati del messaggio: assenti nei messaggi precedenti a M8. */
+    val files: List<MessageFileDto>? = null,
 )
 
 @Serializable
@@ -226,6 +247,20 @@ data class SessionUi(
     val isActive: Boolean = false,
 )
 
+/**
+ * Allegato normalizzato di un messaggio utente. `dataBase64` è il contenuto
+ * inline, `uri` la sorgente `file://…` lato server: almeno uno dei due può
+ * mancare, e in quel caso la UI mostra solo il chip con il nome.
+ */
+@Serializable
+data class MessageFileUi(
+    val name: String? = null,
+    val mime: String? = null,
+    val description: String? = null,
+    val dataBase64: String? = null,
+    val uri: String? = null,
+)
+
 data class MessageUi(
     val id: String,
     val role: Role,
@@ -239,6 +274,8 @@ data class MessageUi(
     val pending: Boolean = false,
     /** Part ordinate per `order`; è la fonte di verità del renderer del turno. */
     val parts: List<TurnPartUi> = emptyList(),
+    /** Allegati del messaggio (M8); vuoto per i messaggi senza file. */
+    val files: List<MessageFileUi> = emptyList(),
 )
 
 data class SessionsPage(
@@ -330,6 +367,7 @@ object ApiParsing {
                 role = Role.User,
                 text = dto.text.orEmpty(),
                 createdAt = createdAt,
+                files = dto.files.orEmpty().map(::normalizeMessageFile),
             )
 
             "assistant" -> {
@@ -413,6 +451,21 @@ object ApiParsing {
             )
         }
     }
+
+    /**
+     * Un file è inline (`data`) oppure riferito per `uri` lato server. I campi
+     * sconosciuti sono già ignorati dal `Json` del parser.
+     */
+    fun normalizeMessageFile(dto: MessageFileDto): MessageFileUi = MessageFileUi(
+        name = dto.name?.takeIf { it.isNotBlank() },
+        mime = dto.mime?.takeIf { it.isNotBlank() },
+        description = dto.description?.takeIf { it.isNotBlank() },
+        dataBase64 = dto.data?.takeIf { it.isNotBlank() },
+        uri = dto.source
+            ?.takeIf { it.type == "uri" }
+            ?.uri
+            ?.takeIf { it.isNotBlank() },
+    )
 
     /** Conserva l'indice originale: `order` al resync è l'indice in `content[]`. */
     private fun parsePartsIndexed(content: JsonElement?): List<Pair<Int, PartDto>> {

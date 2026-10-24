@@ -4,7 +4,11 @@ import android.animation.ValueAnimator
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -98,6 +102,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import io.github.mirkotappini.opencoderemote.net.AssistantTurnUi
 import io.github.mirkotappini.opencoderemote.net.MessageUi
 import io.github.mirkotappini.opencoderemote.net.PartPhase
@@ -107,6 +112,7 @@ import io.github.mirkotappini.opencoderemote.net.Role as MessageRole
 import io.github.mirkotappini.opencoderemote.net.TextPartUi
 import io.github.mirkotappini.opencoderemote.net.ToolPartUi
 import io.github.mirkotappini.opencoderemote.net.TurnPartUi
+import java.io.File
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
@@ -135,6 +141,9 @@ fun ChatScreen(
     onDraftChange: (String) -> Unit,
     onSend: () -> Unit,
     onInterrupt: () -> Unit,
+    onAttachFile: (Uri) -> Unit,
+    onClearAttachment: () -> Unit,
+    onDismissAttachmentError: () -> Unit,
     onOpenDrawer: () -> Unit,
     onReplyApproval: (id: String, decision: String, message: String?) -> Unit = { _, _, _ -> },
     onRefreshApprovals: () -> Unit = {},
@@ -174,6 +183,32 @@ fun ChatScreen(
     }
     val totalRows = rows.size + (if (state.hasMore) 1 else 0)
     var detailRequest by remember(session?.id) { mutableStateOf<DetailRequest?>(null) }
+
+    // M8 — allegati. Photo Picker e OpenDocument non richiedono permessi; la
+    // fotocamera scrive su un URI FileProvider in cacheDir, quindi l'app non
+    // chiede nulla a runtime e non tiene copie dei file.
+    val context = LocalContext.current
+    var attachSheetOpen by remember(session?.id) { mutableStateOf(false) }
+    // URI della foto in corso: sopravvive alla ricreazione dell'activity mentre
+    // l'app fotocamera è in primo piano.
+    var cameraTarget by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var viewerRequest by remember(session?.id) { mutableStateOf<ImageViewerRequest?>(null) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> if (uri != null) onAttachFile(uri) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture(),
+    ) { saved ->
+        val target = cameraTarget
+        cameraTarget = null
+        if (saved && target != null) onAttachFile(target)
+    }
+
+    val documentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) onAttachFile(uri) }
 
     // Auto-scroll agganciato al contenuto del turno, mai alla crescita
     // dell'output di un tool (§4.4). Il throttle è dato da conflate + delay.
@@ -423,6 +458,7 @@ fun ChatScreen(
                                             bubbleMax = bubbleMax,
                                             running = state.running,
                                             onOpenDetail = { detailRequest = it },
+                                            onOpenImage = { viewerRequest = it },
                                         )
                                     }
                                 }
@@ -464,6 +500,12 @@ fun ChatScreen(
                     onDraftChange = onDraftChange,
                     connected = state.isConnected,
                     running = state.running,
+                    attachment = state.attachment,
+                    attachmentPreparing = state.attachmentPreparing,
+                    attachmentError = state.attachmentError,
+                    onPickAttachment = { attachSheetOpen = true },
+                    onClearAttachment = onClearAttachment,
+                    onDismissAttachmentError = onDismissAttachmentError,
                     onSend = {
                         followBottom = true
                         onSend()
@@ -479,6 +521,43 @@ fun ChatScreen(
             TurnDetailSheet(
                 request = request,
                 onDismiss = { detailRequest = null },
+            )
+        }
+
+        // Foglio degli allegati: si chiude prima di lanciare la lancetta, così
+        // il picker di sistema non compare sopra il foglio.
+        if (attachSheetOpen) {
+            AttachSheet(
+                onDismiss = { attachSheetOpen = false },
+                onPick = { target ->
+                    attachSheetOpen = false
+                    when (target) {
+                        AttachTarget.Gallery -> galleryLauncher.launch(
+                            PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+
+                        AttachTarget.Camera -> {
+                            val uri = cameraTargetUri(context)
+                            if (uri != null) {
+                                cameraTarget = uri
+                                cameraLauncher.launch(uri)
+                            }
+                        }
+
+                        AttachTarget.Document -> documentLauncher.launch(arrayOf("*/*"))
+                    }
+                },
+            )
+        }
+
+        // Immagine a schermo intero: una sola finestra per tutta la chat, così
+        // non sparisce se la bolla esce dal viewport.
+        viewerRequest?.let { request ->
+            ImageViewer(
+                request = request,
+                onDismiss = { viewerRequest = null },
             )
         }
     }
@@ -677,6 +756,12 @@ private fun Composer(
     onDraftChange: (String) -> Unit,
     connected: Boolean,
     running: Boolean,
+    attachment: AttachmentUi?,
+    attachmentPreparing: Boolean,
+    attachmentError: String?,
+    onPickAttachment: () -> Unit,
+    onClearAttachment: () -> Unit,
+    onDismissAttachmentError: () -> Unit,
     onSend: () -> Unit,
     onInterrupt: () -> Unit,
 ) {
@@ -696,69 +781,112 @@ private fun Composer(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.TopCenter,
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .widthIn(max = Layout.chatMaxWidth)
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(18.dp),
-                        color = oc.formField,
-                        border = BorderStroke(
-                            1.dp,
-                            if (connected) oc.border else oc.border.copy(alpha = 0.5f),
-                        ),
+                    // Riga allegato (o stato/errore): sopra il campo, dentro la
+                    // stessa colonna così non balla rispetto al composer.
+                    AttachmentRow(
+                        attachment = attachment,
+                        preparing = attachmentPreparing,
+                        error = attachmentError,
+                        onClear = onClearAttachment,
+                        onDismissError = onDismissAttachmentError,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        BasicTextField(
-                            value = draft,
-                            onValueChange = onDraftChange,
-                            enabled = connected,
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                color = oc.text,
+                        AttachButton(
+                            enabled = connected && !attachmentPreparing,
+                            onClick = onPickAttachment,
+                        )
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(18.dp),
+                            color = oc.formField,
+                            border = BorderStroke(
+                                1.dp,
+                                if (connected) oc.border else oc.border.copy(alpha = 0.5f),
                             ),
-                            cursorBrush = SolidColor(oc.interactive),
-                            maxLines = 5,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-                            modifier = Modifier.fillMaxWidth(),
-                            decorationBox = { innerTextField ->
-                                Box(
-                                    modifier = Modifier
-                                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                                        .heightIn(min = 24.dp),
-                                ) {
-                                    if (draft.isEmpty()) {
-                                        Text(
-                                            text = if (connected) {
-                                                "Scrivi un messaggio…"
-                                            } else {
-                                                "Non connesso"
-                                            },
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            color = scheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                        )
+                        ) {
+                            BasicTextField(
+                                value = draft,
+                                onValueChange = onDraftChange,
+                                enabled = connected,
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    color = oc.text,
+                                ),
+                                cursorBrush = SolidColor(oc.interactive),
+                                maxLines = 5,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+                                modifier = Modifier.fillMaxWidth(),
+                                decorationBox = { innerTextField ->
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                                            .heightIn(min = 24.dp),
+                                    ) {
+                                        if (draft.isEmpty()) {
+                                            Text(
+                                                text = if (connected) {
+                                                    "Scrivi un messaggio…"
+                                                } else {
+                                                    "Non connesso"
+                                                },
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = scheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                            )
+                                        }
+                                        innerTextField()
                                     }
-                                    innerTextField()
-                                }
-                            },
-                        )
-                    }
+                                },
+                            )
+                        }
 
-                    if (running) {
-                        StopButton(onClick = onInterrupt)
-                    } else {
-                        SendButton(
-                            enabled = connected && draft.isNotBlank(),
-                            onClick = onSend,
-                        )
+                        if (running) {
+                            StopButton(onClick = onInterrupt)
+                        } else {
+                            SendButton(
+                                // Il prompt parte anche con il solo allegato.
+                                enabled = connected && (draft.isNotBlank() || attachment != null),
+                                onClick = onSend,
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * Graffetta del composer: 48 dp, `mutedText`, spenta se non c'è connessione o
+ * mentre un allegato è in preparazione (M8 §4.1).
+ */
+@Composable
+private fun AttachButton(enabled: Boolean, onClick: () -> Unit) {
+    val oc = OpenColors.current
+    val tint = if (enabled) oc.mutedText else oc.mutedText.copy(alpha = 0.4f)
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .clickable(
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .semantics { contentDescription = "Allega un file" },
+        contentAlignment = Alignment.Center,
+    ) {
+        GlyphPaperclip(size = 21.dp, color = tint)
     }
 }
 
@@ -1527,6 +1655,26 @@ private fun copyToClipboard(context: Context, label: String, text: String) {
     clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
 }
 
+/**
+ * URI `FileProvider` per una nuova foto: il file nasce in `cacheDir/camera` e lo
+ * scrive l'app fotocamera di sistema, che riceve il permesso di scrittura con
+ * l'intent (`TakePicture`). Nessun permesso runtime, nessuna copia in galleria.
+ *
+ * Prima dello scatto si buttano le foto di oltre un giorno: la cartella di
+ * cache non cresce senza limite e l'app non conserva nulla di utile.
+ */
+private fun cameraTargetUri(context: Context): Uri? = runCatching {
+    val dir = File(context.cacheDir, "camera").apply { mkdirs() }
+    val cutoff = System.currentTimeMillis() - 24L * 60L * 60L * 1000L
+    runCatching {
+        dir.listFiles()?.forEach { old ->
+            if (old.isFile && old.lastModified() < cutoff) old.delete()
+        }
+    }
+    val file = File.createTempFile("foto-", ".jpg", dir)
+    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+}.getOrNull()
+
 @Composable
 private fun LoadOlderControl(
     loading: Boolean,
@@ -1580,14 +1728,21 @@ private fun MessageRow(
     bubbleMax: Dp,
     running: Boolean,
     onOpenDetail: (DetailRequest) -> Unit,
+    onOpenImage: (ImageViewerRequest) -> Unit,
 ) {
     when (message.role) {
-        MessageRole.User -> UserMessage(message, bubbleMax)
+        MessageRole.User -> UserMessage(
+            message = message,
+            bubbleMax = bubbleMax,
+            onOpenImage = onOpenImage,
+        )
+
         MessageRole.Assistant -> AssistantTurn(
             turn = message.asTurn(running),
             bubbleMax = bubbleMax,
             onOpenDetail = onOpenDetail,
         )
+
         MessageRole.Meta -> MetaDivider(message.metaLabel ?: "evento")
     }
 }
@@ -1787,7 +1942,11 @@ private fun MessageUi.asTurn(sessionRunning: Boolean): AssistantTurnUi {
 }
 
 @Composable
-private fun UserMessage(message: MessageUi, bubbleMax: Dp) {
+private fun UserMessage(
+    message: MessageUi,
+    bubbleMax: Dp,
+    onOpenImage: (ImageViewerRequest) -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     val oc = OpenColors.current
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1802,13 +1961,26 @@ private fun UserMessage(message: MessageUi, bubbleMax: Dp) {
                 shape = UserBubbleShape,
                 border = BorderStroke(1.dp, oc.border),
             ) {
-                Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    SelectionContainer {
-                        Text(
-                            text = message.text.ifBlank { "…" },
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // Un messaggio con il solo allegato non mostra il "…":
+                    // il testo c'è solo se c'è qualcosa da leggere (M8 §4.2).
+                    if (message.text.isNotBlank() || message.files.isEmpty()) {
+                        SelectionContainer {
+                            Text(
+                                text = message.text.ifBlank { "…" },
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
                     }
+                    MessageAttachments(
+                        messageId = message.id,
+                        files = message.files,
+                        pending = message.pending,
+                        onOpenImage = onOpenImage,
+                    )
                 }
             }
         }

@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.9.5**, `versionCode 24`, sha256 `6971d7a1…` (30,9 MB) (nome app **OC Remote**).
+Ultima build consegnata: **0.10.0**, `versionCode 25`, sha256 `09a499ae…` (31 MB) (nome app **OC Remote**).
 
 ## Dove
 
@@ -26,7 +26,7 @@ Ultima build consegnata: **0.9.5**, `versionCode 24`, sha256 `6971d7a1…` (30,9
 - **M6** vista turno live: ragionamento con durata, card tool con comando/output/stato/exit,
   testo in streaming, step consecutivi in un'unica bolla — fatto (spec in `docs/UI-M6-LIVE.md`)
 
-Test: **94 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
+Test: **109 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
 
 ## Throttle di pubblicazione dei delta (0.9.1)
 
@@ -70,6 +70,31 @@ Nuovo render fornito dall'utente: "OC" glossy (O giallo, C viola) con wordmark
   basso di luminanza della cornice (`dark_background`), non dalla media: il glow
   giallo/viola trascinava la media su un marrone `#302219`.
 - Anteprima rigenerata: `dist/icon-preview-0.9.3.png` (fuori dal repo).
+
+## Allegati nel prompt (M8, 0.10.0)
+
+Specifica: `docs/UI-M8-ALLEGATI.md` (contratto API verificato sul server 2.1.4).
+
+- `POST …/prompt` accetta `files: [{uri, name?, description?}]`; `uri` inline
+  `data:<mime>;base64,…` o `file://…` (file sul server). Il messaggio salvato
+  espone `files[].data` (inline) + `mime` + `source{type}`.
+- **Limite misurato**: 4 MB inline ok, 6 MB → 500 (`Schema validation failed …
+  Prompt.Base64`). Il client comprime prima: immagini a 1600 px / JPEG 80,
+  secondo passo 1280 px / 70; non-immagini solo entro 4 MB.
+- Un allegato per messaggio, massimo 50 MB in ingresso. Galleria (Photo
+  Picker), fotocamera (FileProvider `${applicationId}.fileprovider`), file
+  generici (`OpenDocument`).
+- UI: graffetta nel composer, foglio "galleria/fotocamera/file/annulla", riga
+  allegato con miniatura/peso/X, errore chiudibile; nella bolla utente
+  miniature (tap → visore) e chip documento; pending con miniatura locale.
+- Stato: `UiState.attachment/attachmentPreparing/attachmentError`,
+  `attach(uri)` / `clearAttachment()` / `dismissAttachmentError()`;
+  `MessageUi.files: List<MessageFileUi>`.
+- File nuovi: `attachments/AttachmentRules.kt` (puro), `attachments/AttachmentPreparer.kt`,
+  `Attachments.kt` (UI), `net/PromptFile.kt`, `res/xml/file_paths.xml`.
+- Test: `AttachmentRulesTest`, `PromptFilesTest`, `MessageFilesTest` (15 casi).
+- **Non verificato su device**: flusso reale galleria/fotocamera/file e resa
+  delle miniature.
 
 ## Auto-scroll della chat (0.9.2)
 

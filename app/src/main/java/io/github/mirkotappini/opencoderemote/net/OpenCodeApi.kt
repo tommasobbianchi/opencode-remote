@@ -19,10 +19,17 @@ data class ApiInfo(
     val pid: Long = -1,
 )
 
+/**
+ * Corpo del prompt. Il DTO è `internal` per i test JVM; con
+ * `encodeDefaults = false` e `explicitNulls = false` un campo nullo o al
+ * default non viene serializzato, così un prompt senza allegati resta
+ * identico a prima.
+ */
 @Serializable
-private data class PromptBody(
+internal data class PromptBody(
     val text: String,
     val delivery: String = "steer",
+    val files: List<PromptFile>? = null,
 )
 
 @Serializable
@@ -328,9 +335,16 @@ class OpenCodeApi(
     /**
      * `POST /api/session/{id}/prompt` — l'ack 200 non è l'output: il testo arriva
      * solo dalla SSE. Restituisce l'id del messaggio utente confermato, se presente.
+     *
+     * [files] viaggia inline nel corpo; senza allegati il campo resta assente.
      */
     @Throws(IOException::class)
-    fun prompt(sessionId: String, text: String, delivery: String = "steer"): String? {
+    fun prompt(
+        sessionId: String,
+        text: String,
+        delivery: String = "steer",
+        files: List<PromptFile> = emptyList(),
+    ): String? {
         val url = url("/api/session")
             .newBuilder()
             .addPathSegment(sessionId)
@@ -338,7 +352,11 @@ class OpenCodeApi(
             .build()
         val body = json.encodeToString(
             PromptBody.serializer(),
-            PromptBody(text = text, delivery = delivery),
+            PromptBody(
+                text = text,
+                delivery = delivery,
+                files = files.takeIf { it.isNotEmpty() },
+            ),
         ).toRequestBody(JSON)
         val response = post(url, body)
         return runCatching {
