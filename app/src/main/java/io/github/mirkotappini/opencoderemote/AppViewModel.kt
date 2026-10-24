@@ -130,6 +130,17 @@ data class AttachmentUi(
 )
 
 /**
+ * Subagente appena attivato, mostrato per pochi secondi sopra la chat.
+ * `token` cambia a ogni attivazione: la UI lo usa come chiave per riavviare
+ * l'animazione anche quando l'agente è lo stesso.
+ */
+data class SubagentFlashUi(
+    val agent: String,
+    val title: String?,
+    val token: Long,
+)
+
+/**
  * Unico stato UI.
  *
  * Le credenziali sono persistite cifrate (`TokenStore`, Keystore) per il
@@ -161,6 +172,8 @@ data class UiState(
     val events: List<String> = emptyList(),
     // M2: invio, streaming live e riconnessione.
     val draft: String = "",
+    /** Subagente attivato di recente: la UI lo mostra per un paio di secondi. */
+    val subagentFlash: SubagentFlashUi? = null,
     // M8: un solo allegato per prompt, con i suoi stati di preparazione/errore.
     val attachment: AttachmentUi? = null,
     val attachmentPreparing: Boolean = false,
@@ -322,6 +335,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val seenEventIds = LinkedHashSet<String>()
 
     private var optimisticSeq = 0
+
+    /** Flash del subagente: un job alla volta, l'ultimo vince. */
+    private var flashJob: Job? = null
+    private var flashToken = 0L
+
+    /** Figli già "flashati": `session.updated` arriva di continuo sullo stesso. */
+    private val flashedChildren = LinkedHashSet<String>()
 
     /** Istante dell'ultimo `GET /api/command` riuscito: TTL del catalogo. */
     private var commandsLoadedAt = 0L
@@ -757,6 +777,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 error = null,
                 events = emptyList(),
                 draft = "",
+                subagentFlash = null,
                 attachment = null,
                 attachmentPreparing = false,
                 attachmentError = null,
@@ -1055,6 +1076,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun backToList() {
         olderCursor = null
         resetChatPublish()
+        flashJob?.cancel()
+        flashJob = null
+        flashedChildren.clear()
         _state.update {
             it.copy(
                 openSession = null,
@@ -2122,6 +2146,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             refreshApprovals()
         }
 
+        // Subagente attivato: la madre è la sessione aperta, il figlio arriva
+        // nell'evento. `session.updated` ripete lo stesso figlio: si filtra.
+        if (event is ServerEvent.ChildAgentStarted && openId != null &&
+            event.sessionId == openId
+        ) {
+            if (flashedChildren.add(event.childId)) {
+                if (flashedChildren.size > MAX_FLASHED_CHILDREN) {
+                    val iterator = flashedChildren.iterator()
+                    iterator.next()
+                    iterator.remove()
+                }
+                showSubagentFlash(event.agent, event.title)
+            }
+        }
+
         if (openId == null || event.sessionId != openId) return
 
         // §4.4: il reducer accumula sempre su base completa (pending even-
@@ -2216,6 +2255,25 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         chatFlushJob?.cancel()
         chatFlushJob = null
         chatGate.takePending()?.let { publishChat(it) }
+    }
+
+    /** Mostra il subagente per un paio di secondi, poi sparisce da solo. */
+    private fun showSubagentFlash(agent: String, title: String?) {
+        val token = ++flashToken
+        flashJob?.cancel()
+        _state.update {
+            it.copy(subagentFlash = SubagentFlashUi(agent = agent, title = title, token = token))
+        }
+        flashJob = viewModelScope.launch {
+            delay(SUBAGENT_FLASH_MS)
+            _state.update { current ->
+                if (current.subagentFlash?.token == token) {
+                    current.copy(subagentFlash = null)
+                } else {
+                    current
+                }
+            }
+        }
     }
 
     private fun updateSession(id: String, transform: (SessionUi) -> SessionUi) {
@@ -2400,5 +2458,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
          * 100 ms = 10 pubblicazioni/s invece di 30–60, senza scatti visibili.
          */
         private const val CHAT_PUBLISH_INTERVAL_MS = 100L
+
+        /** Quanto resta a schermo il nome del subagente appena attivato. */
+        private const val SUBAGENT_FLASH_MS = 2_800L
+
+        /** Memoria dei figli già flashati (bounded). */
+        private const val MAX_FLASHED_CHILDREN = 200
     }
 }

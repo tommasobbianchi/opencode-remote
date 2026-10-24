@@ -215,6 +215,21 @@ sealed interface ServerEvent {
         val formId: String,
     ) : ServerEvent
 
+    /**
+     * Un subagente è stato attivato: il server ha creato una sessione figlia
+     * (`session.created`) o l'ha aggiornata (`session.updated`).
+     *
+     * `sessionId` è la sessione **madre** — cioè quella aperta — così i filtri
+     * esistenti (`event.sessionId == openId`) funzionano senza casi speciali;
+     * il figlio arriva in [childId].
+     */
+    data class ChildAgentStarted(
+        override val sessionId: String,
+        val childId: String,
+        val agent: String,
+        val title: String?,
+    ) : ServerEvent
+
     data class Unknown(
         val type: String,
         override val sessionId: String?,
@@ -406,6 +421,25 @@ object EventParsing {
                     status = event.status,
                     message = event.message,
                 )
+            }
+
+            // Sessione figlia creata o aggiornata: se ha un `parentID` è un
+            // subagente attivato dalla sessione madre. `sessionID` qui è il
+            // figlio, quindi l'evento viene riportato sulla madre.
+            "session.created", "session.updated" -> {
+                val childId = payload?.string("sessionID")
+                val parentId = payload?.string("parentID")
+                val agent = payload?.string("agent")
+                if (childId.isNullOrBlank() || parentId.isNullOrBlank() || agent.isNullOrBlank()) {
+                    ServerEvent.Unknown(type, payload?.string("parentID"))
+                } else {
+                    ServerEvent.ChildAgentStarted(
+                        sessionId = parentId,
+                        childId = childId,
+                        agent = agent,
+                        title = payload?.string("title")?.takeIf { it.isNotBlank() },
+                    )
+                }
             }
 
             "session.step.started" -> {

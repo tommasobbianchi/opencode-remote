@@ -3,7 +3,7 @@
 Generic Android client to control an **OpenCode 2.x** server from the phone
 (no personal preset: empty URL, user's credentials).
 Package `io.github.mirkotappini.opencoderemote`, app name **OC Remote**.
-Last delivered build: **0.12.4**, `versionCode 38`, sha256 `e2ec07f5…`.
+Last delivered build: **0.13.0**, `versionCode 39`, sha256 `88f54e41…`.
 
 ## Where
 
@@ -100,6 +100,25 @@ in the user bubble with a full-screen viewer, document chip otherwise.
   `GET /api/command` (TTL 5 min); picking one writes `/name ` in the field and
   sending goes through `POST …/command`. "Cancel" suppresses the palette until
   the draft changes.
+
+## Subagent flash (0.13.0)
+
+When the server creates or updates a **child session** (`session.created` /
+`session.updated` with `parentID`), the open chat shows a small chip in the
+top-right corner for 2.8 s: agent name in mono plus the child session title.
+`ServerEvent.ChildAgentStarted` carries the mother session as `sessionId` (the
+payload's `sessionID` is the child), so the existing per-session filter works.
+Duplicate updates for the same child are ignored (bounded set), and the tint is
+a stable FNV-1a hash of the agent name over five theme tokens, so `designer`
+and `fixer` look different on every device. Verified on the Fold: `fixer`
+(amber) and `designer` (purple) chips with their child titles.
+
+## Tool card without the command (0.13.0)
+
+The card shows status, tool name, duration, `exit N`, output and "show all ·
+N lines"; the command string is **not shown anywhere** (the detail sheet opened
+from the card carries only the output). `part.command` stays in the model for
+future use.
 
 ## OMO drawer gesture (0.12.4)
 

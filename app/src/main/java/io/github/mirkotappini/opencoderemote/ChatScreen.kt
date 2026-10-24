@@ -529,6 +529,16 @@ fun ChatScreen(
                             }
                         }
                     }
+
+                    // Subagente appena attivato: overlay in alto a destra,
+                    // dentro il contenuto della chat (non sposta nulla e resta
+                    // sotto a fogli e palette, che vivono più in alto).
+                    SubagentFlashOverlay(
+                        flash = state.subagentFlash,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 12.dp, end = 12.dp),
+                    )
                 }
             }
 
@@ -1418,7 +1428,11 @@ private fun ReasoningBlock(
     }
 }
 
-/** §2.2 — card del tool, sempre aperta, senza dump JSON. */
+/**
+ * §2.2 — card del tool, sempre aperta, senza dump JSON. Il comando non si
+ * mostra da nessuna parte: nella card è rumore accanto all'output e il foglio
+ * di dettaglio serve a leggere l'output per intero.
+ */
 @Composable
 private fun ToolCard(
     part: ToolPartUi,
@@ -1430,9 +1444,14 @@ private fun ToolCard(
     val status = toolPhaseUi(part)
     val duration = toolDurationLabel(part, now.value)
     val output = remember(part.output) { outputTail(part.output) }
-    val command = remember(part.command) { commandHead(part.command) }
     val denied = !part.executed || part.phase == PartPhase.Denied
-    val showAllLines = if (output.totalLines > 0) output.totalLines else command.totalLines
+    // L'unica azione della card conta le righe dell'output: senza output non
+    // c'è nulla da aprire, quindi niente riga (il comando non si mostra più).
+    val actionLabel = if (output.totalLines > 0) {
+        "show all · " + lineLabel(output.totalLines)
+    } else {
+        null
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val nameMax = maxWidth * 0.4f
@@ -1510,27 +1529,6 @@ private fun ToolCard(
                 }
             }
 
-            if (command.text.isNotBlank()) {
-                SelectionContainer {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        if (isShellTool(part.name)) {
-                            Text(
-                                text = "$ ",
-                                style = monoStyle(fontSize = 12.sp, lineHeight = 17.sp),
-                                color = oc.lineNumber,
-                            )
-                        }
-                        Text(
-                            text = command.text,
-                            style = monoStyle(fontSize = 12.sp, lineHeight = 17.sp),
-                            color = oc.text,
-                            maxLines = COMMAND_VISIBLE_LINES,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-
             if (denied) {
                 Text(
                     text = "not executed",
@@ -1556,39 +1554,37 @@ private fun ToolCard(
                         color = oc.lineNumber,
                     )
                 }
-                if (output.totalLines > 0 || command.truncated) {
-                    ShowAllRow(
-                        label = "show all · " + lineLabel(showAllLines),
-                        onClickLabel = "Show all output of " +
-                            part.name.ifBlank { "tool" },
-                        onClick = {
-                            onOpenDetail(
-                                DetailRequest(
-                                    title = "output · " + part.name.ifBlank { "tool" },
-                                    sections = buildList {
-                                        if (command.text.isNotBlank()) {
-                                            add(
-                                                DetailSection(
-                                                    label = "command",
-                                                    text = part.command.orEmpty(),
-                                                ),
-                                            )
-                                        }
-                                        part.output?.takeIf { it.isNotBlank() }?.let {
-                                            add(DetailSection(label = "output", text = it))
-                                        }
-                                    },
-                                ),
-                            )
-                        },
-                    )
-                }
+            }
+
+            // L'azione apre l'output per intero: la sezione "command" non
+            // esiste più nel foglio.
+            if (actionLabel != null) {
+                val name = part.name.ifBlank { "tool" }
+                ShowAllRow(
+                    label = actionLabel,
+                    onClickLabel = "Show all output of $name",
+                    onClick = {
+                        onOpenDetail(
+                            DetailRequest(
+                                title = "output · $name",
+                                sections = buildList {
+                                    part.output?.takeIf { it.isNotBlank() }?.let {
+                                        add(DetailSection(label = "output", text = it))
+                                    }
+                                },
+                            ),
+                        )
+                    },
+                )
             }
         }
     }
 }
 
-/** Riga "mostra tutto · N righe": target 48dp, testo interattivo (§2.2/§2.5). */
+/**
+ * Riga azione della card ("show all · N lines"): target 48dp, testo
+ * interattivo (§2.2/§2.5).
+ */
 @Composable
 private fun ShowAllRow(
     label: String,
@@ -2515,9 +2511,7 @@ private fun inlineMarkdown(text: String, oc: OpenPalette): AnnotatedString =
 
 private const val REASONING_VISIBLE_LINES = 14
 private const val REASONING_MAX_CHARS = 2_400
-private const val COMMAND_VISIBLE_LINES = 4
 private const val OUTPUT_VISIBLE_LINES = 6
-private const val LONG_COMMAND_CHARS = 200
 
 private data class LimitedText(
     val text: String,
@@ -2556,18 +2550,6 @@ private fun outputTail(output: String?): LimitedText {
     val lines = output.trimEnd().lines()
     val hidden = lines.size > OUTPUT_VISIBLE_LINES
     val visible = if (hidden) lines.takeLast(OUTPUT_VISIBLE_LINES) else lines
-    return LimitedText(visible.joinToString("\n"), lines.size, hidden)
-}
-
-private fun commandHead(command: String?): LimitedText {
-    if (command.isNullOrBlank()) return LimitedText("", 0, false)
-    val lines = command.trimEnd().lines()
-    val hidden = lines.size > COMMAND_VISIBLE_LINES || command.length > LONG_COMMAND_CHARS
-    val visible = if (lines.size > COMMAND_VISIBLE_LINES) {
-        lines.take(COMMAND_VISIBLE_LINES)
-    } else {
-        lines
-    }
     return LimitedText(visible.joinToString("\n"), lines.size, hidden)
 }
 
@@ -2613,26 +2595,6 @@ private fun toolDurationLabel(part: ToolPartUi, now: Long): String? {
 private fun isToolTerminal(phase: PartPhase): Boolean = when (phase) {
     PartPhase.Ok, PartPhase.Failed, PartPhase.Denied, PartPhase.Interrupted -> true
     PartPhase.Streaming, PartPhase.Running, PartPhase.Done -> false
-}
-
-private val shellToolNames = setOf(
-    "bash",
-    "shell",
-    "sh",
-    "zsh",
-    "exec",
-    "run",
-    "command",
-    "terminal",
-)
-
-/**
- * Il data layer espone `command` con il primo campo utile (`command`, `path`,
- * `pattern`…). Il prefisso `$` spetta ai tool di shell: si ricava dal nome.
- */
-private fun isShellTool(name: String): Boolean {
-    val normalized = name.lowercase(Locale.ROOT)
-    return normalized in shellToolNames || normalized.contains("bash")
 }
 
 private data class ToolStatusUi(
