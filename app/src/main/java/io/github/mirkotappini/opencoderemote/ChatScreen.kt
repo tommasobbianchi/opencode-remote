@@ -2633,15 +2633,21 @@ private fun rowScrollSignal(row: ChatRow?): String = when (row) {
 private suspend fun LazyListState.scrollToBottom() {
     val info = layoutInfo
     if (info.totalItemsCount == 0) return
-    scrollToItem(info.totalItemsCount - 1)
-    repeat(3) {
-        val current = layoutInfo
-        val last = current.visibleItemsInfo.lastOrNull() ?: return
-        val end = current.viewportEndOffset - current.afterContentPadding
-        val overshoot = last.offset + last.size - end
-        if (overshoot <= 0) return
-        scrollBy(overshoot.toFloat() + 1f)
+    val lastIndex = info.totalItemsCount - 1
+    val visible = info.visibleItemsInfo.lastOrNull()
+    if (visible == null || visible.index < lastIndex) {
+        // Ultimo item non disegnato (lista lontana dal fondo): ci si porta
+        // sull'indice, poi la misura qui sotto chiude il conto.
+        scrollToItem(lastIndex)
     }
+    // Un solo `scrollBy` con la distanza esatta: `scrollToItem` + correzione
+    // fanno due layout per frame e durante l'animazione della tastiera si
+    // vedono come jitter.
+    val after = layoutInfo
+    val last = after.visibleItemsInfo.lastOrNull() ?: return
+    val end = after.viewportEndOffset - after.afterContentPadding
+    val remaining = last.offset + last.size - end
+    if (remaining > 0) scrollBy(remaining.toFloat())
 }
 
 /** "Sei in fondo?" stretto: l'ultimo item deve essere visibile. */

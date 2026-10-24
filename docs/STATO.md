@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.10.3**, `versionCode 28`, sha256 `a9ba90fb…` (31 MB) (nome app **OC Remote**).
+Ultima build consegnata: **0.10.4**, `versionCode 29`, sha256 `a46f011b…` (31 MB) (nome app **OC Remote**).
 
 ## Dove
 
@@ -87,6 +87,12 @@ sull'ultimo passo dell'animazione IME): percepito come lag all'apertura, mentre
 alla chiusura il salto non si nota perché l'IME si ritira in un passo solo. Ora
 `LaunchedEffect(imeBottom)` riallinea **senza attesa** a ogni passo
 dell'animazione, così la lista resta incollata all'IME.
+
+Alla chiusura però restava jitter: `scrollToItem(ultimo)` + `scrollBy` fanno
+**due layout per frame** e, quando il contenuto entra nel viewport che cresce,
+il primo passo è inutile. Ora `scrollToBottom()` va su indice solo se l'ultimo
+item non è disegnato, poi fa **un solo** `scrollBy` con la distanza esatta; se
+il contenuto è già tutto visibile non fa nulla.
 
 ## Allegati nel prompt (M8, 0.10.0)
 
