@@ -42,11 +42,11 @@ import androidx.compose.ui.unit.sp
  */
 
 /**
- * Entrata 170 ms (fade + breve salita), uscita 260 ms: la dissolvenza deve
- * leggersi come tale, non come uno sfarfallio.
+ * Entrata 170 ms (fade + breve salita), uscita 400 ms: dissolvenza lenta,
+ * scelta dall'utente dopo averla provata a 260 ms.
  */
 private const val FLASH_IN_MS = 170
-private const val FLASH_OUT_MS = 260
+private const val FLASH_OUT_MS = 400
 
 /**
  * Mostra il bubble finché `flash` non è nullo. La chiave è il `token`: una
