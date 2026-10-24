@@ -168,3 +168,12 @@ fun splitEventLine(line: String): EventLineParts {
         payload = rest.substring(close + 1).trimStart(),
     )
 }
+
+/**
+ * Il draft contiene qualcosa che vale la pena inviare?
+ *
+ * Serve almeno una lettera o una cifra: spazi, punteggiatura e simboli da soli
+ * (per esempio "/" o "…") non sbloccano il pulsante di invio. Con un allegato
+ * l'invio resta possibile anche a testo vuoto (lo decide il chiamante).
+ */
+internal fun hasSendableText(text: String): Boolean = text.any { it.isLetterOrDigit() }

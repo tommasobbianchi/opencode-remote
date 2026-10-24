@@ -1701,7 +1701,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val session = _state.value.openSession
         val text = _state.value.draft.trim()
         val attachment = preparedAttachment
-        if (client == null || session == null || (text.isEmpty() && attachment == null)) return
+        if (client == null || session == null || (!hasSendableText(text) && attachment == null)) return
         val sentAttachment = _state.value.attachment
 
         val localId = "local-${++optimisticSeq}"

@@ -949,9 +949,10 @@ private fun Composer(
                             StopButton(onClick = onInterrupt)
                         } else {
                             SendButton(
-                                // Il prompt parte anche con il solo allegato.
+                                // Il prompt parte anche con il solo allegato;
+                                // senza allegato serve almeno una lettera o una cifra.
                                 enabled = writable &&
-                                    (draft.isNotBlank() || attachment != null),
+                                    (hasSendableText(draft) || attachment != null),
                                 onClick = onSend,
                             )
                         }
