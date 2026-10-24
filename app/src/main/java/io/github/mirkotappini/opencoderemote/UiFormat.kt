@@ -177,3 +177,13 @@ fun splitEventLine(line: String): EventLineParts {
  * l'invio resta possibile anche a testo vuoto (lo decide il chiamante).
  */
 internal fun hasSendableText(text: String): Boolean = text.any { it.isLetterOrDigit() }
+
+/**
+ * Il campo accetta questa modifica?
+ *
+ * Su un campo vuoto si rifiuta ciò che resta fatto solo di spazi: il tasto
+ * invio (o una spaziatura) non deve far crescere la pillola senza scrivere
+ * nulla. Con del testo dentro passa tutto, compreso il ritorno a capo.
+ */
+internal fun acceptDraftChange(current: String, next: String): Boolean =
+    !(next.isBlank() && current.isBlank())

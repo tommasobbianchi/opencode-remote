@@ -901,7 +901,13 @@ private fun Composer(
                             ) {
                                 BasicTextField(
                                     value = draft,
-                                    onValueChange = onDraftChange,
+                                    // Invio a campo vuoto: si ignora, invece di
+                                    // inserire un a capo che gonfia la pillola.
+                                    onValueChange = { next ->
+                                        if (acceptDraftChange(draft, next)) {
+                                            onDraftChange(next)
+                                        }
+                                    },
                                     enabled = writable,
                                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                                         color = oc.text,
