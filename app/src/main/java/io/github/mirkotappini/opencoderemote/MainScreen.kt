@@ -24,7 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -157,9 +156,10 @@ private fun ConnectedSurface(
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         ModalNavigationDrawer(
             drawerState = drawerState,
-            // A drawer chiuso il gesto Material sarebbe attivo su tutta la
-            // superficie: qui apre solo la striscia di bordo (sotto). Da aperto
-            // restano attivi swipe di chiusura, tap sullo scrim e back.
+            // A drawer chiuso il gesto Material sarebbe attivo anche lui: lo
+            // spegniamo e lasciamo fare a `drawerOpenSwipe`, che riconosce lo
+            // swipe senza rubare tap e scroll. Da aperto restano attivi swipe
+            // di chiusura, tap sullo scrim e back.
             gesturesEnabled = drawerState.targetValue == DrawerValue.Open,
             drawerContent = {
                 OmoDrawerSheet(
@@ -191,8 +191,13 @@ private fun ConnectedSurface(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .drawerEdgeSwipe(
-                            enabled = !drawerState.isOpen,
+                        .drawerOpenSwipe(
+                            // Con una domanda aperta il gesto resta spento: la
+                            // risposta è il compito del momento e il pannello
+                            // non deve finire sotto il drawer. L'icona in top
+                            // bar resta la via per aprire.
+                            enabled = drawerState.targetValue == DrawerValue.Closed &&
+                                !(state.openSession != null && state.forms.isNotEmpty()),
                             onOpen = openDrawer,
                         ),
                 ) {
@@ -245,43 +250,90 @@ private fun ConnectedSurface(
 }
 
 /**
- * Swipe dal bordo destro verso sinistra per aprire il drawer.
+ * Swipe orizzontale verso sinistra, su tutta la superficie, per aprire il
+ * drawer.
  *
- * Solo gli ultimi 22 dp: abbastanza per il gesto, troppo poco per competere con
- * il back di sistema, che nella navigazione a gesti ha comunque la precedenza.
- * L'icona in top bar resta la via affidabile. Il rilevatore è sul contenitore
- * (non su una striscia sopra la UI) così tap e scroll dei figli non vengono
- * intercettati: si attiva solo per un trascinamento orizzontale che parte
- * dentro il bordo.
+ * Prima il gesto valeva solo negli ultimi 22 dp dal bordo destro: preciso, ma
+ * facile da mancare al primo colpo, soprattutto a chat aperta. Ora si può
+ * partire da qualsiasi punto della lista o della chat; a tenere separati gli
+ * altri gesti è il riconoscimento, non la zona di partenza:
+ *
+ * - si resta in attesa del touch slop: tap, click e long press arrivano ai
+ *   figli senza nessun evento consumato;
+ * - appena il movimento è verticale (o diagonale) si abbandona subito e senza
+ *   consumare nulla, quindi lo scroll della chat continua a funzionare;
+ * - si apre solo con uno spostamento orizzontale dominante verso sinistra
+ *   (|dx| > |dy| * 1.4) di almeno 48 dp complessivi; verso destra non scatta
+ *   mai;
+ * - il trascinamento deve iniziare subito: un dito fermo oltre il long press e
+ *   poi trascinato è una selezione di testo, non uno swipe;
+ * - due dita (pinch, zoom) non aprono niente.
+ *
+ * Il rilevatore sta sul contenitore (non su una striscia sopra la UI) e
+ * consuma solo l'evento che fa scattare l'apertura: a quel punto i figli hanno
+ * già annullato il proprio gesto. Le soglie in dp sono indipendenti dalla
+ * densità; slop e timeout del long press vengono dalla configurazione di
+ * sistema, quindi seguono le impostazioni di accessibilità del dispositivo.
  */
-private fun Modifier.drawerEdgeSwipe(
+private fun Modifier.drawerOpenSwipe(
     enabled: Boolean,
     onOpen: () -> Unit,
 ): Modifier = pointerInput(enabled) {
     if (!enabled) return@pointerInput
+
+    val trigger = 48.dp.toPx()
+    val slop = viewConfiguration.touchSlop
+    val holdTimeout = viewConfiguration.longPressTimeoutMillis
+
     awaitEachGesture {
-        val edgeWidth = 22.dp.toPx()
-        val trigger = 26.dp.toPx()
         val down = awaitFirstDown(
             requireUnconsumed = false,
             pass = PointerEventPass.Initial,
         )
-        if (down.position.x < size.width - edgeWidth) return@awaitEachGesture
+        // Uptime del primo movimento oltre lo slop: serve a distinguere uno
+        // swipe da un drag iniziato dopo una pressione prolungata.
+        var movedAt = -1L
 
-        var totalX = 0f
-        var totalY = 0f
         while (true) {
             val event = awaitPointerEvent(PointerEventPass.Initial)
-            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-            if (!change.pressed) break
-            val delta = change.positionChange()
-            totalX += delta.x
-            totalY += delta.y
-            if (totalX <= -trigger && abs(totalX) > abs(totalY) * 1.2f) {
+            // Il dito che ha iniziato il gesto deve essere ancora giù.
+            val change = event.changes.firstOrNull { it.id == down.id }
+                ?: return@awaitEachGesture
+            if (!change.pressed) return@awaitEachGesture
+            // Un secondo dito = pinch o zoom: non è il gesto di apertura.
+            if (event.changes.any { it.pressed && it.id != down.id }) {
+                return@awaitEachGesture
+            }
+
+            val dx = change.position.x - down.position.x
+            val dy = change.position.y - down.position.y
+
+            if (movedAt < 0L) {
+                if (abs(dx) < slop && abs(dy) < slop) continue
+                movedAt = change.uptimeMillis
+                if (movedAt - down.uptimeMillis > holdTimeout) {
+                    return@awaitEachGesture
+                }
+            }
+
+            // Verticale o diagonale: è uno scroll (o un drag), si lascia tutto
+            // ai figli senza consumare.
+            if (abs(dy) >= slop && abs(dy) > abs(dx) * SWIPE_DOMINANCE) {
+                return@awaitEachGesture
+            }
+
+            // Orizzontale dominante verso sinistra oltre soglia: è il gesto.
+            if (dx <= -trigger && abs(dx) > abs(dy) * SWIPE_DOMINANCE) {
                 change.consume()
                 onOpen()
-                break
+                return@awaitEachGesture
             }
         }
     }
 }
+
+/**
+ * Rapporto minimo fra i due assi perché il gesto conti come orizzontale (o
+ * verticale). Sotto questa dominanza il movimento è ambiguo e non si decide.
+ */
+private const val SWIPE_DOMINANCE = 1.4f

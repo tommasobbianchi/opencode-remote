@@ -3,7 +3,7 @@
 Generic Android client to control an **OpenCode 2.x** server from the phone
 (no personal preset: empty URL, user's credentials).
 Package `io.github.mirkotappini.opencoderemote`, app name **OC Remote**.
-Last delivered build: **0.12.3**, `versionCode 37`, sha256 `53a4a185…`.
+Last delivered build: **0.12.4**, `versionCode 38`, sha256 `e2ec07f5…`.
 
 ## Where
 
@@ -100,6 +100,18 @@ in the user bubble with a full-screen viewer, document chip otherwise.
   `GET /api/command` (TTL 5 min); picking one writes `/name ` in the field and
   sending goes through `POST …/command`. "Cancel" suppresses the palette until
   the draft changes.
+
+## OMO drawer gesture (0.12.4)
+
+The panel used to open only from a 22 dp strip at the right edge, which is also
+where the system back gesture wins: it often missed on the first try. Now
+`Modifier.drawerOpenSwipe` on the root surface accepts a leftward swipe
+**anywhere**: it waits for the touch slop, abandons on vertical/diagonal
+movement (chat scrolling untouched), ignores long-press-then-drag (text
+selection), multi-touch and rightward drags, and opens at 48 dp of horizontal
+travel with 1.4x axis dominance. Disabled while a server question is pending.
+Verified on the Fold: mid-screen swipe opens, 42 dp does not, vertical scroll
+does not.
 
 ## Icon (0.10.2)
 
