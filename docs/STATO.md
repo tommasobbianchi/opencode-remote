@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.9.1**, `versionCode 20`, sha256 `3d967148…` (30,8 MB) (nome app **OC Remote**, icona neon OC).
+Ultima build consegnata: **0.9.2**, `versionCode 21`, sha256 `806d4264…` (30,8 MB) (nome app **OC Remote**, icona neon OC).
 
 ## Dove
 
@@ -26,7 +26,7 @@ Ultima build consegnata: **0.9.1**, `versionCode 20`, sha256 `3d967148…` (30,8
 - **M6** vista turno live: ragionamento con durata, card tool con comando/output/stato/exit,
   testo in streaming, step consecutivi in un'unica bolla — fatto (spec in `docs/UI-M6-LIVE.md`)
 
-Test: **88 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
+Test: **94 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
 
 ## Throttle di pubblicazione dei delta (0.9.1)
 
@@ -51,6 +51,28 @@ di fase e fine turno che passano subito. Da 30–60 ricomposizioni/s a ~10.
   `backToList`, `stopStream`.
 - Test: `PublishGateTest` (finestra, terminali, pending, 60 Hz → ~10
   pubblicazioni/s, classificazione eventi).
+
+## Auto-scroll della chat (0.9.2)
+
+Sintomo riportato: quando i messaggi di OpenCode si susseguono la chat non
+seguiva il fondo, con tastiera aperta o chiusa; bisognava trascinare a mano.
+
+Causa: si decideva "sono in fondo?" **dopo** la crescita del contenuto, con una
+tolleranza di 2 item (`lastVisible >= totalItemsCount - 2`). Se il contenuto
+cresceva mentre la lista si assestava — step fusi in un'unica bolla, resync,
+messaggi consecutivi — il confronto falliva e il flag `autoScrolled` restava
+`true` senza più scrollare.
+
+Ora c'è un follow **sticky** (`followBottom`), che non campiona mai la
+posizione dopo la crescita:
+
+- `DragInteraction.Start` dell'utente → follow spento;
+- lista che si ferma in fondo (`isScrollInProgress == false` + `isAtBottom()`)
+  → follow riacceso; "invia" lo riaccende comunque.
+- La firma del contenuto viene dalla riga in coda (`partsScrollSignal`), che
+  include già il turno live: conta testo e ragionamento, **non** l'output dei
+  tool (leggere un output lungo non deve trascinare la vista).
+- `docs/UI-M6-LIVE.md` §4.4 aggiornato. Test: `ScrollSignalTest` (6 casi).
 
 ## Cambio server dalla lista (0.6.4-m5)
 

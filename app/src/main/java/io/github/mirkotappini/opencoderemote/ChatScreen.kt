@@ -35,8 +35,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -143,8 +145,18 @@ fun ChatScreen(
     val session = state.openSession
     val listState = rememberLazyListState()
 
-    var autoScrolled by remember(session?.id) { mutableStateOf(false) }
     var pendingAnchorId by remember(session?.id) { mutableStateOf<String?>(null) }
+
+    /**
+     * Follow "sticky" (§4.4): la lista resta agganciata al fondo finché
+     * l'utente non trascina verso l'alto; tornare in fondo la riaggancia.
+     *
+     * Prima si decideva "sono in fondo?" *dopo* la crescita del contenuto: con
+     * una o più righe aggiunte mentre il contenuto si assesta il confronto
+     * falliva e l'auto-scroll restava spento per il resto del turno. Ora la
+     * decisione dipende solo dai gesti dell'utente.
+     */
+    var followBottom by remember(session?.id) { mutableStateOf(true) }
 
     // UN solo turno live (UI-M6 §1). Se il resync ha già portato in `messages`
     // lo stesso id, il turno live non viene disegnato due volte.
@@ -162,10 +174,12 @@ fun ChatScreen(
 
     // Auto-scroll agganciato al contenuto del turno, mai alla crescita
     // dell'output di un tool (§4.4). Il throttle è dato da conflate + delay.
+    // La firma viene dalla riga in coda (che contiene già il turno live):
+    // testo e ragionamento contano, l'output dei tool no.
     val scrollSnapshot = rememberUpdatedState(
         ScrollSnapshot(
             rows = totalRows,
-            signal = liveScrollSignal(liveTurn),
+            signal = rowScrollSignal(rows.lastOrNull()),
             loading = state.messagesLoading,
         ),
     )
@@ -174,18 +188,28 @@ fun ChatScreen(
             .distinctUntilChanged()
             .conflate()
             .collect { snapshot ->
-                if (snapshot.loading) return@collect
-                delay(150)
+                if (snapshot.loading || !followBottom) return@collect
+                delay(AUTO_SCROLL_DELAY_MS)
+                // Riletto dopo il ritardo: nel frattempo possono essere
+                // arrivate altre righe pubblicate dal throttle del ViewModel.
                 val rowCount = scrollSnapshot.value.rows
                 if (rowCount == 0) return@collect
-                val info = listState.layoutInfo
-                val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-                val atBottom = info.totalItemsCount == 0 ||
-                    lastVisible >= info.totalItemsCount - 2
-                if (atBottom || !autoScrolled) {
-                    listState.scrollToItem(rowCount - 1)
-                    autoScrolled = true
-                }
+                listState.scrollToItem(rowCount - 1)
+            }
+    }
+
+    // Il trascinamento dell'utente sgancia il follow...
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Start) followBottom = false
+        }
+    }
+    // ...e la lista che si ferma in fondo lo riaggancia.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { scrolling ->
+                if (!scrolling && listState.isAtBottom()) followBottom = true
             }
     }
 
@@ -429,7 +453,10 @@ fun ChatScreen(
                     onDraftChange = onDraftChange,
                     connected = state.isConnected,
                     running = state.running,
-                    onSend = onSend,
+                    onSend = {
+                        followBottom = true
+                        onSend()
+                    },
                     onInterrupt = onInterrupt,
                 )
             }
@@ -2365,37 +2392,32 @@ private fun toolPhaseUi(part: ToolPartUi): ToolStatusUi {
 // la crescita dell'output di un tool.
 // ---------------------------------------------------------------------------
 
+private const val AUTO_SCROLL_DELAY_MS = 150L
+
 private data class ScrollSnapshot(
     val rows: Int,
     val signal: String,
     val loading: Boolean,
 )
 
-private fun liveScrollSignal(turn: AssistantTurnUi?): String {
-    if (turn == null) return ""
-    return buildString {
-        append(turn.id)
-        append('|')
-        append(turn.running)
-        append('|')
-        append(turn.parts.size)
-        turn.parts.forEach { part: TurnPartUi ->
-            when (part) {
-                is TextPartUi -> {
-                    append("|t")
-                    append(part.text.length)
-                }
+/**
+ * Firma di scroll della riga in coda. Include la crescita di testo e
+ * ragionamento ma **non** quella dell'output di un tool: leggere un output
+ * lungo non deve strappare la lista verso il basso.
+ *
+ * Il turno live è già dentro `rows` (fuso in `withLiveTurn`), quindi questa
+ * firma copre sia lo streaming sia il messaggio materializzato dopo il resync.
+ */
+private fun rowScrollSignal(row: ChatRow?): String = when (row) {
+    is ChatRow.Single -> "m|${row.message.text.length}"
+    is ChatRow.Turn -> partsScrollSignal(row.turn.running, row.turn.parts)
+    null -> ""
+}
 
-                is ReasoningPartUi -> {
-                    append("|r")
-                    append(part.text.length)
-                }
-
-                is ToolPartUi -> {
-                    append("|o")
-                    append(part.phase.name)
-                }
-            }
-        }
-    }
+/** "Sei in fondo?" stretto: l'ultimo item deve essere visibile. */
+private fun LazyListState.isAtBottom(): Boolean {
+    val info = layoutInfo
+    if (info.totalItemsCount == 0) return true
+    val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: return false
+    return lastVisible >= info.totalItemsCount - 1
 }
