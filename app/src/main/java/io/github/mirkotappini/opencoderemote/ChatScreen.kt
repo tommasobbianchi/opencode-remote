@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -92,6 +93,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -208,6 +210,18 @@ fun ChatScreen(
             .collect { scrolling ->
                 if (!scrolling && listState.isAtBottom()) followBottom = true
             }
+    }
+
+    // Tastiera: aprendosi, l'IME riduce il viewport (il Column è padding
+    // `safeDrawing`, che include l'IME) e la coda della chat finirebbe sotto la
+    // tastiera. Se stiamo seguendo il fondo si riallinea a layout assestato; se
+    // l'utente è salito a leggere, non si muove nulla e alla chiusura resta
+    // com'era.
+    val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+    LaunchedEffect(imeBottom) {
+        if (!followBottom) return@LaunchedEffect
+        delay(AUTO_SCROLL_DELAY_MS)
+        listState.scrollToBottom()
     }
 
     LaunchedEffect(state.messages.size, state.messagesLoading) {

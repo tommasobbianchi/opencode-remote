@@ -367,7 +367,8 @@ Nessun colore nuovo. Nessun font nuovo. `monoStyle()` per ogni dato tecnico.
   aggiunte insieme): un `DragInteraction.Start` spegne il follow, l'arrivo in
   fondo lo riaccende, l'invio lo riaccende. La firma del contenuto è
   `partsScrollSignal` sulla riga in coda: testo e ragionamento contano,
-  la crescita dell'output di un tool no.
+  la crescita dell'output di un tool no. All'apertura/chiusura della tastiera
+  (inset IME) si riallinea al fondo solo se il follow è attivo.
 - **Niente misurazione**: nessun `onTextLayout` per i limiti di riga; si
   tronca la stringa prima del rendering.
 - `output` e `command` sono campi già calcolati nello stato: nessun join o

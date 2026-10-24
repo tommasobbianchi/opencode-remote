@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.9.4**, `versionCode 23`, sha256 `8f4f73ab…` (30,9 MB) (nome app **OC Remote**).
+Ultima build consegnata: **0.9.5**, `versionCode 24`, sha256 `6971d7a1…` (30,9 MB) (nome app **OC Remote**).
 
 ## Dove
 
@@ -99,6 +99,12 @@ posizione dopo la crescita:
   `afterContentPadding`) con `scrollBy`, così la fine del contenuto tocca il
   fondo. Verificato sul Fold con turni da 8 tool: la card nuova resta
   agganciata al fondo per tutta la durata; fine turno idem.
+- **Tastiera (0.9.5)**: aprendo l'IME il `Column` è paddato da `safeDrawing`
+  (che include l'IME), quindi il viewport si accorcia e la coda della chat
+  finiva sotto la tastiera. Ora un `LaunchedEffect(imeBottom)` riallinea al
+  fondo (delay 150 ms per far assestare il layout) **solo se** `followBottom`
+  è attivo: se l'utente sta leggendo più su non si muove nulla e alla chiusura
+  resta com'era.
 - `docs/UI-M6-LIVE.md` §4.4 aggiornato. Test: `ScrollSignalTest` (6 casi).
 
 ## Cambio server dalla lista (0.6.4-m5)
