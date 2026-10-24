@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.10.0**, `versionCode 25`, sha256 `09a499ae…` (31 MB) (nome app **OC Remote**).
+Ultima build consegnata: **0.10.3**, `versionCode 28`, sha256 `a9ba90fb…` (31 MB) (nome app **OC Remote**).
 
 ## Dove
 
@@ -70,6 +70,23 @@ Nuovo render fornito dall'utente: "OC" glossy (O giallo, C viola) con wordmark
   basso di luminanza della cornice (`dark_background`), non dalla media: il glow
   giallo/viola trascinava la media su un marrone `#302219`.
 - Anteprima rigenerata: `dist/icon-preview-0.9.3.png` (fuori dal repo).
+
+## Icona 0.10.2 — "CC remote" monocroma
+
+Nuovo render (bianco su piastra nera, wordmark "remote" ricavato nel bianco).
+Rigenerata da `tools/icon/icon-source.png` con lo stesso flusso di 0.9.3:
+adattiva = marchio intero senza piastra al 66%, legacy = piastra, fondo
+`#030202`. **Cambio nel generatore**: il monochrome non è più "OC" nel font ma
+la **silhouette del marchio** (bianco pieno + alpha dalla luminanza), perché ora
+il lettering fa parte del marchio.
+
+## Tastiera: riallineamento passo-passo (0.10.3)
+
+Aprendo la tastiera la coda restava ferma e saltava alla fine (delay di 150 ms
+sull'ultimo passo dell'animazione IME): percepito come lag all'apertura, mentre
+alla chiusura il salto non si nota perché l'IME si ritira in un passo solo. Ora
+`LaunchedEffect(imeBottom)` riallinea **senza attesa** a ogni passo
+dell'animazione, così la lista resta incollata all'IME.
 
 ## Allegati nel prompt (M8, 0.10.0)
 

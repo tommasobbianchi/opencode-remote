@@ -255,7 +255,9 @@ fun ChatScreen(
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
     LaunchedEffect(imeBottom) {
         if (!followBottom) return@LaunchedEffect
-        delay(AUTO_SCROLL_DELAY_MS)
+        // Niente attesa: l'IME entra a passi animati e ogni passo riallinea la
+        // lista, così la coda resta incollata all'animazione invece di star
+        // ferma e saltare alla fine (era il "gradino" all'apertura).
         listState.scrollToBottom()
     }
 

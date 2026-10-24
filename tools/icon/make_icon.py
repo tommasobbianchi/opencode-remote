@@ -12,15 +12,14 @@ Produce:
   out/ic_launcher_foreground_<dens>.png  (108/162/216/324/432 px, con alpha)
   out/ic_launcher_<dens>.png             (legacy, angoli arrotondati, 48..192)
   out/ic_launcher_round_<dens>.png       (legacy rotondo)
-  out/ic_launcher_monochrome_<dens>.png  (silhouette bianca per icone tematizzate)
+  out/ic_launcher_monochrome_<dens>.png  (silhouette bianca del marchio)
   out/preview.png
   out/background.txt                     (hex del colore di sfondo)
 """
 import os
 import sys
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter
 
-FONT_PATH = os.environ.get("MONO_FONT", "mono.ttf")
 DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
 LEGACY = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
 
@@ -159,14 +158,15 @@ def main(src, out):
         rd_canvas.putalpha(circle_mask(px))
         rd_canvas.save(os.path.join(out, f"ic_launcher_round_{dens}.png"))
 
-        # monochrome per icone tematizzate: "OC" nel font dell'app (JetBrains Mono)
+        # monochrome per icone tematizzate: silhouette del marchio (alpha dalla
+        # luminanza), non un testo nel font: il marchio ora È il lettering.
         mono = Image.new("RGBA", (px, px), (0, 0, 0, 0))
-        d = ImageDraw.Draw(mono)
-        font = ImageFont.truetype(FONT_PATH, int(px * 0.50))
-        text = "OC"
-        tb = d.textbbox((0, 0), text, font=font)
-        d.text(((px - (tb[2] - tb[0])) // 2 - tb[0], (px - (tb[3] - tb[1])) // 2 - tb[1]),
-               text, font=font, fill=(255, 255, 255, 255))
+        mark_px = int(px * 0.66)
+        shape = art.resize((mark_px, mark_px), Image.LANCZOS).convert("RGBA")
+        # Bianco pieno: il sistema applica il suo tint, qui serve solo la forma.
+        silhouette = Image.new("RGBA", shape.size, (255, 255, 255, 0))
+        silhouette.putalpha(luma_alpha(shape))
+        mono.alpha_composite(silhouette, ((px - mark_px) // 2, (px - mark_px) // 2))
         mono.save(os.path.join(out, f"ic_launcher_monochrome_{dens}.png"))
 
     # --- anteprima: cerchio adattivo, squircle, legacy, monochrome, su due fondi
