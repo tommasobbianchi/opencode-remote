@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.10.4**, `versionCode 29`, sha256 `a46f011b…` (31 MB) (nome app **OC Remote**).
+Ultima build consegnata: **0.11.2**, `versionCode 32`, sha256 `4bb95d27…` (31 MB) (nome app **OC Remote**).
 
 ## Dove
 
@@ -26,7 +26,7 @@ Ultima build consegnata: **0.10.4**, `versionCode 29`, sha256 `a46f011b…` (31 
 - **M6** vista turno live: ragionamento con durata, card tool con comando/output/stato/exit,
   testo in streaming, step consecutivi in un'unica bolla — fatto (spec in `docs/UI-M6-LIVE.md`)
 
-Test: **109 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
+Test: **132 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
 
 ## Throttle di pubblicazione dei delta (0.9.1)
 
@@ -70,6 +70,32 @@ Nuovo render fornito dall'utente: "OC" glossy (O giallo, C viola) con wordmark
   basso di luminanza della cornice (`dark_background`), non dalla media: il glow
   giallo/viola trascinava la media su un marrone `#302219`.
 - Anteprima rigenerata: `dist/icon-preview-0.9.3.png` (fuori dal repo).
+
+## Domande del server (form) e comandi slash (M9, 0.11.0→0.11.2)
+
+Specifica: `docs/UI-M9-DOMANDE-E-COMANDI.md`.
+
+- **Form**: quando l'agente chiede qualcosa resta in attesa e il turno non
+  finisce (composer bloccato). Ora `form.created`/`form.replied`/`form.cancelled`
+  alimentano `UiState.forms` (+ resync con `GET /api/form` a connect, apertura
+  sessione e riapertura SSE) e un **pannello "domanda"** sopra il composer
+  permette di rispondere (`POST …/form/{id}/reply` con `answer` tipizzato) o
+  annullare (`DELETE`). Composer spento con domanda pendente, "Ferma" sempre
+  disponibile. 404 → banner "domanda scaduta".
+- **Scoperta sul campo**: il tool `question` usa `string` **con** `options`
+  (scelta singola), non `multiselect`. Il parsing scartava le opzioni per i
+  campi string e la UI mostrava un testo libero: corretto in `FormParsing`
+  (`options` anche per `string`) e in `Forms.kt` (`FormControl.Choice` → chip
+  con `Role.RadioButton`).
+- **Comandi slash**: `GET /api/command` (9 comandi su patchouli: init, review,
+  deepwork, reflect, loop, interview, implement, close, resume) con TTL 5 min;
+  digitando `/` si apre la **palette scorrevole** con filtro; l'invio di
+  `/nome argomenti` passa da `POST /api/session/{id}/command` (prima il testo
+  arrivava letterale al modello, il comando non veniva espanso).
+- Verificato sul Fold: pannello con chip, round-trip della risposta (il turno
+  riprende), annulla; build e 132 test JVM. Non verificato visivamente: palette
+  comandi e riordino dei tap sui chip (impossibile digitare via adb con la
+  finestra senza focus).
 
 ## Icona 0.10.2 — "CC remote" monocroma
 

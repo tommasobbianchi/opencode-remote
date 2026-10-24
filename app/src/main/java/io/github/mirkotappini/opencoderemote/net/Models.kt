@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 
@@ -575,5 +576,294 @@ object ApiParsing {
         if (state == null || state is JsonNull) return null
         val raw = state.toString()
         return if (raw.length > 160) raw.take(160) + "…" else raw
+    }
+}
+
+// ---------------------------------------------------------------------------
+// M9: domande del server ("form")
+// ---------------------------------------------------------------------------
+
+@Serializable
+data class FormOptionDto(
+    val value: String? = null,
+    val label: String? = null,
+    val description: String? = null,
+)
+
+/**
+ * `Form.Field`. `when` e le altre proprietà non previste sono ignorate dal
+ * parser; `hidden` esclude il campo dalla UI.
+ */
+@Serializable
+data class FormFieldDto(
+    val key: String = "",
+    val type: String = "",
+    val title: String? = null,
+    val description: String? = null,
+    val required: Boolean = false,
+    val hidden: Boolean = false,
+    val minimum: Double? = null,
+    val maximum: Double? = null,
+    val options: List<FormOptionDto>? = null,
+    /** `url` del contratto; `externalURL` accettato come variante difensiva. */
+    val url: String? = null,
+    val externalURL: String? = null,
+)
+
+@Serializable
+data class FormDetailDto(
+    val id: String = "",
+    val sessionID: String = "",
+    val title: String? = null,
+    val description: String? = null,
+    /** Non interpretato: la UI mostra le domande pendenti, non lo stato grezzo. */
+    val state: JsonElement? = null,
+    val fields: List<FormFieldDto>? = null,
+)
+
+/** `GET /api/form` → `{location, data: Form.Info[]}`. */
+@Serializable
+data class FormsEnvelope(
+    val data: List<FormDetailDto> = emptyList(),
+)
+
+enum class FormFieldType(val wire: String) {
+    Text("string"),
+    Boolean("boolean"),
+    Integer("integer"),
+    Number("number"),
+    MultiSelect("multiselect"),
+    External("external"),
+    ;
+
+    companion object {
+        /** Tipi non previsti → `null`: il campo viene escluso dalla UI. */
+        fun fromWire(value: String?): FormFieldType? =
+            entries.firstOrNull { it.wire == value?.trim()?.lowercase() }
+    }
+}
+
+data class FormOptionUi(
+    val value: String,
+    val label: String,
+    val description: String? = null,
+)
+
+data class FormFieldUi(
+    val key: String,
+    /** Tipo del contratto, già validato: `string`, `boolean`, `integer`, … */
+    val type: String,
+    val title: String? = null,
+    val description: String? = null,
+    val required: Boolean = false,
+    val options: List<FormOptionUi> = emptyList(),
+    val minimum: Double? = null,
+    val maximum: Double? = null,
+    /** Solo per `external`: link da aprire sul server, non componibile qui. */
+    val externalUrl: String? = null,
+)
+
+data class FormUi(
+    val id: String,
+    val sessionId: String,
+    val title: String,
+    val fields: List<FormFieldUi> = emptyList(),
+    val description: String? = null,
+)
+
+object FormParsing {
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        explicitNulls = false
+        coerceInputValues = true
+    }
+
+    /** Voci di `GET /api/form`, tolleranti anche a payload parziali. */
+    fun parseInfos(body: String): List<FormDetailDto> =
+        runCatching { json.decodeFromString<FormsEnvelope>(body).data }
+            .getOrDefault(emptyList())
+
+    /** Solo per listati che contengono già i campi; altrimenti serve il dettaglio. */
+    fun parseForms(body: String): List<FormUi> =
+        parseInfos(body)
+            .filter { !it.fields.isNullOrEmpty() }
+            .mapNotNull(::normalizeForm)
+            .distinctBy { it.id }
+
+    /** Risposta di `GET …/form/{formID}`: accetta sia `Form.Detail` sia `{data:…}`. */
+    fun parseDetailBody(body: String): FormUi? =
+        runCatching { json.parseToJsonElement(body) }
+            .getOrNull()
+            ?.let(::parseDetail)
+
+    /**
+     * Payload di `form.created`. Accetta il `Form.Detail` diretto e, per
+     * difesa, le varianti `{form:…}` / `{data:…}`. Payload inatteso → `null`.
+     */
+    fun parseDetail(element: JsonElement?): FormUi? {
+        val obj = element as? JsonObject ?: return null
+        val inner = (obj["form"] as? JsonObject)
+            ?: (obj["data"] as? JsonObject)
+            ?: obj
+        val dto = runCatching { json.decodeFromJsonElement<FormDetailDto>(inner) }
+            .getOrNull()
+            ?: return null
+        return normalizeForm(dto)
+    }
+
+    fun normalizeForm(dto: FormDetailDto): FormUi? {
+        val id = dto.id.takeIf { it.isNotBlank() } ?: return null
+        return FormUi(
+            id = id,
+            sessionId = dto.sessionID.trim(),
+            // Titolo vuoto se il server non lo manda: l'eyebrow dice già "domanda".
+            title = dto.title?.trim().orEmpty(),
+            fields = dto.fields.orEmpty().mapNotNull(::normalizeField),
+            description = dto.description?.takeIf { it.isNotBlank() },
+        )
+    }
+
+    fun normalizeField(dto: FormFieldDto): FormFieldUi? {
+        if (dto.hidden) return null
+        val key = dto.key.takeIf { it.isNotBlank() } ?: return null
+        val fieldType = FormFieldType.fromWire(dto.type) ?: return null
+        return FormFieldUi(
+            key = key,
+            type = fieldType.wire,
+            title = dto.title?.takeIf { it.isNotBlank() },
+            description = dto.description?.takeIf { it.isNotBlank() },
+            required = dto.required,
+            // Il tool "question" manda `string` **con** le opzioni: vanno
+            // tenute, è una scelta singola e non un campo di testo libero.
+            options = when (fieldType) {
+                FormFieldType.MultiSelect,
+                FormFieldType.Text,
+                -> dto.options.orEmpty().mapNotNull(::normalizeOption)
+
+                else -> emptyList()
+            },
+            minimum = dto.minimum,
+            maximum = dto.maximum,
+            externalUrl = dto.url?.takeIf { it.isNotBlank() }
+                ?: dto.externalURL?.takeIf { it.isNotBlank() },
+        )
+    }
+
+    private fun normalizeOption(dto: FormOptionDto): FormOptionUi? {
+        val label = dto.label?.takeIf { it.isNotBlank() }
+        val value = dto.value?.takeIf { it.isNotBlank() } ?: label ?: return null
+        return FormOptionUi(
+            value = value,
+            label = label ?: value,
+            description = dto.description?.takeIf { it.isNotBlank() },
+        )
+    }
+}
+
+/**
+ * Valore di una risposta (`Form.Value`): stringa, numero, booleano o lista.
+ * La serializzazione distingue i tipi JSON, quindi non passa da DTO con
+ * default: si costruisce direttamente l'albero JSON.
+ */
+sealed interface FormValue {
+    data class Text(val value: String) : FormValue
+    data class Number(val value: Double) : FormValue
+    data class Bool(val value: Boolean) : FormValue
+    data class Multi(val values: List<String>) : FormValue
+
+    fun toJsonElement(): JsonElement = when (this) {
+        is Text -> JsonPrimitive(value)
+        is Bool -> JsonPrimitive(value)
+        is Multi -> JsonArray(values.map { JsonPrimitive(it) })
+        is FormValue.Number -> when {
+            // I campi `integer` non accettano `42.0`: i valori interi restano interi.
+            !value.isFinite() -> JsonNull
+            value.toLong().toDouble() == value -> JsonPrimitive(value.toLong())
+            else -> JsonPrimitive(value)
+        }
+    }
+}
+
+object FormReply {
+
+    private val json = Json { explicitNulls = false }
+
+    /** `{"answer":{…}}`, con i valori nei tipi JSON corretti. */
+    fun bodyJson(answer: Map<String, FormValue>): String {
+        val body = buildJsonObject {
+            put(
+                "answer",
+                buildJsonObject {
+                    answer.forEach { (key, value) -> put(key, value.toJsonElement()) }
+                },
+            )
+        }
+        return json.encodeToString(JsonObject.serializer(), body)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// M9: comandi slash
+// ---------------------------------------------------------------------------
+
+@Serializable
+data class CommandDto(
+    val name: String = "",
+    val description: String? = null,
+)
+
+data class CommandUi(
+    val name: String,
+    val description: String? = null,
+)
+
+object CommandParsing {
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        explicitNulls = false
+        coerceInputValues = true
+    }
+
+    /** `GET /api/command` → `{location, data: [{name, description}]}`. */
+    fun parseCommands(body: String): List<CommandUi> =
+        runCatching {
+            json.decodeFromString<CatalogEnvelope<CommandDto>>(body).data
+        }.getOrDefault(emptyList())
+            .mapNotNull { dto ->
+                val name = dto.name.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                CommandUi(
+                    name = name,
+                    description = dto.description?.takeIf { it.isNotBlank() },
+                )
+            }
+            .distinctBy { it.name }
+}
+
+/** Comando riconosciuto nel draft: nome e resto della riga (argomenti). */
+data class CommandCall(
+    val name: String,
+    val text: String = "",
+)
+
+object SlashCommands {
+
+    /**
+     * Riconosce `/<nome>` o `/<nome> <argomenti>` solo se `<nome>` è nel
+     * catalogo del server. Comando sconosciuto → `null` (invio come prompt).
+     */
+    fun parse(draft: String, commands: List<CommandUi>): CommandCall? {
+        val trimmed = draft.trim()
+        if (!trimmed.startsWith("/")) return null
+        val body = trimmed.removePrefix("/")
+        val split = body.indexOfFirst { it.isWhitespace() }
+        val name = if (split < 0) body else body.substring(0, split)
+        if (name.isBlank()) return null
+        if (commands.none { it.name == name }) return null
+        val text = if (split < 0) "" else body.substring(split + 1).trim()
+        return CommandCall(name = name, text = text)
     }
 }

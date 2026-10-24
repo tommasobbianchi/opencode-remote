@@ -68,6 +68,17 @@ private data class SkillBody(
 )
 
 /**
+ * Corpo di `POST /api/session/{id}/command`. `text` è il resto della riga
+ * dopo il nome (`""` se non ci sono argomenti); `files` resta assente se vuoto.
+ */
+@Serializable
+internal data class CommandBody(
+    val name: String,
+    val text: String? = null,
+    val files: List<PromptFile>? = null,
+)
+
+/**
  * Operazioni di sessione usate da `SessionCommands`. Interfaccia ristretta per
  * poter verificare l'ordine POST → GET senza rete nei test JVM.
  */
@@ -264,6 +275,107 @@ class OpenCodeApi(
     @Throws(IOException::class)
     fun skills(): List<SkillUi> = CatalogParsing.parseSkills(get(url("/api/skill")))
 
+    /** `GET /api/command` — catalogo dei comandi slash letti dal server. */
+    @Throws(IOException::class)
+    fun commands(): List<CommandUi> = CommandParsing.parseCommands(get(url("/api/command")))
+
+    /**
+     * `POST /api/session/{id}/command` — il server espande il comando.
+     * [text] è il resto della riga dopo il nome, anche vuoto.
+     */
+    @Throws(IOException::class)
+    fun runCommand(
+        sessionId: String,
+        name: String,
+        text: String,
+        files: List<PromptFile> = emptyList(),
+    ) {
+        val url = url("/api/session")
+            .newBuilder()
+            .addPathSegment(sessionId)
+            .addPathSegment("command")
+            .build()
+        val body = json.encodeToString(
+            CommandBody.serializer(),
+            CommandBody(
+                name = name,
+                text = text,
+                files = files.takeIf { it.isNotEmpty() },
+            ),
+        ).toRequestBody(JSON)
+        post(url, body)
+    }
+
+    /**
+     * `GET /api/form` — domande pendenti. `Form.Info` può non contenere i
+     * campi: in quel caso si legge il `Form.Detail` della singola domanda.
+     * Con [sessionId] restituisce solo le domande di quella sessione.
+     */
+    @Throws(IOException::class)
+    fun forms(sessionId: String? = null): List<FormUi> {
+        val infos = FormParsing.parseInfos(get(url("/api/form")))
+            // Con una sessione richiesta si leggono solo le sue domande.
+            .filter { sessionId == null || it.sessionID.isBlank() || it.sessionID == sessionId }
+        val forms = infos.mapNotNull { info ->
+            val inline = if (!info.fields.isNullOrEmpty()) {
+                FormParsing.normalizeForm(info)
+            } else {
+                null
+            }
+            if (inline != null) return@mapNotNull inline
+            val id = info.id.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val sid = info.sessionID.takeIf { it.isNotBlank() } ?: sessionId
+            if (sid.isNullOrBlank()) return@mapNotNull null
+            try {
+                val detail = form(sid, id) ?: return@mapNotNull null
+                // Il dettaglio può non ripetere la sessione: la conosciamo dalla voce.
+                if (detail.sessionId.isBlank()) detail.copy(sessionId = sid) else detail
+            } catch (e: ApiException) {
+                // Una domanda sparita non deve far fallire il resync.
+                if (e.code == 401) throw e
+                null
+            }
+        }.distinctBy { it.id }
+        return if (sessionId == null) forms else forms.filter { it.sessionId == sessionId }
+    }
+
+    /** `GET /api/session/{id}/form/{formID}` — `null` se non è un form valido. */
+    @Throws(IOException::class)
+    fun form(sessionId: String, formId: String): FormUi? {
+        val url = url("/api/session")
+            .newBuilder()
+            .addPathSegment(sessionId)
+            .addPathSegment("form")
+            .addPathSegment(formId)
+            .build()
+        return FormParsing.parseDetailBody(get(url))
+    }
+
+    /** `POST /api/session/{id}/form/{formID}/reply` → 204. */
+    @Throws(IOException::class)
+    fun replyForm(sessionId: String, formId: String, answer: Map<String, FormValue>) {
+        val url = url("/api/session")
+            .newBuilder()
+            .addPathSegment(sessionId)
+            .addPathSegment("form")
+            .addPathSegment(formId)
+            .addPathSegment("reply")
+            .build()
+        post(url, FormReply.bodyJson(answer).toRequestBody(JSON))
+    }
+
+    /** `DELETE /api/session/{id}/form/{formID}` → 204 (annulla la domanda). */
+    @Throws(IOException::class)
+    fun cancelForm(sessionId: String, formId: String) {
+        val url = url("/api/session")
+            .newBuilder()
+            .addPathSegment(sessionId)
+            .addPathSegment("form")
+            .addPathSegment(formId)
+            .build()
+        delete(url)
+    }
+
     /** `GET /api/mcp` — stato normalizzato a stringa. */
     @Throws(IOException::class)
     fun mcps(): List<McpUi> = CatalogParsing.parseMcps(get(url("/api/mcp")))
@@ -412,6 +524,24 @@ class OpenCodeApi(
                 throw ApiException(response.code, url.encodedPath)
             }
             return body
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun delete(url: HttpUrl) {
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", authorization)
+            .header("Accept", "application/json")
+            .delete()
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            // Il corpo serve solo per non lasciare il socket appeso.
+            response.body?.string()
+            if (!response.isSuccessful) {
+                throw ApiException(response.code, url.encodedPath)
+            }
         }
     }
 

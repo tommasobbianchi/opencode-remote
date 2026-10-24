@@ -23,10 +23,13 @@ import io.github.mirkotappini.opencoderemote.net.Backoff
 import io.github.mirkotappini.opencoderemote.net.Catalog
 import io.github.mirkotappini.opencoderemote.net.ChatReducer
 import io.github.mirkotappini.opencoderemote.net.ChatStream
+import io.github.mirkotappini.opencoderemote.net.CommandUi
 import io.github.mirkotappini.opencoderemote.net.ConnectionErrors
 import io.github.mirkotappini.opencoderemote.net.ErrorContext
 import io.github.mirkotappini.opencoderemote.net.EventParsing
 import io.github.mirkotappini.opencoderemote.net.EventStream
+import io.github.mirkotappini.opencoderemote.net.FormUi
+import io.github.mirkotappini.opencoderemote.net.FormValue
 import io.github.mirkotappini.opencoderemote.net.LiveMessage
 import io.github.mirkotappini.opencoderemote.net.LocationUi
 import io.github.mirkotappini.opencoderemote.net.McpUi
@@ -46,6 +49,7 @@ import io.github.mirkotappini.opencoderemote.net.SkillUi
 import io.github.mirkotappini.opencoderemote.net.ServerEvent
 import io.github.mirkotappini.opencoderemote.net.SessionCommands
 import io.github.mirkotappini.opencoderemote.net.SessionUi
+import io.github.mirkotappini.opencoderemote.net.SlashCommands
 import io.github.mirkotappini.opencoderemote.net.SseEvent
 import io.github.mirkotappini.opencoderemote.net.SseWatchdog
 import io.github.mirkotappini.opencoderemote.net.VersionCheck
@@ -187,6 +191,14 @@ data class UiState(
      * eventi e alla GET della sessione aperta, senza chiamate di rete nuove.
      */
     val pendingApprovals: Map<String, Set<String>> = emptyMap(),
+    // M9: domande pendenti della sola sessione aperta (in pratica una).
+    val forms: List<FormUi> = emptyList(),
+    val formsLoading: Boolean = false,
+    val formsError: String? = null,
+    // M9: catalogo dei comandi slash, letto a runtime dal server.
+    val commands: List<CommandUi> = emptyList(),
+    val commandsLoading: Boolean = false,
+    val commandsError: String? = null,
 ) {
     val isConnected: Boolean get() = connection is Connection.Connected
 
@@ -310,6 +322,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val seenEventIds = LinkedHashSet<String>()
 
     private var optimisticSeq = 0
+
+    /** Istante dell'ultimo `GET /api/command` riuscito: TTL del catalogo. */
+    private var commandsLoadedAt = 0L
 
     /**
      * Allegato già letto/compresso, tenuto accanto ad [AttachmentUi]: l'invio
@@ -483,6 +498,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (_state.value.openSession != null) {
                 resyncOpenSession()
                 refreshApprovals()
+                refreshForms()
             }
             appendLog("net", "rete disponibile · riconnessione")
         }
@@ -653,6 +669,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             api = client
                             stream = EventStream(sseClient, client.eventUrl(), client.authHeader())
                             resetChatPublish()
+                            commandsLoadedAt = 0L
                             _state.update {
                                 it.copy(
                                     connection = Connection.Connected(info.version, info.pid),
@@ -670,11 +687,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                                     approvalsLoading = false,
                                     approvalsError = null,
                                     pendingApprovals = emptyMap(),
+                                    forms = emptyList(),
+                                    formsLoading = false,
+                                    formsError = null,
+                                    commands = emptyList(),
+                                    commandsLoading = false,
+                                    commandsError = null,
                                     error = null,
                                 )
                             }
                             loadSessions(client)
                             loadCatalog(force = true)
+                            loadCommands(force = true)
                             startStreamInternal()
                             startApprovalService()
                             maybeOpenPendingSession()
@@ -900,9 +924,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 approvals = emptyList(),
                 approvalsLoading = false,
                 approvalsError = null,
+                forms = emptyList(),
+                formsLoading = false,
+                formsError = null,
             )
         }
         refreshApprovals()
+        refreshForms()
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching { client.messages(id, limit = 100) }
@@ -1044,6 +1072,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 approvals = emptyList(),
                 approvalsLoading = false,
                 approvalsError = null,
+                forms = emptyList(),
+                formsLoading = false,
+                formsError = null,
             )
         }
     }
@@ -1142,6 +1173,117 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         onProcessForeground()
     }
 
+    // --- M9: domande del server (form) --------------------------------------
+
+    /** Allineamento con `GET /api/form` per la sessione aperta. */
+    fun refreshForms() {
+        val client = api ?: return
+        val sessionId = _state.value.openSession?.id ?: return
+        _state.update { it.copy(formsLoading = true, formsError = null) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { client.forms(sessionId) }
+            }
+            result
+                .onSuccess { list ->
+                    if (_state.value.openSession?.id != sessionId) return@onSuccess
+                    _state.update {
+                        it.copy(forms = list.distinctBy { form -> form.id }, formsLoading = false)
+                    }
+                }
+                .onFailure { error ->
+                    if (_state.value.openSession?.id != sessionId) return@onFailure
+                    _state.update {
+                        it.copy(
+                            formsLoading = false,
+                            formsError = describeFormError(error),
+                        )
+                    }
+                    if (error is ApiException && error.code == 401) onUnauthorized()
+                }
+        }
+    }
+
+    /**
+     * Risposta alla domanda della sessione aperta. Su 404 la domanda è
+     * scaduta: sparisce dallo stato, messaggio breve e resync.
+     */
+    fun replyForm(formId: String, answer: Map<String, FormValue>) {
+        val client = api ?: return
+        val sessionId = _state.value.openSession?.id ?: return
+        _state.update { it.copy(formsError = null) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { client.replyForm(sessionId, formId, answer) }
+            }
+            result
+                .onSuccess {
+                    _state.update { current ->
+                        current.copy(forms = current.forms.filterNot { it.id == formId })
+                    }
+                }
+                .onFailure { error ->
+                    if (error is ApiException && error.code == 401) {
+                        onUnauthorized()
+                        return@onFailure
+                    }
+                    if (error is ApiException && error.code == 404) {
+                        // La domanda non esiste più: senza form il pannello
+                        // sparisce, quindi il messaggio va nel banner generale
+                        // (formsError non avrebbe dove mostrarsi).
+                        _state.update { current ->
+                            current.copy(
+                                forms = current.forms.filterNot { it.id == formId },
+                                formsError = null,
+                                error = "domanda scaduta",
+                            )
+                        }
+                        refreshForms()
+                        return@onFailure
+                    }
+                    _state.update { it.copy(formsError = describeFormError(error)) }
+                }
+        }
+    }
+
+    /** Annulla la domanda (`DELETE`); su 404 era già sparita, si fa resync. */
+    fun cancelForm(formId: String) {
+        val client = api ?: return
+        val sessionId = _state.value.openSession?.id ?: return
+        _state.update { it.copy(formsError = null) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { client.cancelForm(sessionId, formId) }
+            }
+            result
+                .onSuccess {
+                    _state.update { current ->
+                        current.copy(forms = current.forms.filterNot { it.id == formId })
+                    }
+                }
+                .onFailure { error ->
+                    if (error is ApiException && error.code == 401) {
+                        onUnauthorized()
+                        return@onFailure
+                    }
+                    if (error is ApiException && error.code == 404) {
+                        _state.update { current ->
+                            current.copy(forms = current.forms.filterNot { it.id == formId })
+                        }
+                        refreshForms()
+                        return@onFailure
+                    }
+                    _state.update { it.copy(formsError = describeFormError(error)) }
+                }
+        }
+    }
+
+    private fun describeFormError(error: Throwable): String = when {
+        error is ApiException && error.code == 401 -> "credenziali rifiutate"
+        error is ApiException && error.code == 404 -> "domanda scaduta"
+        else -> describeConnectionError(error)
+    }
+
     /**
      * M5 (Doze/foreground): se la SSE non ha dato segni di vita da 30 s o il
      * job non è attivo, si forza una riconnessione e si riallinea la sessione
@@ -1157,6 +1299,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 onNetworkAvailable()
             } else {
                 refreshApprovals()
+                refreshForms()
                 startApprovalService()
             }
             return
@@ -1170,6 +1313,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             resyncOpenSession()
         }
         refreshApprovals()
+        refreshForms()
         startApprovalService()
     }
 
@@ -1271,6 +1415,44 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 (failure.exceptionOrNull() as? ApiException)?.code == 401
             }
             if (unauthorized) onUnauthorized()
+        }
+    }
+
+    /**
+     * Catalogo dei comandi slash con TTL di 5 minuti; [force] ricarica a mano.
+     * Un errore non svuota il catalogo precedente.
+     */
+    fun loadCommands(force: Boolean = false) {
+        val client = api
+        if (client == null) {
+            _state.update { it.copy(commandsError = "non connesso") }
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (!force && commandsLoadedAt > 0L && now - commandsLoadedAt < COMMANDS_TTL_MS) return
+        if (_state.value.commandsLoading) return
+
+        _state.update { it.copy(commandsLoading = true, commandsError = null) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { client.commands() }
+            }
+            result
+                .onSuccess { list ->
+                    commandsLoadedAt = System.currentTimeMillis()
+                    _state.update {
+                        it.copy(commands = list, commandsLoading = false, commandsError = null)
+                    }
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(
+                            commandsLoading = false,
+                            commandsError = describeConnectionError(error),
+                        )
+                    }
+                    if (error is ApiException && error.code == 401) onUnauthorized()
+                }
         }
     }
 
@@ -1550,14 +1732,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
+            // M9: un comando riconosciuto parte dall'endpoint dedicato; il resto
+            // (compreso un comando sconosciuto) resta un prompt normale.
+            val command = SlashCommands.parse(text, _state.value.commands)
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    client.prompt(
-                        sessionId = session.id,
-                        text = text,
-                        delivery = "steer",
-                        files = listOfNotNull(attachment),
-                    )
+                    if (command != null) {
+                        client.runCommand(
+                            sessionId = session.id,
+                            name = command.name,
+                            text = command.text,
+                            files = listOfNotNull(attachment),
+                        )
+                        null
+                    } else {
+                        client.prompt(
+                            sessionId = session.id,
+                            text = text,
+                            delivery = "steer",
+                            files = listOfNotNull(attachment),
+                        )
+                    }
                 }
             }
             result
@@ -1692,6 +1887,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             markLive()
                             resyncOpenSession()
                             refreshApprovals()
+                            refreshForms()
                         }
 
                         is SseEvent.Message -> {
@@ -1892,6 +2088,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             .withoutApproval(requestId, event.sessionId),
                     )
                 }
+            }
+        }
+        // M9: le domande della sessione aperta seguono gli eventi, come le approvazioni.
+        if (event is ServerEvent.FormCreated) {
+            if (openId == event.sessionId) {
+                _state.update { current ->
+                    current.copy(
+                        forms = current.forms.filterNot { it.id == event.form.id } + event.form,
+                        formsLoading = false,
+                        formsError = null,
+                    )
+                }
+                // Payload senza campi (contratto più sintetico del previsto):
+                // il dettaglio completo arriva dal resync.
+                if (event.form.fields.isEmpty()) refreshForms()
+            }
+        }
+        if (event is ServerEvent.FormReplied) {
+            _state.update { current ->
+                current.copy(forms = current.forms.filterNot { it.id == event.formId })
+            }
+        }
+        if (event is ServerEvent.FormCancelled) {
+            _state.update { current ->
+                current.copy(forms = current.forms.filterNot { it.id == event.formId })
             }
         }
         // La GET resta come allineamento quando inizia un turno/step.
@@ -2167,6 +2388,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val MAX_EVENTS = 200
         private const val MAX_SEEN_EVENT_IDS = 500
+
+        /** TTL del catalogo comandi, come gli altri cataloghi (5 minuti). */
+        private const val COMMANDS_TTL_MS = 5 * 60_000L
 
         /** Oltre questo silenzio sulla SSE, al foreground si forza il reconnect. */
         private const val SSE_STALE_MS = SseWatchdog.TIMEOUT_MS

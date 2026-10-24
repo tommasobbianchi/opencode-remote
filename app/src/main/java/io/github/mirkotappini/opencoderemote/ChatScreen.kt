@@ -104,6 +104,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import io.github.mirkotappini.opencoderemote.net.AssistantTurnUi
+import io.github.mirkotappini.opencoderemote.net.FormValue
 import io.github.mirkotappini.opencoderemote.net.MessageUi
 import io.github.mirkotappini.opencoderemote.net.PartPhase
 import io.github.mirkotappini.opencoderemote.net.ReasoningPartUi
@@ -147,6 +148,10 @@ fun ChatScreen(
     onOpenDrawer: () -> Unit,
     onReplyApproval: (id: String, decision: String, message: String?) -> Unit = { _, _, _ -> },
     onRefreshApprovals: () -> Unit = {},
+    onReplyForm: (id: String, answer: Map<String, FormValue>) -> Unit = { _, _ -> },
+    onCancelForm: (id: String) -> Unit = {},
+    onRefreshForms: () -> Unit = {},
+    onLoadCommands: (force: Boolean) -> Unit = {},
     onDismissError: () -> Unit = {},
     notificationPrompt: NotificationPromptUi? = null,
     onNotificationAction: () -> Unit = {},
@@ -193,6 +198,44 @@ fun ChatScreen(
     // l'app fotocamera è in primo piano.
     var cameraTarget by rememberSaveable { mutableStateOf<Uri?>(null) }
     var viewerRequest by remember(session?.id) { mutableStateOf<ImageViewerRequest?>(null) }
+
+    // M9 — la domanda pendente si disegna sopra il composer, non nella lista:
+    // così resta visibile anche se il turno è lungo. Con una domanda aperta il
+    // composer è spento ("Ferma" resta), perché il turno è già in attesa.
+    val pendingForm = state.forms.firstOrNull()
+
+    // M9 — palette dei comandi. Vive finché il draft è un comando in scrittura
+    // (inizia con "/" e non ha ancora spazi); "annulla" la nasconde per quel
+    // testo esatto, ricominciare a scrivere la riapre.
+    var paletteHiddenFor by remember(session?.id) { mutableStateOf<String?>(null) }
+    val commandQuery = commandQueryOf(state.draft)
+    val paletteOpen = commandQuery != null &&
+        paletteHiddenFor != state.draft &&
+        pendingForm == null &&
+        !state.openReadOnly
+
+    LaunchedEffect(paletteOpen) {
+        // TTL e "solo se serve" sono del ViewModel: qui si chiede l'elenco
+        // ogni volta che la palette compare.
+        if (paletteOpen) onLoadCommands(false)
+    }
+
+    val formSlot: (@Composable () -> Unit)? = if (pendingForm != null) {
+        val form = pendingForm
+        val panel: @Composable () -> Unit = {
+            QuestionPanel(
+                form = form,
+                error = state.formsError,
+                onReply = { answer -> onReplyForm(form.id, answer) },
+                onCancel = { onCancelForm(form.id) },
+                onRefresh = onRefreshForms,
+                modifier = Modifier.padding(bottom = 10.dp),
+            )
+        }
+        panel
+    } else {
+        null
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
@@ -513,6 +556,8 @@ fun ChatScreen(
                         onSend()
                     },
                     onInterrupt = onInterrupt,
+                    formPanel = formSlot,
+                    formPending = pendingForm != null,
                 )
             }
         }
@@ -560,6 +605,22 @@ fun ChatScreen(
             ImageViewer(
                 request = request,
                 onDismiss = { viewerRequest = null },
+            )
+        }
+
+        // Palette dei comandi: si apre dal draft e si chiude scegliendo (il
+        // draft diventa "/nome "), oppure con "annulla".
+        if (paletteOpen) {
+            CommandPalette(
+                commands = state.commands,
+                loading = state.commandsLoading,
+                error = state.commandsError,
+                query = commandQuery.orEmpty(),
+                onPick = { name ->
+                    paletteHiddenFor = null
+                    onDraftChange("/$name ")
+                },
+                onDismiss = { paletteHiddenFor = state.draft },
             )
         }
     }
@@ -766,9 +827,14 @@ private fun Composer(
     onDismissAttachmentError: () -> Unit,
     onSend: () -> Unit,
     onInterrupt: () -> Unit,
+    formPanel: (@Composable () -> Unit)? = null,
+    formPending: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val oc = OpenColors.current
+    // Con una domanda in attesa il composer si spegne: il turno è fermo in
+    // attesa di una risposta e un prompt in coda confonderebbe. "Ferma" resta.
+    val writable = connected && !formPending
     Surface(color = scheme.surfaceContainerLow) {
         Column(
             modifier = Modifier
@@ -789,6 +855,10 @@ private fun Composer(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                 ) {
+                    // La domanda del server sta qui, incollata sopra la riga
+                    // allegato: stessa colonna, stesso respiro, e non scorre
+                    // via con la chat.
+                    formPanel?.invoke()
                     // Riga allegato (o stato/errore): sopra il campo, dentro la
                     // stessa colonna così non balla rispetto al composer.
                     AttachmentRow(
@@ -827,7 +897,7 @@ private fun Composer(
                                 BasicTextField(
                                     value = draft,
                                     onValueChange = onDraftChange,
-                                    enabled = connected,
+                                    enabled = writable,
                                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                                         color = oc.text,
                                     ),
@@ -845,14 +915,17 @@ private fun Composer(
                                         ) {
                                             if (draft.isEmpty()) {
                                                 Text(
-                                                    text = if (connected) {
-                                                        "Scrivi un messaggio…"
-                                                    } else {
-                                                        "Non connesso"
+                                                    text = when {
+                                                        !connected -> "Non connesso"
+                                                        formPending ->
+                                                            "rispondi alla domanda qui sopra"
+                                                        else ->
+                                                            "Scrivi… oppure / per i comandi"
                                                     },
                                                     style = MaterialTheme.typography.bodyLarge,
                                                     color = scheme.onSurfaceVariant,
                                                     maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
                                                 )
                                             }
                                             innerTextField()
@@ -860,7 +933,7 @@ private fun Composer(
                                     },
                                 )
                                 AttachButton(
-                                    enabled = connected && !attachmentPreparing,
+                                    enabled = writable && !attachmentPreparing,
                                     onClick = onPickAttachment,
                                     modifier = Modifier.padding(start = 6.dp),
                                 )
@@ -872,7 +945,8 @@ private fun Composer(
                         } else {
                             SendButton(
                                 // Il prompt parte anche con il solo allegato.
-                                enabled = connected && (draft.isNotBlank() || attachment != null),
+                                enabled = writable &&
+                                    (draft.isNotBlank() || attachment != null),
                                 onClick = onSend,
                             )
                         }

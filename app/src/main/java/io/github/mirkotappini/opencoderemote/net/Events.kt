@@ -197,6 +197,24 @@ sealed interface ServerEvent {
         val requestId: String?,
     ) : ServerEvent
 
+    /** `form.created`: il payload è un `Form.Detail` già normalizzato. */
+    data class FormCreated(
+        override val sessionId: String,
+        val form: FormUi,
+    ) : ServerEvent
+
+    /** `form.replied`: la domanda è stata risposta, va tolta dalla UI. */
+    data class FormReplied(
+        override val sessionId: String?,
+        val formId: String,
+    ) : ServerEvent
+
+    /** `form.cancelled`: la domanda è stata annullata, va tolta dalla UI. */
+    data class FormCancelled(
+        override val sessionId: String?,
+        val formId: String,
+    ) : ServerEvent
+
     data class Unknown(
         val type: String,
         override val sessionId: String?,
@@ -481,6 +499,32 @@ object EventParsing {
                     ?: payload?.string("id")
                 if (requestId == null) return null
                 ServerEvent.PermissionReplied(sessionId, requestId)
+            }
+
+            "form.created" -> {
+                val form = FormParsing.parseDetail(payload)
+                val formSessionId = form?.sessionId?.takeIf { it.isNotBlank() }
+                    ?: sessionId
+                if (form == null || formSessionId == null) {
+                    // Payload non riconosciuto: mai un crash, solo un ignoto.
+                    ServerEvent.Unknown(type, sessionId)
+                } else {
+                    ServerEvent.FormCreated(formSessionId, form)
+                }
+            }
+
+            "form.replied", "form.cancelled" -> {
+                val formId = payload?.string("formID")
+                    ?: payload?.string("formId")
+                    ?: payload?.string("id")
+                    ?: ((payload?.get("form") as? JsonObject)?.string("id"))
+                if (formId.isNullOrBlank()) {
+                    ServerEvent.Unknown(type, sessionId)
+                } else if (type == "form.replied") {
+                    ServerEvent.FormReplied(sessionId, formId)
+                } else {
+                    ServerEvent.FormCancelled(sessionId, formId)
+                }
             }
 
             else -> ServerEvent.Unknown(type, sessionId)

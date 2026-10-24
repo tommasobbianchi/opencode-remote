@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.mirkotappini.opencoderemote"
         minSdk = 29
         targetSdk = 36
-        versionCode = 29
-        versionName = "0.10.4"
+        versionCode = 32
+        versionName = "0.11.2"
     }
 
     buildTypes {
