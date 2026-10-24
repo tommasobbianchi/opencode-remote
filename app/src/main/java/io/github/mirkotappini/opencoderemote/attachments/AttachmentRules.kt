@@ -130,7 +130,7 @@ object AttachmentRules {
             ?.trim('.', ' ', '_')
             ?.take(120)
         return when {
-            cleaned.isNullOrEmpty() -> "allegato.$extension"
+            cleaned.isNullOrEmpty() -> "attachment.$extension"
             '.' in cleaned -> cleaned
             else -> "$cleaned.$extension"
         }
@@ -151,8 +151,8 @@ object AttachmentRules {
     fun base64Length(bytes: Long): Long = if (bytes <= 0L) 0L else ceil(bytes / 3.0).toLong() * 4
 
     /**
-     * Peso leggibile in italiano, base 1000 come il sistema: "840 kB",
-     * "1,2 MB". Sotto il kB restano i byte.
+     * Peso leggibile in inglese, base 1000 come il sistema: "840 kB",
+     * "1.2 MB". Sotto il kB restano i byte.
      */
     fun formatSize(bytes: Long): String {
         val safe = bytes.coerceAtLeast(0L)
@@ -165,12 +165,12 @@ object AttachmentRules {
     }
 
     private fun unit(value: Double, suffix: String): String {
-        // Sotto 10 si tiene un decimale (virgola), sopra si arrotonda.
+        // Sotto 10 si tiene un decimale (punto), sopra si arrotonda.
         val text = if (value < 10.0) {
             val tenths = (value * 10.0).roundToLong()
             val whole = tenths / 10L
             val fraction = tenths % 10L
-            if (fraction == 0L) whole.toString() else "$whole,$fraction"
+            if (fraction == 0L) whole.toString() else "$whole.$fraction"
         } else {
             value.roundToInt().toString()
         }

@@ -30,7 +30,7 @@ class ApprovalNotifier(private val context: Context) {
         val system = context.getSystemService(NotificationManager::class.java) ?: return
         val approvals = NotificationChannel(
             CHANNEL_APPROVALS,
-            "Approvazioni",
+            "Approvals",
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
             description = "Permission requests waiting on the OpenCode server"
@@ -38,7 +38,7 @@ class ApprovalNotifier(private val context: Context) {
         }
         val service = NotificationChannel(
             CHANNEL_SERVICE,
-            "Connessione in background",
+            "Background connection",
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
             description = "Keeps the connection to receive permission requests"
@@ -79,10 +79,10 @@ class ApprovalNotifier(private val context: Context) {
             .setAutoCancel(false)
             .setWhen(request.createdAt ?: System.currentTimeMillis())
             .setContentIntent(appIntent(request.sessionId, request.id))
-            .addAction(0, "Consenti", replyIntent(request, "once"))
-            .addAction(0, "Nega", replyIntent(request, "reject"))
+            .addAction(0, "Allow", replyIntent(request, "once"))
+            .addAction(0, "Reject", replyIntent(request, "reject"))
             // "Sempre" ha effetto permanente: mai da notifica, apre l'app.
-            .addAction(0, "Sempre…", appIntent(request.sessionId, request.id, "always"))
+            .addAction(0, "Always…", appIntent(request.sessionId, request.id, "always"))
 
         manager.notify(ApprovalIds.notificationId(request.id), builder.build())
     }
@@ -111,7 +111,7 @@ class ApprovalNotifier(private val context: Context) {
         }
         val message = request.message?.let { "\n$it" }.orEmpty()
         val save = if (request.save.isNotEmpty()) {
-            "\nSempre salverebbe: ${request.save.joinToString(" ")}"
+            "\nAlways would save: ${request.save.joinToString(" ")}"
         } else {
             ""
         }

@@ -83,7 +83,7 @@ import java.util.Locale
 // ---------------------------------------------------------------------------
 
 private enum class DrawerTab(val label: String) {
-    Agents("Agenti"),
+    Agents("Agents"),
     Skills("Skill"),
     Mcp("MCP"),
 }
@@ -171,7 +171,7 @@ private fun OmoDrawerBody(
         if (session?.agent == target) {
             pendingAgent = null
             val name = state.catalog.agents.firstOrNull { it.id == target }?.name ?: target
-            notice = DrawerNotice("Agente attivo · $name")
+            notice = DrawerNotice("Agent active · $name")
         }
     }
     LaunchedEffect(session?.modelId, pendingModel) {
@@ -181,7 +181,7 @@ private fun OmoDrawerBody(
             val name = state.catalog.models
                 .firstOrNull { it.modelID == target }?.name
                 ?: target
-            notice = DrawerNotice("Modello attivo · $name")
+            notice = DrawerNotice("Model active · $name")
         }
     }
     LaunchedEffect(pendingAgent) {
@@ -295,7 +295,7 @@ private fun OmoDrawerBody(
                     canActivate = canSwitch,
                     onActivateSkill = { skill ->
                         onActivateSkill(skill.id)
-                        notice = DrawerNotice("Skill attivata · ${skill.name}")
+                        notice = DrawerNotice("Skill activated · ${skill.name}")
                     },
                     onRefreshCatalog = onRefreshCatalog,
                     onDismissError = onDismissError,
@@ -347,7 +347,7 @@ private fun OmoDrawerBody(
                     modifier = Modifier.heightIn(min = 48.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = oc.error),
                 ) {
-                    Text("Disconnetti", style = MaterialTheme.typography.labelLarge)
+                    Text("Disconnect", style = MaterialTheme.typography.labelLarge)
                 }
             },
             dismissButton = {
@@ -356,7 +356,7 @@ private fun OmoDrawerBody(
                     modifier = Modifier.heightIn(min = 48.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = oc.mutedText),
                 ) {
-                    Text("Annulla", style = MaterialTheme.typography.labelLarge)
+                    Text("Cancel", style = MaterialTheme.typography.labelLarge)
                 }
             },
             containerColor = scheme.surfaceContainerHigh,
@@ -453,7 +453,7 @@ private fun DrawerHeader(
                     onClick = onClose,
                     modifier = Modifier
                         .size(48.dp)
-                        .semantics { contentDescription = "Chiudi il pannello" },
+                        .semantics { contentDescription = "Close the panel" },
                 ) {
                     GlyphClose(size = 17.dp)
                 }
@@ -522,7 +522,7 @@ private fun ConnectionPill(
         is Connection.Connecting -> Triple(oc.warningInk, "connecting", true)
         is Connection.Error -> Triple(oc.error, "not connected", false)
         is Connection.Incompatible -> Triple(oc.error, "unsupported version", false)
-        Connection.Disconnected -> Triple(oc.mutedText, "disconnesso", false)
+        Connection.Disconnected -> Triple(oc.mutedText, "disconnected", false)
     }
     StatusPill(
         label = label,
@@ -544,12 +544,12 @@ private fun TasksBadge(
         loading -> "task…"
         running > 0 -> "$running task"
         total > 0 -> "$total task"
-        else -> "nessun task"
+        else -> "no tasks"
     }
     val description = when {
         loading -> "loading background tasks"
         running > 0 -> "$running tasks running: display the background tasks"
-        else -> "nessun task in esecuzione"
+        else -> "no tasks running"
     }
 
     Box(
@@ -557,7 +557,7 @@ private fun TasksBadge(
             .heightIn(min = 48.dp)
             .clickable(
                 enabled = !loading,
-                onClickLabel = "Mostra i task in background",
+                onClickLabel = "Show background tasks",
                 onClick = onClick,
             )
             .semantics { contentDescription = description },
@@ -623,7 +623,7 @@ private fun DrawerTabs(
                             role = Role.Tab,
                             onClick = { onSelect(tab) },
                         )
-                        .semantics { contentDescription = "Scheda ${tab.label}" },
+                        .semantics { contentDescription = "Tab ${tab.label}" },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -653,9 +653,9 @@ private fun DrawerToolbar(
     ) {
         Text(
             text = when {
-                refreshing -> "aggiorno…"
+                refreshing -> "refreshing…"
                 loadedAt == null -> "catalog not loaded"
-                else -> "aggiornato ${relativeAge(loadedAt)}"
+                else -> "updated ${relativeAge(loadedAt)}"
             },
             style = monoStyle(fontSize = 10.sp, lineHeight = 13.sp),
             color = oc.mutedText,
@@ -674,7 +674,7 @@ private fun DrawerToolbar(
             onClick = onRefresh,
             modifier = Modifier
                 .size(48.dp)
-                .semantics { contentDescription = "Aggiorna i dati del pannello" },
+                .semantics { contentDescription = "Refresh the panel data" },
         ) {
             GlyphRefresh(size = 17.dp)
         }
@@ -705,7 +705,7 @@ private fun DrawerFooter(
                 contentPadding = PaddingValues(horizontal = 12.dp),
             ) {
                 Text(
-                    text = "Log SSE",
+                    text = "SSE log",
                     style = MaterialTheme.typography.labelMedium,
                     color = oc.info,
                 )
@@ -717,7 +717,7 @@ private fun DrawerFooter(
                 contentPadding = PaddingValues(horizontal = 12.dp),
             ) {
                 Text(
-                    text = "Disconnetti",
+                    text = "Disconnect",
                     style = MaterialTheme.typography.labelMedium,
                     color = oc.error,
                 )
@@ -840,15 +840,15 @@ private data class SessionStatusSpec(
 @Composable
 private fun sessionStatusSpec(session: SessionUi): SessionStatusSpec {
     val oc = OpenColors.current
-    if (session.isActive) return SessionStatusSpec("attiva", oc.success, pulsing = true)
+    if (session.isActive) return SessionStatusSpec("active", oc.success, pulsing = true)
     return when (session.outcome?.lowercase(Locale.ROOT)) {
         "succeeded", "success", "done" -> SessionStatusSpec("ok", oc.success)
         "failed", "failure", "error" -> SessionStatusSpec("error", oc.error)
-        "interrupted", "aborted" -> SessionStatusSpec("interrotta", oc.warningInk)
-        "running", "active" -> SessionStatusSpec("attiva", oc.success, pulsing = true)
-        null, "" -> SessionStatusSpec("inattiva", oc.mutedText)
+        "interrupted", "aborted" -> SessionStatusSpec("interrupted", oc.warningInk)
+        "running", "active" -> SessionStatusSpec("active", oc.success, pulsing = true)
+        null, "" -> SessionStatusSpec("inactive", oc.mutedText)
         else -> SessionStatusSpec(
-            label = session.outcome.orEmpty().ifBlank { "inattiva" },
+            label = session.outcome.orEmpty().ifBlank { "inactive" },
             color = oc.mutedText,
         )
     }
@@ -891,7 +891,7 @@ private fun TasksSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Task in background",
+                        text = "Background tasks",
                         style = MaterialTheme.typography.titleMedium,
                         color = scheme.onSurface,
                         maxLines = 1,
@@ -904,7 +904,7 @@ private fun TasksSheet(
                     )
                 }
                 SmallRefresh(
-                    description = "Aggiorna i task in background",
+                    description = "Refresh background tasks",
                     loading = state.childrenLoading,
                     onClick = onRefresh,
                 )
@@ -920,7 +920,7 @@ private fun TasksSheet(
                         title = "Tasks not updated",
                         message = state.error,
                         onAction = onDismissError,
-                        actionLabel = "Chiudi",
+                        actionLabel = "Close",
                     )
                 }
             }
@@ -966,12 +966,12 @@ private fun TasksSheet(
 
 private fun tasksSummary(running: Int, total: Int): String {
     val count = when (total) {
-        0 -> "nessun figlio"
-        1 -> "1 figlio"
-        else -> "$total figli"
+        0 -> "no children"
+        1 -> "1 child"
+        else -> "$total children"
     }
     return if (running > 0) {
-        "$running in esecuzione · $count"
+        "$running running · $count"
     } else {
         "$count · none running"
     }
@@ -1008,15 +1008,15 @@ private data class TaskStateSpec(
 @Composable
 private fun taskStateSpec(session: SessionUi): TaskStateSpec {
     val oc = OpenColors.current
-    if (session.isActive) return TaskStateSpec("in esecuzione", oc.success, pulsing = true)
+    if (session.isActive) return TaskStateSpec("running", oc.success, pulsing = true)
     return when (session.outcome?.lowercase(Locale.ROOT)) {
-        "succeeded", "success", "done" -> TaskStateSpec("concluso · ok", oc.success)
+        "succeeded", "success", "done" -> TaskStateSpec("finished · ok", oc.success)
         "failed", "failure", "error" -> TaskStateSpec("finished · error", oc.error)
-        "interrupted", "aborted" -> TaskStateSpec("interrotta", oc.warningInk)
-        "running", "active" -> TaskStateSpec("in esecuzione", oc.success, pulsing = true)
-        null, "" -> TaskStateSpec("in attesa", oc.mutedText)
+        "interrupted", "aborted" -> TaskStateSpec("interrupted", oc.warningInk)
+        "running", "active" -> TaskStateSpec("running", oc.success, pulsing = true)
+        null, "" -> TaskStateSpec("waiting", oc.mutedText)
         else -> TaskStateSpec(
-            label = "concluso · ${session.outcome.orEmpty()}",
+            label = "finished · ${session.outcome.orEmpty()}",
             color = oc.mutedText,
         )
     }
@@ -1037,7 +1037,7 @@ private fun TaskRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
-                onClickLabel = "Apri il task ${session.title}",
+                onClickLabel = "Open task ${session.title}",
                 role = Role.Button,
                 onClick = onClick,
             )
@@ -1062,7 +1062,7 @@ private fun TaskRow(
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AgentChip(
-                    label = agent ?: "predefinito",
+                    label = agent ?: "default",
                     muted = agent == null,
                 )
                 session.modelId?.takeIf { it.isNotBlank() }?.let { model ->
@@ -1083,7 +1083,7 @@ private fun TaskRow(
             if (status.pulsing) {
                 WorkingIndicator(
                     size = 12.dp,
-                    description = "task in esecuzione",
+                    description = "task running",
                 )
             } else {
                 StatusDot(color = status.color, size = 5.dp)
@@ -1158,7 +1158,7 @@ private fun AgentsTab(
                 DrawerEmpty(
                     title = "Catalog not loaded",
                     body = "Agents, skills, MCP and models come from the server. Retry.",
-                    actionLabel = "Riprova",
+                    actionLabel = "Retry",
                     onAction = onRefreshCatalog,
                 )
             }
@@ -1167,7 +1167,7 @@ private fun AgentsTab(
                 DrawerEmpty(
                     title = "No agents",
                     body = "The server returned no usable agents.",
-                    actionLabel = "Aggiorna",
+                    actionLabel = "Refresh",
                     onAction = onRefreshCatalog,
                 )
             }
@@ -1175,7 +1175,7 @@ private fun AgentsTab(
             else -> {
                 item(key = "agents-header") {
                     DrawerSectionHeader(
-                        title = "Agenti",
+                        title = "Agents",
                         count = catalog.agentsForDrawer.size,
                     )
                 }
@@ -1248,7 +1248,7 @@ private fun SessionAgentRow(state: UiState) {
     val name = primary?.name
         ?: subagent?.name
         ?: agentId?.takeIf { it.isNotBlank() }
-        ?: "predefinito"
+        ?: "default"
 
     Row(
         modifier = Modifier
@@ -1256,7 +1256,7 @@ private fun SessionAgentRow(state: UiState) {
             .padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Eyebrow(text = "Agente", color = oc.mutedText)
+        Eyebrow(text = "Agent", color = oc.mutedText)
         Spacer(Modifier.width(8.dp))
         Text(
             text = name,
@@ -1296,7 +1296,7 @@ private fun ModelSwitchCard(
         model.modelID == session?.modelId &&
             (session.modelProvider.isNullOrBlank() || model.providerID == session.modelProvider)
     }
-    val modelLabel = current?.name ?: session?.modelId ?: "predefinito"
+    val modelLabel = current?.name ?: session?.modelId ?: "default"
     val reference = modelRefLabel(session?.modelProvider, session?.modelId)
 
     Box(
@@ -1329,7 +1329,7 @@ private fun ModelSwitchCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Eyebrow(text = "Modello")
+                        Eyebrow(text = "Model")
                         Spacer(Modifier.width(8.dp))
                         Text(
                             text = if (enabled) "tap to change" else "no open session",
@@ -1349,9 +1349,9 @@ private fun ModelSwitchCard(
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = buildString {
-                            append(session?.agent ?: "predefinito")
+                            append(session?.agent ?: "default")
                             append(" · ")
-                            append(reference ?: "modello predefinito")
+                            append(reference ?: "default model")
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = scheme.onSurfaceVariant,
@@ -1427,9 +1427,9 @@ private fun AgentRow(
                     WorkingIndicator(
                         size = 12.dp,
                         description = if (working > 1) {
-                            "$working task in esecuzione"
+                            "$working tasks running"
                         } else {
-                            "task in esecuzione"
+                            "task running"
                         },
                     )
                     if (working > 1) {
@@ -1474,11 +1474,11 @@ private fun AgentRow(
 
             active -> Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.semantics { contentDescription = "Agente attivo" },
+                modifier = Modifier.semantics { contentDescription = "Agent active" },
             ) {
                 GlyphCheck(size = 14.dp, color = oc.success)
                 Text(
-                    text = "attivo",
+                    text = "active",
                     style = MaterialTheme.typography.labelSmall,
                     color = oc.success,
                     maxLines = 1,
@@ -1491,7 +1491,7 @@ private fun AgentRow(
 }
 
 private fun agentModelLabel(agent: AgentUi): String =
-    modelRefLabel(agent.modelProvider, agent.modelId) ?: "modello predefinito"
+    modelRefLabel(agent.modelProvider, agent.modelId) ?: "default model"
 
 // ---------------------------------------------------------------------------
 // Tab Skill
@@ -1531,16 +1531,16 @@ private fun SkillsTab(
                 DrawerEmpty(
                     title = "Skills not loaded",
                     body = "The skills list comes from the server. Retry.",
-                    actionLabel = "Riprova",
+                    actionLabel = "Retry",
                     onAction = onRefreshCatalog,
                 )
             }
 
             catalog.skills.isEmpty() -> item(key = "empty") {
                 DrawerEmpty(
-                    title = "Nessuna skill",
+                    title = "No skills",
                     body = "The server returned no skills.",
-                    actionLabel = "Aggiorna",
+                    actionLabel = "Refresh",
                     onAction = onRefreshCatalog,
                 )
             }
@@ -1630,7 +1630,7 @@ private fun McpTab(
                 DrawerEmpty(
                     title = "MCP servers not loaded",
                     body = "MCP server status comes from the server. Retry.",
-                    actionLabel = "Riprova",
+                    actionLabel = "Retry",
                     onAction = onRefreshCatalog,
                 )
             }
@@ -1639,14 +1639,14 @@ private fun McpTab(
                 DrawerEmpty(
                     title = "No MCP servers",
                     body = "No MCP servers configured on the server.",
-                    actionLabel = "Aggiorna",
+                    actionLabel = "Refresh",
                     onAction = onRefreshCatalog,
                 )
             }
 
             else -> {
                 item(key = "mcp-header") {
-                    DrawerSectionHeader(title = "Server MCP", count = catalog.mcps.size)
+                    DrawerSectionHeader(title = "MCP servers", count = catalog.mcps.size)
                 }
                 item(key = "mcp-note") {
                     Text(
@@ -1709,10 +1709,10 @@ private fun mcpStatusSpec(status: String): McpStatusSpec {
     val oc = OpenColors.current
     val key = status.lowercase(Locale.ROOT)
     return when {
-        key.contains("connect") -> McpStatusSpec("connesso", oc.success)
+        key.contains("connect") -> McpStatusSpec("connected", oc.success)
         key.contains("fail") || key.contains("error") -> McpStatusSpec("error", oc.error)
-        key.contains("auth") -> McpStatusSpec("richiede autenticazione", oc.warningInk)
-        key.contains("disabled") -> McpStatusSpec("disabilitato", oc.mutedText)
+        key.contains("auth") -> McpStatusSpec("requires authentication", oc.warningInk)
+        key.contains("disabled") -> McpStatusSpec("disabled", oc.mutedText)
         key.isBlank() || key == "unknown" -> McpStatusSpec("unknown status", oc.warningInk)
         else -> McpStatusSpec(status, oc.warningInk)
     }
@@ -1739,7 +1739,7 @@ private fun DrawerBanners(
                 title = "Catalog not updated",
                 message = catalogError,
                 onAction = onRefreshCatalog,
-                actionLabel = "Riprova",
+                actionLabel = "Retry",
             )
         }
     }
@@ -1754,7 +1754,7 @@ private fun DrawerBanners(
                 title = "Operation failed",
                 message = actionError,
                 onAction = onDismissError,
-                actionLabel = "Chiudi",
+                actionLabel = "Close",
             )
         }
     }

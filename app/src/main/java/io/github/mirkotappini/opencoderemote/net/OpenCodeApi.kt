@@ -114,7 +114,7 @@ object SessionCommands {
 class ApiException(
     val code: Int,
     val path: String,
-) : IOException("HTTP $code su $path")
+) : IOException("HTTP $code on $path")
 
 /**
  * Client REST per M1.

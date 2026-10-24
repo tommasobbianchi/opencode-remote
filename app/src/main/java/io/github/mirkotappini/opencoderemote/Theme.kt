@@ -881,7 +881,7 @@ fun WorkingIndicator(
     modifier: Modifier = Modifier,
     size: Dp = 12.dp,
     color: Color = OpenColors.current.success,
-    description: String = "in esecuzione",
+    description: String = "running",
 ) {
     val animatorsEnabled = ValueAnimator.areAnimatorsEnabled()
     val rotation = if (animatorsEnabled) {
@@ -969,7 +969,7 @@ fun ApprovalBadge(
     val description = if (count == 1) {
         "1 approval waiting"
     } else {
-        "$count approvazioni in attesa"
+        "$count approvals waiting"
     }
     Surface(
         modifier = modifier.clearAndSetSemantics { contentDescription = description },
@@ -1008,7 +1008,7 @@ fun ErrorBanner(
     modifier: Modifier = Modifier,
     title: String = "Something went wrong",
     onAction: (() -> Unit)? = null,
-    actionLabel: String = "Riprova",
+    actionLabel: String = "Retry",
     onDismiss: (() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -1061,7 +1061,7 @@ fun ErrorBanner(
                     onClick = onDismiss,
                     modifier = Modifier
                         .size(36.dp)
-                        .semantics { contentDescription = "Chiudi il messaggio" },
+                        .semantics { contentDescription = "Close the message" },
                 ) {
                     GlyphClose(size = 14.dp)
                 }

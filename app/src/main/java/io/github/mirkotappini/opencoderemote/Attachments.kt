@@ -102,7 +102,7 @@ private const val BUBBLE_IMAGE_MIN = 96f
 // altrove, si spostano in `Theme.kt` senza cambiarne il disegno.
 // ---------------------------------------------------------------------------
 
-/** Graffetta: il glifo del pulsante "Allega un file". */
+/** Graffetta: il glifo del pulsante "Attach a file". */
 @Composable
 internal fun GlyphPaperclip(
     modifier: Modifier = Modifier,
@@ -202,7 +202,7 @@ internal fun GlyphDocument(
     }
 }
 
-/** Cornice con montagna e sole: "galleria". */
+/** Cornice con montagna e sole: "gallery". */
 @Composable
 internal fun GlyphGallery(
     modifier: Modifier = Modifier,
@@ -238,7 +238,7 @@ internal fun GlyphGallery(
     }
 }
 
-/** Corpo con obiettivo: "fotocamera". */
+/** Corpo con obiettivo: "camera". */
 @Composable
 internal fun GlyphCamera(
     modifier: Modifier = Modifier,
@@ -275,7 +275,7 @@ internal fun GlyphCamera(
 }
 
 // ---------------------------------------------------------------------------
-// Peso leggibile: "840 kB", "1,2 MB" (virgola italiana, unità decimali).
+// Peso leggibile: "840 kB", "1.2 MB" (punto decimale inglese, unità decimali).
 // ---------------------------------------------------------------------------
 
 internal fun fileSizeLabel(bytes: Long): String {
@@ -292,7 +292,7 @@ private fun decimalLabel(value: Double): String =
     if (value >= 10.0) {
         Math.round(value).toString()
     } else {
-        String.format(Locale.ITALIAN, "%.1f", value)
+        String.format(Locale.US, "%.1f", value)
     }
 
 // ---------------------------------------------------------------------------
@@ -460,7 +460,7 @@ internal data class ImageViewerRequest(
     val name: String,
 )
 
-/** Immagine a schermo intero: fondo `background`, "chiudi" e tap per uscire. */
+/** Immagine a schermo intero: fondo `background`, "close" e tap per uscire. */
 @Composable
 internal fun ImageViewer(
     request: ImageViewerRequest,
@@ -493,7 +493,7 @@ internal fun ImageViewer(
                     .fillMaxSize()
                     .clickable(
                         role = Role.Button,
-                        onClickLabel = "Chiudi l'immagine",
+                        onClickLabel = "Close the image",
                         onClick = onDismiss,
                     ),
             ) {
@@ -511,7 +511,7 @@ internal fun ImageViewer(
                     WorkingIndicator(
                         size = 16.dp,
                         color = oc.mutedText,
-                        description = "carico l'immagine",
+                        description = "loading the image",
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
@@ -525,14 +525,14 @@ internal fun ImageViewer(
                         .background(scheme.background.copy(alpha = 0.7f))
                         .clickable(
                             role = Role.Button,
-                            onClickLabel = "Chiudi",
+                            onClickLabel = "Close",
                             onClick = onDismiss,
                         )
                         .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "chiudi",
+                        text = "close",
                         style = MaterialTheme.typography.labelSmall,
                         color = oc.mutedText,
                     )
@@ -589,17 +589,17 @@ private fun PreparingRow() {
             modifier = Modifier
                 .heightIn(min = 48.dp)
                 .padding(horizontal = 12.dp, vertical = 4.dp)
-                .clearAndSetSemantics { contentDescription = "preparo l'allegato…" },
+                .clearAndSetSemantics { contentDescription = "preparing the attachment…" },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             WorkingIndicator(
                 size = 14.dp,
                 color = oc.success,
-                description = "attesa",
+                description = "waiting",
             )
             Text(
-                text = "preparo l'allegato…",
+                text = "preparing the attachment…",
                 style = MaterialTheme.typography.labelMedium,
                 color = oc.mutedText,
                 maxLines = 1,
@@ -658,7 +658,7 @@ private fun AttachmentCard(
                         role = Role.Button,
                         onClick = onClear,
                     )
-                    .semantics { contentDescription = "Rimuovi allegato" },
+                    .semantics { contentDescription = "Remove attachment" },
                 contentAlignment = Alignment.Center,
             ) {
                 CompositionLocalProvider(LocalContentColor provides oc.mutedText) {
@@ -681,7 +681,7 @@ private fun AttachmentErrorRow(
             .heightIn(min = 48.dp)
             .clickable(
                 role = Role.Button,
-                onClickLabel = "Chiudi l'avviso",
+                onClickLabel = "Close the notice",
                 onClick = onDismiss,
             ),
         verticalAlignment = Alignment.CenterVertically,
@@ -731,7 +731,7 @@ internal fun AttachSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Eyebrow(
-                    text = "allega",
+                    text = "attach",
                     color = oc.mutedText,
                     modifier = Modifier.weight(1f),
                 )
@@ -740,27 +740,27 @@ internal fun AttachSheet(
                         .heightIn(min = 48.dp)
                         .clickable(
                             role = Role.Button,
-                            onClickLabel = "Chiudi",
+                            onClickLabel = "Close",
                             onClick = onDismiss,
                         )
                         .padding(horizontal = 8.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "annulla",
+                        text = "cancel",
                         style = MaterialTheme.typography.labelSmall,
                         color = oc.mutedText,
                     )
                 }
             }
             AttachSheetRow(
-                label = "galleria",
+                label = "gallery",
                 onClick = { onPick(AttachTarget.Gallery) },
                 glyph = { GlyphGallery(size = 20.dp, color = oc.mutedText) },
             )
             SheetDivider()
             AttachSheetRow(
-                label = "fotocamera",
+                label = "camera",
                 onClick = { onPick(AttachTarget.Camera) },
                 glyph = { GlyphCamera(size = 20.dp, color = oc.mutedText) },
             )
@@ -882,7 +882,7 @@ private fun attachmentView(
     file: MessageFileUi,
     pending: Boolean,
 ): AttachmentView {
-    val name = file.name?.takeIf { it.isNotBlank() } ?: "allegato"
+    val name = file.name?.takeIf { it.isNotBlank() } ?: "attachment"
     val mime = file.mime?.takeIf { it.isNotBlank() }
     val image = mime?.startsWith("image/", ignoreCase = true) == true || looksLikeImage(name)
     val inline = file.dataBase64?.takeIf { it.isNotBlank() }
@@ -929,10 +929,10 @@ private fun AttachmentImage(
             .background(oc.high)
             .clickable(
                 role = Role.Button,
-                onClickLabel = "Apri l'immagine",
+                onClickLabel = "Open the image",
                 onClick = onClick,
             )
-            .semantics { contentDescription = "immagine $name" },
+            .semantics { contentDescription = "image $name" },
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {

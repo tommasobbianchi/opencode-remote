@@ -14,6 +14,11 @@ you enter the address of your OpenCode server and the service credentials.
 - interrupting the turn, automatic reconnection with re-synchronization
 - permission approvals, with notifications and actions
 - server agents / skill / MCP panel, model selection
+- attachments: images from the gallery or camera, PDFs and other files, sent
+  inline with the prompt (images are downscaled on the phone)
+- questions asked by the agent (forms): a panel above the composer to answer
+  them, so the turn can continue
+- slash commands (`/` opens a searchable list of the server commands)
 - changing server from the list (the encrypted credentials are deleted)
 
 ## Requirements

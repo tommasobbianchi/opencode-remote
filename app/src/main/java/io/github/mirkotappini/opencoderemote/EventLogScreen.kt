@@ -107,7 +107,7 @@ fun EventLogScreen(
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Log SSE",
+                                text = "SSE log",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = oc.accent,
                                 maxLines = 1,
@@ -121,7 +121,7 @@ fun EventLogScreen(
                         }
                         Spacer(Modifier.width(10.dp))
                         StatusPill(
-                            label = if (state.streaming) "live" else "fermo",
+                            label = if (state.streaming) "live" else "stopped",
                             color = if (state.streaming) oc.success else oc.mutedText,
                             pulsing = state.streaming,
                         )
@@ -157,7 +157,7 @@ fun EventLogScreen(
                             shape = MaterialTheme.shapes.medium,
                             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 0.dp),
                         ) {
-                            Text("Avvia")
+                            Text("Start")
                         }
                         OutlinedButton(
                             onClick = onStop,
@@ -166,11 +166,11 @@ fun EventLogScreen(
                             shape = MaterialTheme.shapes.medium,
                             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 0.dp),
                         ) {
-                            Text("Ferma")
+                            Text("Stop")
                         }
                         Spacer(Modifier.weight(1f))
                         Text(
-                            text = "eventi ${state.events.size}/200",
+                            text = "events ${state.events.size}/200",
                             style = monoStyle(fontSize = 10.5.sp, lineHeight = 14.sp),
                             color = scheme.onSurfaceVariant,
                             maxLines = 1,
@@ -296,9 +296,9 @@ private fun EmptyLog(streaming: Boolean) {
         Spacer(Modifier.size(10.dp))
         Text(
             text = if (streaming) {
-                "in attesa di eventi…"
+                "waiting for events…"
             } else {
-                "nessun evento · avvia lo stream"
+                "no events · start the stream"
             },
             style = monoStyle(fontSize = 11.5.sp, lineHeight = 17.sp),
             color = scheme.onSurfaceVariant,

@@ -208,7 +208,7 @@ fun ApprovalExpiredNotice(
                 modifier = Modifier.heightIn(min = 48.dp),
                 contentPadding = PaddingValues(horizontal = 10.dp),
             ) {
-                Text("Chiudi", style = MaterialTheme.typography.labelMedium, color = oc.interactive)
+                Text("Close", style = MaterialTheme.typography.labelMedium, color = oc.interactive)
             }
         }
     }
@@ -250,7 +250,7 @@ private fun ApprovalPanelHeader(
                 border = BorderStroke(1.dp, oc.warningInk.copy(alpha = 0.24f)),
                 modifier = Modifier.semantics {
                     contentDescription =
-                        "Richiesta ${selectedIndex + 1} di $count"
+                        "Request ${selectedIndex + 1} of $count"
                 },
             ) {
                 Text(
@@ -266,7 +266,7 @@ private fun ApprovalPanelHeader(
                 enabled = canGoBack && !busy,
                 modifier = Modifier
                     .size(48.dp)
-                    .semantics { contentDescription = "Richiesta precedente" },
+                    .semantics { contentDescription = "Previous request" },
             ) {
                 GlyphChevron(direction = ChevronDirection.Left, size = 16.dp)
             }
@@ -275,7 +275,7 @@ private fun ApprovalPanelHeader(
                 enabled = canGoForward && !busy,
                 modifier = Modifier
                     .size(48.dp)
-                    .semantics { contentDescription = "Richiesta successiva" },
+                    .semantics { contentDescription = "Next request" },
             ) {
                 GlyphChevron(direction = ChevronDirection.Right, size = 16.dp)
             }
@@ -346,7 +346,7 @@ private fun ExpandedApprovalCard(
             }
             .semantics {
                 contentDescription = buildString {
-                    append("Richiesta ${index + 1} di $total: ")
+                    append("Request ${index + 1} of $total: ")
                     append(approval.action)
                     firstResource?.let { append(" $it") }
                 }
@@ -385,7 +385,7 @@ private fun ExpandedApprovalCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (extraResources > 0) {
                         ApprovalChip(
-                            text = "+$extraResources risorse",
+                            text = "+$extraResources resources",
                             color = oc.info,
                         )
                     }
@@ -463,7 +463,7 @@ private fun ExpandedApprovalCard(
                     if (currentSending?.decision == DECISION_REJECT) {
                         ActionSpinner(color = scheme.onSurface)
                     } else {
-                        Text("Nega", style = MaterialTheme.typography.labelLarge)
+                        Text("Reject", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -581,7 +581,7 @@ private fun ApprovalErrorNote(
             modifier = Modifier.heightIn(min = 48.dp),
             contentPadding = PaddingValues(horizontal = 9.dp),
         ) {
-            Text("Aggiorna", style = MaterialTheme.typography.labelMedium, color = oc.interactive)
+            Text("Refresh", style = MaterialTheme.typography.labelMedium, color = oc.interactive)
         }
     }
 }
@@ -685,7 +685,7 @@ private fun AlwaysConfirmationDialog(
                 modifier = Modifier.heightIn(min = 48.dp),
                 colors = ButtonDefaults.textButtonColors(contentColor = oc.mutedText),
             ) {
-                Text("Annulla", style = MaterialTheme.typography.labelLarge)
+                Text("Cancel", style = MaterialTheme.typography.labelLarge)
             }
         },
         containerColor = scheme.surfaceContainerHigh,

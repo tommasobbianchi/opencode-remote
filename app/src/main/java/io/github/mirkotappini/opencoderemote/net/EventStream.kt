@@ -87,7 +87,7 @@ class EventStream(
                 call.execute().use { response ->
                     if (!response.isSuccessful) {
                         trySend(
-                            SseEvent.Failure("stream rifiutato", response.code),
+                            SseEvent.Failure("stream rejected", response.code),
                         )
                         close()
                         return@use
@@ -137,12 +137,12 @@ class EventStream(
                 }
             } catch (e: IOException) {
                 if (isActive) {
-                    trySend(SseEvent.Failure("stream interrotto: ${e.javaClass.simpleName}"))
+                    trySend(SseEvent.Failure("stream interrupted: ${e.javaClass.simpleName}"))
                     close()
                 }
             } catch (e: Exception) {
                 if (isActive) {
-                    trySend(SseEvent.Failure("stream interrotto: ${e.javaClass.simpleName}"))
+                    trySend(SseEvent.Failure("stream interrupted: ${e.javaClass.simpleName}"))
                     close()
                 }
             }

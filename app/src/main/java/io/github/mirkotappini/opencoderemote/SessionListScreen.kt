@@ -185,7 +185,7 @@ fun SessionListScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "Sessioni",
+                            text = "Sessions",
                             style = MaterialTheme.typography.headlineMedium,
                             color = oc.accent,
                         )
@@ -259,7 +259,7 @@ fun SessionListScreen(
                                 // Rete assente: si aspetta, non si riprova (niente numeri).
                                 suspended -> ReconnectPolicy.NETWORK_WAITING
                                 reconnecting != null && state.error != null ->
-                                    "${state.error} · riprovo tra " +
+                                    "${state.error} · retrying in " +
                                         "${state.reconnectInSeconds.coerceAtLeast(0)}s"
                                 reconnecting != null ->
                                     ReconnectPolicy.bannerLabel(state.reconnectInSeconds, false)
@@ -319,13 +319,13 @@ fun SessionListScreen(
                                                 ) {
                                                     GlyphRefresh(size = 16.dp)
                                                     Spacer(Modifier.width(8.dp))
-                                                    Text("Aggiorna")
+                                                    Text("Refresh")
                                                 }
                                                 TextButton(
                                                     onClick = onOpenEventLog,
                                                     modifier = Modifier.heightIn(min = 48.dp),
                                                 ) {
-                                                    Text("Apri log SSE")
+                                                    Text("Open SSE log")
                                                 }
                                             }
                                         },
@@ -583,7 +583,7 @@ private fun ServerSheet(
                         modifier = Modifier.heightIn(min = 48.dp),
                         colors = ButtonDefaults.textButtonColors(contentColor = oc.mutedText),
                     ) {
-                        Text("Annulla", style = MaterialTheme.typography.labelLarge)
+                        Text("Cancel", style = MaterialTheme.typography.labelLarge)
                     }
                     Spacer(Modifier.width(8.dp))
                     Button(
@@ -646,14 +646,14 @@ private fun StreamNotice(
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                 colors = ButtonDefaults.textButtonColors(contentColor = tone),
             ) {
-                Text(text = "Riprova", style = MaterialTheme.typography.labelMedium)
+                Text(text = "Retry", style = MaterialTheme.typography.labelMedium)
             }
             if (onDismiss != null) {
                 IconButton(
                     onClick = onDismiss,
                     modifier = Modifier
                         .size(44.dp)
-                        .semantics { contentDescription = "Chiudi l'avviso" },
+                        .semantics { contentDescription = "Close the notice" },
                 ) {
                     GlyphClose(size = 14.dp)
                 }
@@ -755,10 +755,10 @@ private data class BadgeSpec(
 @Composable
 private fun sessionBadge(session: SessionUi): BadgeSpec? {
     val oc = OpenColors.current
-    if (session.isActive) return BadgeSpec("in corso", oc.success, pulsing = true)
+    if (session.isActive) return BadgeSpec("running", oc.success, pulsing = true)
     return when (session.outcome?.lowercase()) {
         "failed", "failure", "error" -> BadgeSpec("error", oc.error, pulsing = false)
-        "interrupted", "aborted" -> BadgeSpec("interrotta", oc.warningInk, pulsing = false)
+        "interrupted", "aborted" -> BadgeSpec("interrupted", oc.warningInk, pulsing = false)
         else -> outcomeLabel(session.outcome)?.let {
             BadgeSpec(it, oc.mutedText, pulsing = false)
         }
@@ -856,7 +856,7 @@ private fun BottomBar(
                         }
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Aggiorna",
+                            text = "Refresh",
                             style = MaterialTheme.typography.labelLarge,
                         )
                     }

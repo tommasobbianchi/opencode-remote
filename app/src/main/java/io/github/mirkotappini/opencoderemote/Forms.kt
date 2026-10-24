@@ -138,8 +138,8 @@ internal fun controlOf(type: String): FormControl = when (type.trim().lowercase(
 
 /**
  * Pannello fissato sopra il composer. Un controllo per campo (i campi `hidden`
- * e i tipi non previsti sono già scartati a monte, in `FormParsing`), "rispondi"
- * spento finché i campi obbligatori non sono compilati, "annulla" sempre
+ * e i tipi non previsti sono già scartati a monte, in `FormParsing`), "reply"
+ * spento finché i campi obbligatori non sono compilati, "cancel" sempre
  * disponibile mentre non c'è un invio in corso.
  */
 @Composable
@@ -180,7 +180,7 @@ internal fun QuestionPanel(
             .fillMaxWidth()
             // TalkBack annuncia il pannello una volta sola; i figli restano
             // navigabili uno per uno.
-            .semantics { contentDescription = "domanda di opencode" },
+            .semantics { contentDescription = "opencode question" },
         shape = PANEL_SHAPE,
         color = scheme.surfaceContainer,
         border = BorderStroke(1.dp, oc.interactive.copy(alpha = 0.34f)),
@@ -192,7 +192,7 @@ internal fun QuestionPanel(
             // L'eyebrow è solo l'etichetta visiva: la descrizione del pannello
             // la dice già a voce, non serve ripeterla.
             Eyebrow(
-                text = "domanda",
+                text = "question",
                 color = oc.interactive,
                 modifier = Modifier.clearAndSetSemantics { },
             )
@@ -273,9 +273,9 @@ internal fun QuestionPanel(
             if (missing > 0) {
                 Text(
                     text = if (missing == 1) {
-                        "manca 1 risposta obbligatoria"
+                        "1 required answer missing"
                     } else {
-                        "mancano $missing risposte obbligatorie"
+                        "$missing required answers missing"
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = oc.mutedText,
@@ -308,7 +308,7 @@ internal fun QuestionPanel(
                     if (busy) {
                         FormSpinner(color = oc.onInteractive)
                     } else {
-                        Text(text = "rispondi", style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                        Text(text = "reply", style = MaterialTheme.typography.labelLarge, maxLines = 1)
                     }
                 }
 
@@ -324,7 +324,7 @@ internal fun QuestionPanel(
                     ),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                 ) {
-                    Text(text = "annulla", style = MaterialTheme.typography.labelLarge)
+                    Text(text = "cancel", style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -363,7 +363,7 @@ private fun FormFieldBlock(
             FormControl.Text -> AnswerTextField(
                 text = rawText,
                 enabled = !locked,
-                placeholder = "scrivi la risposta",
+                placeholder = "write your answer",
                 keyboardType = KeyboardType.Text,
                 singleLine = false,
                 onText = onRawText,
@@ -380,7 +380,7 @@ private fun FormFieldBlock(
                 AnswerTextField(
                     text = rawText,
                     enabled = !locked,
-                    placeholder = if (control == FormControl.Integer) "numero intero" else "numero",
+                    placeholder = if (control == FormControl.Integer) "whole number" else "number",
                     keyboardType = if (control == FormControl.Integer) {
                         KeyboardType.Number
                     } else {
@@ -423,7 +423,7 @@ private fun FormFieldBlock(
             FormControl.External -> ExternalAnswer(url = field.externalUrl)
 
             FormControl.Unknown -> Text(
-                text = "campo non gestito da questa versione",
+                text = "field not supported by this version",
                 style = MaterialTheme.typography.labelSmall,
                 color = oc.mutedText,
             )
@@ -450,7 +450,7 @@ private fun FieldLabel(field: FormFieldUi, mono: Boolean) {
     val text = buildAnnotatedString {
         append(title ?: field.key)
         if (field.required) {
-            withStyle(SpanStyle(color = oc.mutedText)) { append(" · obbligatorio") }
+            withStyle(SpanStyle(color = oc.mutedText)) { append(" · required") }
         }
     }
     Text(
@@ -566,7 +566,7 @@ private fun CheckboxAnswer(
             if (checked) GlyphCheck(size = 13.dp, color = oc.onInteractive)
         }
         Text(
-            text = if (checked) "sì" else "no",
+            text = if (checked) "yes" else "no",
             style = MaterialTheme.typography.labelLarge,
             color = if (checked) oc.text else oc.mutedText,
             modifier = Modifier.clearAndSetSemantics { },
@@ -625,7 +625,7 @@ private fun ChoiceChips(
 
     if (options.isEmpty()) {
         Text(
-            text = "nessuna opzione disponibile",
+            text = "no options available",
             style = MaterialTheme.typography.labelSmall,
             color = oc.mutedText,
         )
@@ -696,7 +696,7 @@ private fun ExternalAnswer(url: String?) {
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "da compilare sul server",
+                text = "fill in on the server",
                 style = MaterialTheme.typography.labelSmall,
                 color = oc.mutedText,
             )
@@ -741,7 +741,7 @@ private fun FormErrorNote(
             modifier = Modifier.heightIn(min = 48.dp),
             contentPadding = PaddingValues(horizontal = 9.dp),
         ) {
-            Text("aggiorna", style = MaterialTheme.typography.labelMedium, color = oc.interactive)
+            Text("refresh", style = MaterialTheme.typography.labelMedium, color = oc.interactive)
         }
     }
 }
@@ -819,7 +819,7 @@ internal fun CommandPalette(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Eyebrow(
-                    text = "comandi",
+                    text = "commands",
                     color = oc.mutedText,
                     modifier = Modifier.weight(1f),
                 )
@@ -827,7 +827,7 @@ internal fun CommandPalette(
                     WorkingIndicator(
                         size = 12.dp,
                         color = oc.mutedText,
-                        description = "carico i comandi",
+                        description = "loading commands",
                     )
                     Spacer(Modifier.width(10.dp))
                 }
@@ -836,14 +836,14 @@ internal fun CommandPalette(
                         .heightIn(min = 48.dp)
                         .clickable(
                             role = Role.Button,
-                            onClickLabel = "Chiudi",
+                            onClickLabel = "Close",
                             onClick = onDismiss,
                         )
                         .padding(horizontal = 8.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "annulla",
+                        text = "cancel",
                         style = MaterialTheme.typography.labelSmall,
                         color = oc.mutedText,
                     )
@@ -855,17 +855,17 @@ internal fun CommandPalette(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 56.dp)
-                        .clearAndSetSemantics { contentDescription = "carico i comandi…" },
+                        .clearAndSetSemantics { contentDescription = "loading commands…" },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     WorkingIndicator(
                         size = 12.dp,
                         color = oc.success,
-                        description = "attesa",
+                        description = "waiting",
                     )
                     Text(
-                        text = "carico i comandi…",
+                        text = "loading commands…",
                         style = MaterialTheme.typography.labelMedium,
                         color = oc.mutedText,
                     )
@@ -876,8 +876,8 @@ internal fun CommandPalette(
                         // Un guasto di rete non deve sembrare "nessun comando":
                         // il catalogo è vuoto perché la lettura non è riuscita.
                         error != null -> error
-                        query.isBlank() -> "nessun comando"
-                        else -> "nessun comando per «$query»"
+                        query.isBlank() -> "no commands"
+                        else -> "no commands for \"$query\""
                     },
                     style = MaterialTheme.typography.labelMedium,
                     color = oc.mutedText,
@@ -912,7 +912,7 @@ private fun CommandRow(
             .heightIn(min = 56.dp)
             .clickable(
                 role = Role.Button,
-                onClickLabel = "usa il comando ${command.name}",
+                onClickLabel = "use command ${command.name}",
                 onClick = onClick,
             ),
         verticalAlignment = Alignment.CenterVertically,
@@ -969,12 +969,12 @@ internal fun valueProblem(field: FormFieldUi, value: FormValue?, raw: String?): 
     if (control != FormControl.Integer && control != FormControl.Number) return null
     val text = raw.orEmpty().trim()
     if (text.isEmpty() || text == "-") return null
-    val number = (value as? FormValue.Number)?.value ?: return "numero non valido"
+    val number = (value as? FormValue.Number)?.value ?: return "invalid number"
     field.minimum?.let { min ->
-        if (number < min) return "minimo ${numberLabel(min)}"
+        if (number < min) return "minimum ${numberLabel(min)}"
     }
     field.maximum?.let { max ->
-        if (number > max) return "massimo ${numberLabel(max)}"
+        if (number > max) return "maximum ${numberLabel(max)}"
     }
     return null
 }
@@ -1004,14 +1004,14 @@ internal fun sanitizeNumberInput(text: String, integer: Boolean): Boolean {
     return separators <= 1 && body.all { it.isDigit() || it == '.' || it == ',' }
 }
 
-/** "da 1 a 10", "massimo 4" — solo se il server ha dichiarato i limiti. */
+/** "from 1 to 10", "maximum 4" — solo se il server ha dichiarato i limiti. */
 internal fun rangeHint(field: FormFieldUi): String? {
     val min = field.minimum
     val max = field.maximum
     return when {
-        min != null && max != null -> "da ${numberLabel(min)} a ${numberLabel(max)}"
-        min != null -> "minimo ${numberLabel(min)}"
-        max != null -> "massimo ${numberLabel(max)}"
+        min != null && max != null -> "from ${numberLabel(min)} to ${numberLabel(max)}"
+        min != null -> "minimum ${numberLabel(min)}"
+        max != null -> "maximum ${numberLabel(max)}"
         else -> null
     }
 }
@@ -1026,5 +1026,5 @@ private fun numberLabel(value: Double): String =
 internal fun formErrorLabel(message: String): String {
     val expired = listOf("404", "scadut", "non trovat", "not found", "expired")
         .any { message.contains(it, ignoreCase = true) }
-    return if (expired) "domanda scaduta" else message
+    return if (expired) "question expired" else message
 }

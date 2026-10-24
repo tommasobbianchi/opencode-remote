@@ -447,7 +447,7 @@ object ApiParsing {
                 id = dto.id,
                 role = Role.Meta,
                 createdAt = createdAt,
-                metaLabel = dto.type.ifBlank { "evento" } +
+                metaLabel = dto.type.ifBlank { "event" } +
                     (dto.outcome?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
             )
         }

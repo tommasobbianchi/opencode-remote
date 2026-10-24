@@ -1,108 +1,131 @@
-# Project status (session close, Oct 24 2026)
+# Project status (Oct 24 2026)
 
 Generic Android client to control an **OpenCode 2.x** server from the phone
 (no personal preset: empty URL, user's credentials).
-Package `io.github.mirkotappini.opencoderemote`.
-Last delivered build: **0.9.0-m7**, `versionCode 19`, sha256 `4d71b1e7…` (app name **OC Remote**, neon OC icon).
+Package `io.github.mirkotappini.opencoderemote`, app name **OC Remote**.
+Last delivered build: **0.11.3**, `versionCode 33`, sha256 `294ea77a…`.
 
 ## Where
 
 | What | Where |
 |---|---|
-| Source | `serber:/home/mirko/opencode-mobile` (**not a git repo**) |
-| Build | `build-host:/Users/<user>/opencode-mobile` (JDK+SDK in `~/android-toolchain`) |
-| Distribution | `serber:python3 serve.py` → `http://<ip-tailnet>:8091/app.apk` (always the latest from `dist/current.txt`) |
-| Docs | `docs/DESIGN.md`, `docs/API-M1..M4.md`, `docs/UI-M1..M4.md`, `docs/THEME.md`, `docs/M5-CHECKLIST.md`, `docs/M2-NOTE.md` |
+| Source | `serber:/home/mirko/opencode-mobile` (git repo, `main`) |
+| Remote | `github.com/mirkotappini/opencode-remote` (private) |
+| Build | `patchouli:~/opencode-mobile` (JDK+SDK in `~/android-toolchain`), sources synced with `rsync` |
+| Distribution | `python3 serve.py` on serber → `http://<tailnet-ip>:8091/app.apk` (always the latest from `dist/current.txt`) |
+| Docs | `docs/DESIGN.md`, `docs/API-M1..M4.md`, `docs/UI-M1..M4.md`, `docs/UI-M6-LIVE.md`, `docs/THEME.md`, `docs/UI-M8-ATTACHMENTS.md`, `docs/UI-M9-QUESTIONS-AND-COMMANDS.md` |
 
 ## Status by milestone
 
 - **M0** transport (Tailscale serve, Basic auth, SSE) — done
 - **M1** session list + read-only chat + history — done
 - **M2** prompt send, live streaming, interrupt, reconnection with resync — done
-- **M3** OMO drawer (3 tabs: Agents/Skill/MCP), model picker with search, session row, task badge, informational subagents, working-agents indicator — done
+- **M3** OMO drawer (Agents/Skill/MCP), model picker with search, session row, task badge, working-agents indicator — done
 - **M4** approvals: in-chat panel, badge, notifications with actions, foreground service, encrypted credentials (Keystore) + auto-connect — done
-- **M5** hardening: version gate, error taxonomy, 401 policy, vanished session, NetworkCallback, 30 s SSE watchdog, correct countdown, launcher icon — done
-- **M7** identity: OC Remote name, new icon (adaptive without wordmark, legacy with wordmark, monochrome) — done
-- **M6** live turn view: reasoning with duration, tool card with command/output/state/exit,
-  text in streaming, consecutive steps in a single bubble — done (spec in `docs/UI-M6-LIVE.md`)
+- **M5** hardening: version gate, error taxonomy, 401 policy, vanished session, NetworkCallback, 30 s SSE watchdog, correct countdown — done
+- **M6** live turn view: reasoning with duration, tool card with command/output/state/exit, streaming text, consecutive steps in a single bubble — done
+- **M7** identity: OC Remote name, icon from the user's render (adaptive = full mark, legacy = plate, monochrome) — done
+- **M8** attachments: one file per prompt (gallery, camera, generic files), client-side compression, inline `files` in the prompt, previews in the bubble — done
+- **M9** server questions (form) as a panel above the composer + slash-command palette — done
 
-Tests: **78 JVM**, all green, run with `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` on the dev server.
+Tests: **132 JVM**, all green, run with
+`./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` on the build host.
 
-## Change server from the list (0.6.4-m5)
+## Things not to rediscover
 
-There was no way to get back to the login screen from the session list (only
-the OMO drawer → "Disconnect", too hidden). Now in the header the old host/version
-eyebrow is a **tappable pill** (`ServerChip`) with a status dot and a
-chevron: it opens a "Server" `ModalBottomSheet` with host, URL, version, and the
-`Cancel` / `Change server` buttons. `Change server` = `AppViewModel.disconnect()`: it stops
-the stream, the service, and the notifications, deletes the encrypted credentials, and returns
-to `SetupScreen` **pre-filled** with the last URL/user/password (no new
-state machine). The drawer stays unchanged, with the same copy about the consequences.
-
-## Technical findings not to rediscover
-
-- `/api/experimental/session/{id}/log?seq=N` **does not** replay the history: it answers `log.synced` with the current seq.
-- Real approval events: `permission.asked` (carries the whole request) and `permission.replied`.
-- The approval reply uses the **`decision`** field (`once|always|reject`), not `reply`.
+- `/api/experimental/session/{id}/log?seq=N` does **not** replay history: it answers `log.synced` with the current seq.
+- Approval events: `permission.asked` (carries the whole request) and `permission.replied`; the reply uses **`decision`** (`once|always|reject`), not `reply`.
 - `GET /api/model` exposes `settings.apiKey`: the client must discard `settings`.
-- In the model catalog `modelID` is the family (duplicated), `id` is the concrete reference: list keys and `Model.Ref` use `id`.
-- An `opencode service stop` on the dev server **does not hold** the service: it restarts by itself in ~8 s.
-- SSE heartbeat every ~10–12 s; client watchdog 30 s.
+- In the model catalog `modelID` is the family (duplicated), `id` is the concrete reference.
+- An `opencode service stop` on the dev server does **not** keep it down: it comes back in ~8 s.
+- SSE heartbeat every ~10-12 s; client watchdog 30 s.
+- `executed` on tool events does **not** mean "permission granted": on 170 real tool parts it is `false` even with `state.status = completed`. The real outcome is `state.status`; `Denied` only on explicit messages.
+- REST parts carry `time.{created,ran,completed}` (not `start`/`end`): durations come from there.
+- **Attachments are inline only**: `POST …/prompt` accepts `files: [{uri,name?,description?}]` with `uri` = `data:<mime>;base64,…` (or `file://` for files already on the server). Measured limit: 4 MB decoded works, 6 MB returns 500 (`Schema validation failed … Prompt.Base64`). Accepted mimes: `image/*`, `application/pdf`, `application/json`, `text/*`, `application/octet-stream`.
+- The stored user message exposes `files[].data` (inline) + `mime` + `source.type`; `source.type = "uri"` carries `uri` instead of `data`.
+- **The `question` tool sends `string` *with* `options`**, not `multiselect`: it is a single choice. Parsing must keep `options` for string fields and the UI must render them as chips.
+- Forms are created only by the agent (there is no `POST /api/form`): to test one, ask the agent to use the question tool.
+- Slash commands are **not** expanded by the prompt endpoint: `/name args` must go through `POST /api/session/{id}/command` (`{name, text?, files?}`), otherwise the model receives the literal text.
+- `WindowInsets.safeDrawing` includes the IME: the chat viewport shrinks when the keyboard opens.
 
 ## Turn events contract (M6)
 
-Captured from server 2.1.4 and put in fixtures (`app/src/test/resources/fixtures/sse_tool.jsonl`,
-`sse_reasoning.jsonl`):
+Captured from server 2.1.4, fixtures in `app/src/test/resources/fixtures/`
+(`sse_tool.jsonl`, `sse_reasoning.jsonl`):
 
-- `session.reasoning.started {assistantMessageID, ordinal, native}` / `.delta {delta}` / `.ended {text}`
+- `session.reasoning.started {assistantMessageID, ordinal, native}` / `.delta` / `.ended {text}`
 - `session.tool.input.started {id, name}` / `.delta` / `.ended {text = JSON of the input}`
 - `session.tool.called {id, input, executed}` / `.progress {metadata}`
 - `session.tool.success {content[], metadata{status,truncated,exit}, executed}` / `.failed`
 - `session.text.started {ordinal}` / `.delta {delta}` / `.ended {text}`
+- `session.step.started/.streamed/.ended {finish, cost, tokens}` / `.failed`
 
-Gotcha: **`executed` does not mean "permission to execute"** — on 170 real tool parts
-it is `false` even with `state.status = completed`. The real outcome is `state.status`
-(`completed` / `error`); `Denied` only with explicit messages ("Permission denied", …).
-The REST parts have `time.{created,ran,completed}`: the duration is computed from there.
+## Live performance and scrolling
+
+- **Publish throttled**: `net/PublishGate.kt` (100 ms window, `now` injected) +
+  `ChatReducer.publishedImmediately()` — only pure deltas are throttled; phase
+  changes and turn ends publish at once. The ViewModel publishes a `ChatSnapshot`.
+- **Auto-scroll is sticky**: `followBottom` is only disarmed by a real user
+  drag (`DragInteraction.Start`) and re-armed when the list settles at the
+  bottom or on send. Content signature (`partsScrollSignal`) counts text and
+  reasoning, **not** tool output growth.
+- `scrollToBottom()` needs a measured `scrollBy`: `scrollToItem(last)` aligns
+  the item's *top*, and a turn bubble can be taller than the viewport.
+- Keyboard: on every IME inset step the list realigns without delay (lagging
+  it to the end of the animation was visible as a step).
+
+## Attachments (M8)
+
+One file per prompt, max 50 MB picked, images downscaled to 1600 px / JPEG 80
+(second pass 1280/70), non-image files only under 4 MB inline. Paperclip lives
+**inside** the text pill, right-aligned. Preview row above the field, thumbnails
+in the user bubble with a full-screen viewer, document chip otherwise.
+
+## Questions and slash commands (M9)
+
+- Form events `form.created` / `form.replied` / `form.cancelled` feed
+  `UiState.forms` (plus `GET /api/form` on connect, session open and SSE reopen).
+  The **panel above the composer** renders text, single choice, yes/no, numbers
+  with min/max and multiselect; required fields gate "answer"; "cancel" sends
+  `DELETE`. With a pending question the composer is disabled and "Stop" stays.
+- Command palette: typing `/` opens a scrollable, filterable sheet fed by
+  `GET /api/command` (TTL 5 min); picking one writes `/name ` in the field and
+  sending goes through `POST …/command`. "Cancel" suppresses the palette until
+  the draft changes.
+
+## Icon (0.10.2)
+
+Generated from the user's render (`tools/icon/icon-source.png`) with
+`tools/icon/make_icon.py` (needs Pillow: `uv run --with pillow`). Adaptive =
+full mark without the plate at 66 %, alpha from luminance; legacy = whole plate;
+background colour from the dark quantile of the frame (`#030202`). The
+monochrome variant is the **mark silhouette**, not a font "OC".
 
 ## Open threads
 
-1. ~~Restore the generated password~~ → **user's decision: do not touch it.**
-   The service test password stays the one set by hand: no
-   `opencode service unset password`, no restart to regenerate it (Oct 24 2026).
-2. ~~**git init + first commit**~~ → done: private repo `github.com/mirkotappini/opencode-remote`.
-3. ~~**Colors of the OMO panel**~~ → **resolved Oct 24** (see below)
-4. Eventual **icon recoloring** from electric blue to petrol `#8ED8C6`.
-5. OFL font license to be included as a note in the repo.
+1. ~~Restore the generated password~~ → **user's decision: do not touch it.** No
+   `opencode service unset password`, no restart to regenerate it.
+2. ~~git init + first commit~~ → done, private repo on GitHub.
+3. ~~OMO panel colours~~ → resolved Oct 24 (local patch).
+4. ~~Icon recolouring to petrol `#8ED8C6`~~ → dropped, not wanted.
+5. OFL font license note (the only open item).
+6. Optional: private GitHub release with the signed APK.
 
-## OMO panel colors fix (local patch, Oct 24)
+## OMO panel colours fix (local patch, Oct 24)
 
-The `oh-my-opencode-slim` plugin (up to 3.0.5) maps the v2 theme with old
-keys: `background.default`, `text.default`, `text.subdued`, `border.default`.
-The 2.1.4 host exposes `currentTokens()` with `background.base`, `text.base`,
-`text.muted`, `border.base` (and `text.feedback.*.base`), so the panel background, text, and
-border fell back to the opentui defaults.
-
-- Idempotent script: `build-host:~/.config/opencode/omo-theme-fix.py` (`-v` for the detail).
-- The patcher rewrites `v2ThemeView()` in **all** the copies loaded by the plugin:
-  `~/.cache/opencode/packages/oh-my-opencode-slim*/…` **and**
-  `~/.cache/opencode/npm/<pkg>@latest/<hash>/…` (the latter is the one actually
-  in use: revealed by `OMO_THEME_DEBUG=1`, which writes the resolved view to
-  `/tmp/omo-theme-debug.json`).
-- The tokens are color objects (`toInts() -> [r,g,b,a]`), not strings: the patch
-  converts them to `#rrggbb` before passing them to the renderer.
-- Resolved view verified: `#9d7cd8` accent, `#0a0a0a` bg, `#141414` raised,
-  `#484848` border, `#eeeeee` text, `#808080` muted, `#1e1e1e` hover,
-  `#7fd88f` success, `#f5a742` warning.
-- **To re-run after every plugin update** (the dependency is `@latest`, so
-  an update reintroduces the bug): in the dev server's `~/.zshrc` there is the `opencode()`
-  function that runs the script before the binary
-  (`command /opt/homebrew/bin/opencode`), backup `.zshrc.bak-omo-theme`.
-  Do not use `command -v opencode` inside the function: in zsh it returns the function name
-  and recurses.
+`oh-my-opencode-slim` (up to 3.0.5) maps the v2 theme with old keys
+(`background.default`, `text.default`, …) while host 2.1.4 exposes
+`currentTokens()` with `background.base`, `text.base`, `text.muted`, `border.base`.
+Idempotent script `build-host:~/.config/opencode/omo-theme-fix.py` rewrites
+`v2ThemeView()` in every loaded copy of the plugin — the one actually used is
+`~/.cache/opencode/npm/oh-my-opencode-slim@latest/<hash>/…` (found with
+`OMO_THEME_DEBUG=1`). Tokens are colour objects (`toInts()` → `#rrggbb`).
+Relaunched by the `opencode()` function in `~/.zshrc` (never use
+`command -v opencode` inside it: zsh recursion).
 
 ## Suggested next step
 
-Remaining: eventual icon recoloring (petrol `#8ED8C6`), OFL license note,
-delta publish throttling (§4.4 of `docs/UI-M6-LIVE.md`) if stutters are noticed.
-Pick up again: "let's resume opencode mobile".
+Only the OFL license note is left, plus an optional signed release. Known gaps
+in verification: real device flows for attachments (picker/camera) and the
+slash palette were never exercised end to end (adb cannot give focus to the
+compose text field on this device).

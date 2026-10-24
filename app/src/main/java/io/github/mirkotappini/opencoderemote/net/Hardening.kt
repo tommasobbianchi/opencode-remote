@@ -74,7 +74,7 @@ object ConnectionErrors {
 
     const val TLS_INVALID = "invalid TLS certificate"
     const val CONNECTION_LOST = "connection interrupted"
-    const val ACCESS_DENIED = "accesso negato"
+    const val ACCESS_DENIED = "access denied"
     const val SERVER_ERROR = "server error (HTTP 5xx)"
     const val PAGE_EXPIRED = "page no longer valid"
     const val INVALID_RESPONSE = "invalid response from server"

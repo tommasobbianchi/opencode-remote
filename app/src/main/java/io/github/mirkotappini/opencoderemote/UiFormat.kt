@@ -14,11 +14,11 @@ fun relativeAge(epochMs: Long?, now: Long = System.currentTimeMillis()): String 
     val diffMs = (now - epochMs).coerceAtLeast(0L)
     val minutes = diffMs / 60_000L
     return when {
-        minutes < 1L -> "ora"
+        minutes < 1L -> "now"
         minutes < 60L -> "${minutes}m"
         minutes < 1_440L -> "${minutes / 60L}h"
-        minutes < 10_080L -> "${minutes / 1_440L}g"
-        else -> "${minutes / 10_080L}sett"
+        minutes < 10_080L -> "${minutes / 1_440L}d"
+        else -> "${minutes / 10_080L}w"
     }
 }
 
@@ -57,8 +57,8 @@ fun drawerSessionMeta(session: SessionUi): String {
     return when {
         agent != null && model != null -> "$agent · $model"
         agent != null -> agent
-        model != null -> "predefinito · $model"
-        else -> "predefinito"
+        model != null -> "default · $model"
+        else -> "default"
     }
 }
 
@@ -96,42 +96,42 @@ fun streamStatusUi(
         tone = StreamTone.Warning,
         pulsing = true,
     )
-    StreamState.Idle -> StreamStatusUi("SSE ferma", StreamTone.Muted, pulsing = false)
+    StreamState.Idle -> StreamStatusUi("SSE stopped", StreamTone.Muted, pulsing = false)
 }
 
-/** Short Italian label for a session's outcome. */
+/** Short label for a session's outcome. */
 fun outcomeLabel(outcome: String?): String? = when (outcome?.lowercase(Locale.ROOT)) {
     "succeeded", "success", "done" -> "ok"
     "failed", "failure", "error" -> "error"
-    "interrupted", "aborted" -> "interrotta"
-    "running", "active" -> "in corso"
+    "interrupted", "aborted" -> "interrupted"
+    "running", "active" -> "running"
     null, "" -> null
     else -> outcome
 }
 
 /**
  * Time of the message: time only if it is today, otherwise day + time.
- * Consistent formatting across the whole chat, in Italian.
+ * Consistent formatting across the whole chat, in English.
  */
 fun messageTime(epochMs: Long?, now: Long = System.currentTimeMillis()): String {
     if (epochMs == null || epochMs <= 0L) return ""
     val zone = ZoneId.systemDefault()
     val at = Instant.ofEpochMilli(epochMs).atZone(zone)
     val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-    val clock = DateTimeFormatter.ofPattern("HH:mm", Locale.ITALIAN).format(at)
+    val clock = DateTimeFormatter.ofPattern("HH:mm", Locale.US).format(at)
     return if (at.toLocalDate() == today) {
         clock
     } else {
-        "${DateTimeFormatter.ofPattern("d MMM", Locale.ITALIAN).format(at)} · $clock"
+        "${DateTimeFormatter.ofPattern("d MMM", Locale.US).format(at)} · $clock"
     }
 }
 
 /** Human-readable tool state, derived from the truncated JSON in the UI model. */
 enum class ToolStatus(val label: String) {
     Ok("ok"),
-    Running("in corso"),
+    Running("running"),
     Failed("error"),
-    Denied("negato"),
+    Denied("denied"),
 }
 
 private val statusRegex = Regex("\"status\"\\s*:\\s*\"([^\"]+)\"")

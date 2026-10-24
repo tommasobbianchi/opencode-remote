@@ -157,14 +157,14 @@ private fun ModelPickerContent(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Modello",
+                            text = "Model",
                             style = MaterialTheme.typography.titleLarge,
                             color = oc.accent,
                             maxLines = 1,
                         )
                         Text(
                             text = if (current != null) {
-                                "Sessione: ${current.title}"
+                                "Session: ${current.title}"
                             } else {
                                 "No open session"
                             },
@@ -176,7 +176,7 @@ private fun ModelPickerContent(
                     }
                     Text(
                         text = if (normalized.isEmpty()) {
-                            "${models.size} modelli"
+                            "${models.size} models"
                         } else {
                             "$resultCount/${models.size}"
                         },
@@ -222,16 +222,16 @@ private fun ModelPickerContent(
                 when {
                     loading && models.isEmpty() -> PickerSkeleton()
                     models.isEmpty() -> PickerBlank(
-                        title = "Nessun modello",
+                        title = "No models",
                         body = "The model catalog has not arrived from the server yet.",
-                        actionLabel = "Riprova",
+                        actionLabel = "Retry",
                         onAction = onRefresh,
                     )
 
                     resultCount == 0 -> PickerBlank(
-                        title = "Nessun risultato",
-                        body = "Nessun modello corrisponde a «${normalized}».",
-                        actionLabel = "Cancella la ricerca",
+                        title = "No results",
+                        body = "No model matches \"${normalized}\".",
+                        actionLabel = "Clear the search",
                         onAction = { query = "" },
                     )
 
@@ -303,7 +303,7 @@ private fun ModelRow(
             .fillMaxWidth()
             .background(if (selected) oc.interactive.copy(alpha = 0.07f) else androidx.compose.ui.graphics.Color.Transparent)
             .clickable(
-                onClickLabel = "Usa il modello ${model.displayName()}",
+                onClickLabel = "Use model ${model.displayName()}",
                 role = Role.Button,
                 onClick = onClick,
             )
@@ -322,7 +322,7 @@ private fun ModelRow(
                 )
                 if (selected) {
                     Spacer(Modifier.width(8.dp))
-                    StatusPill(label = "in uso", color = oc.success)
+                    StatusPill(label = "in use", color = oc.success)
                 }
             }
             Spacer(Modifier.height(2.dp))
@@ -395,7 +395,7 @@ private fun ModelSearchField(
                     onClick = { onQueryChange("") },
                     modifier = Modifier
                         .size(48.dp)
-                        .semantics { contentDescription = "Cancella la ricerca" },
+                        .semantics { contentDescription = "Clear the search" },
                 ) {
                     GlyphClose(size = 14.dp)
                 }

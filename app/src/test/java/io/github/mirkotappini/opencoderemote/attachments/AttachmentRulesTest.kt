@@ -64,7 +64,7 @@ class AttachmentRulesTest {
             "senza estensione.pdf",
             AttachmentRules.fileNameFor("application/pdf", "senza estensione"),
         )
-        assertEquals("allegato.pdf", AttachmentRules.fileNameFor("application/pdf", null))
+        assertEquals("attachment.pdf", AttachmentRules.fileNameFor("application/pdf", null))
     }
 
     @Test
@@ -91,11 +91,11 @@ class AttachmentRulesTest {
     }
 
     @Test
-    fun `peso leggibile in italiano`() {
+    fun `peso leggibile in inglese`() {
         assertEquals("512 B", AttachmentRules.formatSize(512))
         assertEquals("840 kB", AttachmentRules.formatSize(840_000))
-        assertEquals("1,2 MB", AttachmentRules.formatSize(1_200_000))
-        assertEquals("4,2 MB", AttachmentRules.formatSize(AttachmentRules.MAX_INLINE_BYTES))
+        assertEquals("1.2 MB", AttachmentRules.formatSize(1_200_000))
+        assertEquals("4.2 MB", AttachmentRules.formatSize(AttachmentRules.MAX_INLINE_BYTES))
         assertEquals("0 B", AttachmentRules.formatSize(-5))
     }
 

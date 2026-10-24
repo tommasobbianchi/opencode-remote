@@ -330,7 +330,7 @@ fun ChatScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
             ChatHeader(
-                title = session?.title ?: "Sessione",
+                title = session?.title ?: "Session",
                 meta = listOfNotNull(
                     session?.agent?.takeIf { it.isNotBlank() },
                     session?.modelId?.takeIf { it.isNotBlank() },
@@ -395,7 +395,7 @@ fun ChatScreen(
                             ErrorBanner(
                                 title = "Operation failed",
                                 message = if (reconnecting != null && !suspended) {
-                                    "$message · riprovo tra " +
+                                    "$message · retrying in " +
                                         "${state.reconnectInSeconds.coerceAtLeast(0)}s"
                                 } else {
                                     message
@@ -433,7 +433,7 @@ fun ChatScreen(
                             ) {
                                 EmptyState(
                                     symbol = "›_",
-                                    title = "Nessun messaggio",
+                                    title = "No messages",
                                     body = if (state.openReadOnly) {
                                         "The child session has no messages yet."
                                     } else {
@@ -447,7 +447,7 @@ fun ChatScreen(
                                         ) {
                                             Text(
                                                 if (state.canGoBackToParent) {
-                                                    "Torna al padre"
+                                                    "Back to parent"
                                                 } else {
                                                     "Back to sessions"
                                                 },
@@ -650,7 +650,7 @@ private fun ChatHeader(
         state.streamState is StreamState.Connecting
     val stream = streamStatusUi(state.streamState, state.reconnectInSeconds, state.retrySuspended)
     val status = when {
-        state.running -> "in corso" to oc.interactive
+        state.running -> "running" to oc.interactive
         reconnecting -> stream.label to oc.warningInk
         state.streamState is StreamState.Idle -> stream.label to oc.mutedText
         state.sessionOutcome != null ->
@@ -756,7 +756,7 @@ private fun ReadOnlyHeaderLabel(agent: String?) {
             )
         }
         Text(
-            text = "sola lettura",
+            text = "read only",
             style = MaterialTheme.typography.labelMedium,
             color = oc.mutedText,
             maxLines = 1,
@@ -921,11 +921,11 @@ private fun Composer(
                                             if (draft.isEmpty()) {
                                                 Text(
                                                     text = when {
-                                                        !connected -> "Non connesso"
+                                                        !connected -> "Not connected"
                                                         formPending ->
-                                                            "rispondi alla domanda qui sopra"
+                                                            "answer the question above"
                                                         else ->
-                                                            "Scrivi… oppure / per i comandi"
+                                                            "Write… or / for commands"
                                                     },
                                                     style = MaterialTheme.typography.bodyLarge,
                                                     color = scheme.onSurfaceVariant,
@@ -986,7 +986,7 @@ private fun AttachButton(
                 role = Role.Button,
                 onClick = onClick,
             )
-            .semantics { contentDescription = "Allega un file" },
+            .semantics { contentDescription = "Attach a file" },
         contentAlignment = Alignment.Center,
     ) {
         GlyphPaperclip(size = 20.dp, color = tint)
@@ -1026,7 +1026,7 @@ private fun ReadOnlyFooter(
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Eyebrow(text = "sola lettura", color = oc.mutedText)
+                    Eyebrow(text = "read only", color = oc.mutedText)
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = if (canGoBackToParent) {
@@ -1061,7 +1061,7 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
         contentColor = if (enabled) scheme.onPrimary else scheme.onSurfaceVariant,
         modifier = Modifier
             .size(48.dp)
-            .semantics { contentDescription = "Invia prompt" },
+            .semantics { contentDescription = "Send prompt" },
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             GlyphArrowRight(size = 18.dp)
@@ -1080,7 +1080,7 @@ private fun StopButton(onClick: () -> Unit) {
         border = BorderStroke(1.dp, scheme.tertiary.copy(alpha = 0.35f)),
         modifier = Modifier
             .heightIn(min = 48.dp)
-            .semantics { contentDescription = "Interrompi esecuzione" },
+            .semantics { contentDescription = "Interrupt run" },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -1088,7 +1088,7 @@ private fun StopButton(onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             GlyphStop(size = 12.dp)
-            Text(text = "Ferma", style = MaterialTheme.typography.labelLarge)
+            Text(text = "Stop", style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -1236,17 +1236,17 @@ private fun ThinkingPlaceholder() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp)
-            .clearAndSetSemantics { contentDescription = "sta scrivendo…" },
+            .clearAndSetSemantics { contentDescription = "typing…" },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         WorkingIndicator(
             size = 12.dp,
             color = oc.success,
-            description = "attesa",
+            description = "waiting",
         )
         Text(
-            text = "sta scrivendo…",
+            text = "typing…",
             style = MaterialTheme.typography.labelMedium,
             color = oc.mutedText,
         )
@@ -1297,13 +1297,13 @@ private fun ReasoningBlock(
                 .clickable(
                     role = Role.Button,
                     onClickLabel = if (expanded) {
-                        "Nascondi ragionamento"
+                        "Hide reasoning"
                     } else {
-                        "Mostra ragionamento"
+                        "Show reasoning"
                     },
                 ) { expanded = !expanded }
                 .semantics {
-                    stateDescription = if (expanded) "espanso" else "collassato"
+                    stateDescription = if (expanded) "expanded" else "collapsed"
                 },
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1319,7 +1319,7 @@ private fun ReasoningBlock(
                 Spacer(Modifier.width(7.dp))
             }
             Text(
-                text = "Ragionamento",
+                text = "Reasoning",
                 style = MaterialTheme.typography.labelMedium,
                 color = headerColor,
             )
@@ -1379,13 +1379,13 @@ private fun ReasoningBlock(
                 if (limited.truncated) {
                     ShowAllRow(
                         label = "show all · " + lineLabel(lineCount),
-                        onClickLabel = "Mostra tutto il ragionamento",
+                        onClickLabel = "Show all reasoning",
                         onClick = {
                             onOpenDetail(
                                 DetailRequest(
-                                    title = "ragionamento",
+                                    title = "reasoning",
                                     sections = listOf(
-                                        DetailSection("ragionamento", trimmed),
+                                        DetailSection("reasoning", trimmed),
                                     ),
                                 ),
                             )
@@ -1472,7 +1472,7 @@ private fun ToolCard(
                 }
                 if (part.truncated) {
                     Text(
-                        text = "output troncato",
+                        text = "output truncated",
                         style = MaterialTheme.typography.labelSmall,
                         color = oc.lineNumber,
                         maxLines = 1,
@@ -1530,7 +1530,7 @@ private fun ToolCard(
                     }
                 } else if (isToolTerminal(part.phase)) {
                     Text(
-                        text = "(nessun output)",
+                        text = "(no output)",
                         style = monoStyle(fontSize = 11.5.sp, lineHeight = 17.sp),
                         color = oc.lineNumber,
                     )
@@ -1538,7 +1538,7 @@ private fun ToolCard(
                 if (output.totalLines > 0 || command.truncated) {
                     ShowAllRow(
                         label = "show all · " + lineLabel(showAllLines),
-                        onClickLabel = "Mostra tutto l'output di " +
+                        onClickLabel = "Show all output of " +
                             part.name.ifBlank { "tool" },
                         onClick = {
                             onOpenDetail(
@@ -1645,7 +1645,7 @@ private fun TurnDetailSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = request.title.uppercase(Locale.ITALIAN),
+                    text = request.title.uppercase(Locale.US),
                     style = monoStyle(fontSize = 11.sp, lineHeight = 15.sp)
                         .copy(letterSpacing = 1.5.sp),
                     color = oc.mutedText,
@@ -1658,7 +1658,7 @@ private fun TurnDetailSheet(
                         .heightIn(min = 48.dp)
                         .clickable(
                             role = Role.Button,
-                            onClickLabel = "Chiudi",
+                            onClickLabel = "Close",
                             onClick = onDismiss,
                         )
                         .padding(horizontal = 8.dp),
@@ -1715,14 +1715,14 @@ private fun DetailSectionBlock(
                     .heightIn(min = 48.dp)
                     .clickable(
                         role = Role.Button,
-                        onClickLabel = "Copia ${section.label}",
+                        onClickLabel = "Copy ${section.label}",
                         onClick = onCopy,
                     )
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = if (copied) "copiato" else "copia",
+                    text = if (copied) "copied" else "copy",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (copied) oc.success else oc.interactive,
                 )
@@ -1817,7 +1817,7 @@ private fun LoadOlderControl(
                     )
                 }
                 Text(
-                    text = if (loading) "Carico…" else "Carica precedenti",
+                    text = if (loading) "Loading…" else "Load older",
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
@@ -1846,7 +1846,7 @@ private fun MessageRow(
             onOpenDetail = onOpenDetail,
         )
 
-        MessageRole.Meta -> MetaDivider(message.metaLabel ?: "evento")
+        MessageRole.Meta -> MetaDivider(message.metaLabel ?: "event")
     }
 }
 
@@ -2096,7 +2096,7 @@ private fun UserMessage(
         ) {
             if (message.pending) {
                 Text(
-                    text = "in coda",
+                    text = "queued",
                     style = MaterialTheme.typography.labelSmall,
                     color = oc.info,
                 )
@@ -2550,7 +2550,7 @@ private fun commandHead(command: String?): LimitedText {
     return LimitedText(visible.joinToString("\n"), lines.size, hidden)
 }
 
-private fun lineLabel(count: Int): String = if (count == 1) "1 riga" else "$count righe"
+private fun lineLabel(count: Int): String = if (count == 1) "1 line" else "$count lines"
 
 private fun durationLabel(
     startedAt: Long?,
@@ -2568,7 +2568,7 @@ private fun durationLabel(
 /** "<10 s" → "1,3 s"; "<60 s" → "12 s"; oltre → "1 min 12 s". */
 private fun formatElapsed(elapsedMs: Long): String {
     if (elapsedMs < 10_000L) {
-        return String.format(Locale.ITALIAN, "%.1f s", elapsedMs / 1000.0)
+        return String.format(Locale.US, "%.1f s", elapsedMs / 1000.0)
     }
     val totalSeconds = Math.round(elapsedMs / 1000.0)
     if (totalSeconds < 60L) return "$totalSeconds s"
@@ -2626,49 +2626,49 @@ private data class ToolStatusUi(
 private fun toolPhaseUi(part: ToolPartUi): ToolStatusUi {
     val oc = OpenColors.current
     if (!part.executed || part.phase == PartPhase.Denied) {
-        return ToolStatusUi("negato", oc.error, pulsing = false, talkBack = "Tool negato")
+        return ToolStatusUi("denied", oc.error, pulsing = false, talkBack = "Tool denied")
     }
     return when (part.phase) {
         PartPhase.Streaming -> ToolStatusUi(
             label = "writing command…",
             color = oc.warningInk,
             pulsing = true,
-            talkBack = "Tool in corso",
+            talkBack = "Tool running",
         )
 
         PartPhase.Running -> ToolStatusUi(
-            label = "in corso",
+            label = "running",
             color = oc.warningInk,
             pulsing = true,
-            talkBack = "Tool in corso",
+            talkBack = "Tool running",
         )
 
         PartPhase.Ok, PartPhase.Done -> ToolStatusUi(
             label = "ok",
             color = oc.success,
             pulsing = false,
-            talkBack = "Tool completato",
+            talkBack = "Tool completed",
         )
 
         PartPhase.Failed -> ToolStatusUi(
             label = "error",
             color = oc.error,
             pulsing = false,
-            talkBack = "Tool fallito",
+            talkBack = "Tool failed",
         )
 
         PartPhase.Interrupted -> ToolStatusUi(
-            label = "interrotto",
+            label = "interrupted",
             color = oc.warningInk,
             pulsing = false,
-            talkBack = "Tool interrotto",
+            talkBack = "Tool interrupted",
         )
 
         PartPhase.Denied -> ToolStatusUi(
-            label = "negato",
+            label = "denied",
             color = oc.error,
             pulsing = false,
-            talkBack = "Tool negato",
+            talkBack = "Tool denied",
         )
     }
 }

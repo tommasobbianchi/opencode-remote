@@ -393,7 +393,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update {
                     it.copy(
                         connection = Connection.Error(ConnectionErrors.CREDENTIALS_REJECTED),
-                        error = "${ConnectionErrors.CREDENTIALS_REJECTED} · rifai il pairing",
+                        error = "${ConnectionErrors.CREDENTIALS_REJECTED} · redo the pairing",
                     )
                 }
             } else {
@@ -544,16 +544,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 AttachmentResult.TooLarge ->
-                    failAttachment("file troppo grande: massimo 50 MB")
+                    failAttachment("file too large: maximum 50 MB")
 
                 AttachmentResult.NotReadable ->
-                    failAttachment("non riesco a leggere il file")
+                    failAttachment("cannot read the file")
 
                 is AttachmentResult.TooLargeAfterCompression -> failAttachment(
                     if (result.isImage) {
-                        "immagine troppo grande: massimo 4 MB dopo la compressione"
+                        "image too large: maximum 4 MB after compression"
                     } else {
-                        "il server accetta fino a 4 MB per i file non immagine"
+                        "the server accepts up to 4 MB for non-image files"
                     },
                 )
             }
@@ -616,15 +616,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (!base.startsWith("https://", ignoreCase = true)) {
-            setConnectionError("URL non valido: è consentito solo https://")
+            setConnectionError("Invalid URL: only https:// is allowed")
             return
         }
         if (user.isBlank()) {
-            setConnectionError("Utente mancante")
+            setConnectionError("Missing user")
             return
         }
         if (password.isEmpty()) {
-            setConnectionError("Password/token mancante")
+            setConnectionError("Missing password/token")
             return
         }
 
@@ -1235,7 +1235,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             current.copy(
                                 forms = current.forms.filterNot { it.id == formId },
                                 formsError = null,
-                                error = "domanda scaduta",
+                                error = "question expired",
                             )
                         }
                         refreshForms()
@@ -1279,8 +1279,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun describeFormError(error: Throwable): String = when {
-        error is ApiException && error.code == 401 -> "credenziali rifiutate"
-        error is ApiException && error.code == 404 -> "domanda scaduta"
+        error is ApiException && error.code == 401 -> "credentials rejected"
+        error is ApiException && error.code == 404 -> "question expired"
         else -> describeConnectionError(error)
     }
 
@@ -1425,7 +1425,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun loadCommands(force: Boolean = false) {
         val client = api
         if (client == null) {
-            _state.update { it.copy(commandsError = "non connesso") }
+            _state.update { it.copy(commandsError = "not connected") }
             return
         }
         val now = System.currentTimeMillis()
@@ -1841,7 +1841,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun stopStream() {
         stopStreamInternal()
-        appendLog("system", "stream fermato")
+        appendLog("system", "stream stopped")
         _state.update { it.copy(streaming = false) }
     }
 
@@ -2345,7 +2345,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _state.update {
             it.copy(
                 connection = Connection.Error(ConnectionErrors.CREDENTIALS_REJECTED),
-                error = "${ConnectionErrors.CREDENTIALS_REJECTED} · rifai il pairing",
+                error = "${ConnectionErrors.CREDENTIALS_REJECTED} · redo the pairing",
                 streaming = false,
                 streamState = StreamState.Idle,
                 nextAttemptAt = 0L,
