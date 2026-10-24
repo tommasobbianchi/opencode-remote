@@ -71,8 +71,8 @@ data class OpenChatState(
  * Un evento di un'altra sessione non modifica lo stato (M2, criterio 5).
  *
  * Nota performance (§4.4): qui i delta si accumulano soltanto; la pubblicazione
- * throttled (80–120 ms, eventi terminali immediati) è a carico di AppViewModel.
- * TODO(data): publish throttled in AppViewModel, fuori dalla lane data.
+ * throttled (80–120 ms, eventi terminali immediati) è a carico di AppViewModel
+ * tramite [PublishGate] e [publishedImmediately].
  */
 object ChatReducer {
 
@@ -882,4 +882,18 @@ fun reconcileMessages(
 private fun timeMatches(a: Long?, b: Long?, maxSkewMs: Long): Boolean {
     if (a == null || b == null || a <= 0L || b <= 0L) return true
     return abs(a - b) <= maxSkewMs
+}
+
+/**
+ * Eventi che devono arrivare alla UI **senza** attendere la finestra di
+ * throttle (§4.4): cambi di fase e fine turno. Passano dal [PublishGate] solo
+ * i delta puri, dove una perdita di frame è invisibile.
+ */
+internal fun ServerEvent.publishedImmediately(): Boolean = when (this) {
+    is ServerEvent.TextDelta,
+    is ServerEvent.ReasoningDelta,
+    is ServerEvent.ToolInputDelta,
+    is ServerEvent.ToolProgress -> false
+
+    else -> true
 }

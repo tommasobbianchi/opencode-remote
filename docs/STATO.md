@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.9.0-m7**, `versionCode 19`, sha256 `4d71b1e7…` (nome app **OC Remote**, icona neon OC).
+Ultima build consegnata: **0.9.1**, `versionCode 20`, sha256 `3d967148…` (30,8 MB) (nome app **OC Remote**, icona neon OC).
 
 ## Dove
 
@@ -26,7 +26,31 @@ Ultima build consegnata: **0.9.0-m7**, `versionCode 19`, sha256 `4d71b1e7…` (n
 - **M6** vista turno live: ragionamento con durata, card tool con comando/output/stato/exit,
   testo in streaming, step consecutivi in un'unica bolla — fatto (spec in `docs/UI-M6-LIVE.md`)
 
-Test: **78 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
+Test: **88 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
+
+## Throttle di pubblicazione dei delta (0.9.1)
+
+§4.4 di `docs/UI-M6-LIVE.md`: il reducer accumula ogni delta (economico), ma la
+UI riceve uno snapshot della chat **al massimo ogni 100 ms**, tranne gli eventi
+di fase e fine turno che passano subito. Da 30–60 ricomposizioni/s a ~10.
+
+- `net/PublishGate.kt`: cancello puro (nessun orologio interno, `now` è un
+  parametro) con `offer` / `dueIn` / `takePending` / `dropPending` / `reset`.
+  Il pending contiene sempre l'ultimo snapshot: nulla si perde se un evento
+  terminale arriva prima dello scadere della finestra.
+- `ChatReducer.publishedImmediately()`: throttled solo i delta puri
+  (`text.delta`, `reasoning.delta`, `tool.input.delta`, `tool.progress`).
+  Tutto il resto (started/ended, `tool.called`, success/failed, step, execution)
+  è immediato: i cambi di fase non devono mai aspettare.
+- `AppViewModel`: `ChatSnapshot` (messaggi + `ChatStream` + running + outcome) è
+  l'unità pubblicata; `scheduleChatFlush` pubblica l'ultimo snapshot allo
+  scadere, `flushChatNow` è obbligatorio prima di ogni mutazione di
+  `messages`/`chat` fuori dal reducer (`sendPrompt`, rename del messaggio
+  ottimistico, `loadOlder`, `resyncOpenSession`), altrimenti lo snapshot in
+  attesa tornerebbe sopra scrivendola. `resetChatPublish` su apertura sessione,
+  `backToList`, `stopStream`.
+- Test: `PublishGateTest` (finestra, terminali, pending, 60 Hz → ~10
+  pubblicazioni/s, classificazione eventi).
 
 ## Cambio server dalla lista (0.6.4-m5)
 
@@ -103,6 +127,6 @@ bordo del pannello cadevano sui default opentui.
 
 ## Prossimo passo suggerito
 
-Resta: eventuale ricolorazione icona (petrolio `#8ED8C6`), nota licenza OFL,
-throttle di pubblicazione dei delta (§4.4 di `docs/UI-M6-LIVE.md`) se si notano scatti.
-Ripresa: "riprendiamo opencode mobile".
+Fatto il throttle (§4.4). Resta: eventuale ricolorazione icona (petrolio
+`#8ED8C6`), nota licenza OFL, release con APK firmato.
+Ripresa: "riprendiamo opencode remote".

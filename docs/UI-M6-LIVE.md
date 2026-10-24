@@ -345,6 +345,9 @@ Nessun colore nuovo. Nessun font nuovo. `monoStyle()` per ogni dato tecnico.
   riceve uno snapshot al massimo ogni **80–120 ms**, tranne gli eventi
   terminali (`ended`, `success`, `failed`, `step.ended`) che pubblicano
   subito. Evita 30–60 ricomposizioni/s.
+  *Implementato in 0.9.1*: `net/PublishGate.kt` (finestra 100 ms, `now`
+  iniettato) + `ChatReducer.publishedImmediately()` (throttled solo i delta
+  puri); lo snapshot pubblicato è `ChatSnapshot` in `AppViewModel`.
 - **Markdown incrementale**: `parseMarkdown` memoizzato su
   `(key, lunghezza/hash del testo)`; i blocchi già chiusi restano in cache,
   si ri-analizza solo la coda aperta. Il cursore non fa parte del testo

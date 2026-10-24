@@ -31,6 +31,7 @@ import io.github.mirkotappini.opencoderemote.net.MessageUi
 import io.github.mirkotappini.opencoderemote.net.ModelUi
 import io.github.mirkotappini.opencoderemote.net.OpenChatState
 import io.github.mirkotappini.opencoderemote.net.OpenCodeApi
+import io.github.mirkotappini.opencoderemote.net.PublishGate
 import io.github.mirkotappini.opencoderemote.net.ReconnectPolicy
 import io.github.mirkotappini.opencoderemote.net.RetryState
 import io.github.mirkotappini.opencoderemote.net.RetryTransitions
@@ -43,6 +44,7 @@ import io.github.mirkotappini.opencoderemote.net.SessionUi
 import io.github.mirkotappini.opencoderemote.net.SseEvent
 import io.github.mirkotappini.opencoderemote.net.SseWatchdog
 import io.github.mirkotappini.opencoderemote.net.VersionCheck
+import io.github.mirkotappini.opencoderemote.net.publishedImmediately
 import io.github.mirkotappini.opencoderemote.net.reconcileMessages
 import io.github.mirkotappini.opencoderemote.security.StoredCredentials
 import io.github.mirkotappini.opencoderemote.security.TokenStore
@@ -234,6 +236,18 @@ private fun Map<String, Set<String>>.withoutApproval(
 internal fun prependSession(sessions: List<SessionUi>, session: SessionUi): List<SessionUi> =
     if (sessions.any { it.id == session.id }) sessions else listOf(session) + sessions
 
+/**
+ * Fotografia della chat pronta per la UI: quello che il [PublishGate] accumula
+ * e pubblica. Contiene già lo stato ridotto, non i singoli eventi.
+ */
+internal data class ChatSnapshot(
+    val sessionId: String,
+    val messages: List<MessageUi>,
+    val stream: ChatStream,
+    val running: Boolean,
+    val outcome: String?,
+)
+
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -274,6 +288,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val seenEventIds = LinkedHashSet<String>()
 
     private var optimisticSeq = 0
+
+    /**
+     * §4.4: i delta arrivano a raffica; lo stato ridotto è sempre completo ma
+     * la UI riceve uno snapshot al massimo ogni [CHAT_PUBLISH_INTERVAL_MS],
+     * con gli eventi di fase/fine turno immediati.
+     */
+    private val chatGate = PublishGate<ChatSnapshot>(CHAT_PUBLISH_INTERVAL_MS)
+    private var chatFlushJob: Job? = null
 
     /** M5: ultimo segnale ricevuto sulla SSE (apertura o evento). */
     @Volatile
@@ -524,6 +546,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             }
                             api = client
                             stream = EventStream(sseClient, client.eventUrl(), client.authHeader())
+                            resetChatPublish()
                             _state.update {
                                 it.copy(
                                     connection = Connection.Connected(info.version, info.pid),
@@ -747,6 +770,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         val id = session.id
         olderCursor = null
+        resetChatPublish()
         _state.update {
             it.copy(
                 openSession = session,
@@ -837,6 +861,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     /** Carica la pagina precedente e la antepone (usa `cursor.previous`). */
     fun loadOlder() {
         val client = api ?: return
+        flushChatNow()
         val session = _state.value.openSession ?: return
         val cursor = olderCursor ?: return
         if (_state.value.messagesLoading) return
@@ -849,6 +874,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             result
                 .onSuccess { page ->
                     if (_state.value.openSession?.id != session.id) return@onSuccess
+                    flushChatNow()
                     olderCursor = page.previous
                     _state.update { current ->
                         current.copy(
@@ -888,6 +914,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun backToList() {
         olderCursor = null
+        resetChatPublish()
         _state.update {
             it.copy(
                 openSession = null,
@@ -1376,6 +1403,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     /** Invio ottimistico: la bolla utente appare subito e resta "in coda". */
     fun sendPrompt() {
         val client = api
+        flushChatNow()
         val session = _state.value.openSession
         val text = _state.value.draft.trim()
         if (client == null || session == null || text.isEmpty()) return
@@ -1402,6 +1430,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
             result
                 .onSuccess { serverId ->
+                    // I delta trattenuti potrebbero contenere ancora il
+                    // messaggio ottimistico: si pubblicano prima di rinominarlo.
+                    flushChatNow()
                     _state.update { current ->
                         val serverMessageId = serverId?.takeIf { it.isNotBlank() }
                         val updated = if (serverMessageId == null) {
@@ -1422,6 +1453,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 .onFailure { error ->
+                    flushChatNow()
                     _state.update { current ->
                         current.copy(
                             messages = current.messages.filterNot { it.id == localId },
@@ -1614,6 +1646,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun stopStreamInternal() {
+        flushChatNow()
+        chatGate.reset()
         streamGeneration += 1
         streamJob?.cancel()
         streamJob = null
@@ -1724,37 +1758,44 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         if (openId == null || event.sessionId != openId) return
 
-        // TODO(performance §4.4): pubblicare lo snapshot del turno al massimo
-        // ogni 80–120 ms, con gli eventi terminali immediati. Oggi ogni delta
-        // pubblica subito: il reducer accumula, la UI riceverà il throttle
-        // quando la lane UI introdurrà `revision`/auto-scroll.
-        _state.update { current ->
-            val reduced = ChatReducer.reduce(
-                OpenChatState(
-                    sessionId = openId,
-                    messages = current.messages,
-                    stream = current.chat,
-                    running = current.running,
-                    outcome = current.sessionOutcome,
-                ),
-                event,
+        // §4.4: il reducer accumula sempre su base completa (pending even-
+        // tualmente non ancora pubblicato), poi il gate decide quando la UI
+        // vede lo snapshot. Gli eventi di fase/fine turno passano subito.
+        val base = chatGate.pending
+            ?.takeIf { it.sessionId == openId }
+            ?: ChatSnapshot(
+                sessionId = openId,
+                messages = _state.value.messages,
+                stream = _state.value.chat,
+                running = _state.value.running,
+                outcome = _state.value.sessionOutcome,
             )
-            current.copy(
-                messages = reduced.messages,
-                chat = reduced.stream,
-                running = reduced.running,
-                sessionOutcome = reduced.outcome,
-                openSession = current.openSession?.let { session ->
-                    session.copy(
-                        isActive = if (event is ServerEvent.ExecutionFinished) {
-                            false
-                        } else {
-                            session.isActive
-                        },
-                        outcome = reduced.outcome ?: session.outcome,
-                    )
-                },
-            )
+        val reduced = ChatReducer.reduce(
+            OpenChatState(
+                sessionId = openId,
+                messages = base.messages,
+                stream = base.stream,
+                running = base.running,
+                outcome = base.outcome,
+            ),
+            event,
+        )
+        val snapshot = ChatSnapshot(
+            sessionId = openId,
+            messages = reduced.messages,
+            stream = reduced.stream,
+            running = reduced.running,
+            outcome = reduced.outcome,
+        )
+        val publishNow = chatGate.offer(
+            value = snapshot,
+            immediate = event.publishedImmediately(),
+            now = System.currentTimeMillis(),
+        )
+        if (publishNow) {
+            publishChat(snapshot)
+        } else {
+            scheduleChatFlush()
         }
 
         // I messaggi sono la verità: dopo la fine del turno rileggi la sessione.
@@ -1762,6 +1803,53 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             resyncOpenSession()
             refreshApprovals()
         }
+    }
+
+    private fun resetChatPublish() {
+        chatFlushJob?.cancel()
+        chatFlushJob = null
+        chatGate.reset()
+    }
+
+    /** Porta lo snapshot ridotto nella UI (una sola emissione di `state`). */
+    private fun publishChat(snapshot: ChatSnapshot) {
+        chatGate.dropPending()
+        _state.update { current ->
+            val session = current.openSession
+            if (session?.id != snapshot.sessionId) {
+                current
+            } else {
+                current.copy(
+                    messages = snapshot.messages,
+                    chat = snapshot.stream,
+                    running = snapshot.running,
+                    sessionOutcome = snapshot.outcome,
+                    openSession = session.copy(outcome = snapshot.outcome ?: session.outcome),
+                )
+            }
+        }
+    }
+
+    /** Pubblica l'ultimo snapshot accumulato allo scadere della finestra. */
+    private fun scheduleChatFlush() {
+        if (chatFlushJob?.isActive == true) return
+        chatFlushJob = viewModelScope.launch {
+            val wait = chatGate.dueIn(System.currentTimeMillis())
+            if (wait > 0L) delay(wait)
+            chatFlushJob = null
+            chatGate.takePending()?.let { publishChat(it) }
+        }
+    }
+
+    /**
+     * Pubblica subito ciò che il gate trattiene: obbligatorio prima di ogni
+     * mutazione di `messages`/`chat` che non passa dal reducer, altrimenti lo
+     * snapshot in attesa tornerebbe sopra scrivendola.
+     */
+    private fun flushChatNow() {
+        chatFlushJob?.cancel()
+        chatFlushJob = null
+        chatGate.takePending()?.let { publishChat(it) }
     }
 
     private fun updateSession(id: String, transform: (SessionUi) -> SessionUi) {
@@ -1785,6 +1873,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             result
                 .onSuccess { page ->
                     if (_state.value.openSession?.id != sessionId) return@onSuccess
+                    // Il merge parte dallo stato pubblicato: i delta trattenuti
+                    // vanno resi visibili prima, o si perderebbero.
+                    flushChatNow()
                     olderCursor = page.previous
                     _state.update { current ->
                         val merged = resyncMessages(page.messages, current.messages)
@@ -1934,5 +2025,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         /** Oltre questo silenzio sulla SSE, al foreground si forza il reconnect. */
         private const val SSE_STALE_MS = SseWatchdog.TIMEOUT_MS
+
+        /**
+         * §4.4: finestra minima fra due snapshot del turno live (80–120 ms).
+         * 100 ms = 10 pubblicazioni/s invece di 30–60, senza scatti visibili.
+         */
+        private const val CHAT_PUBLISH_INTERVAL_MS = 100L
     }
 }
