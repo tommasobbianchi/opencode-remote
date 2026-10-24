@@ -53,5 +53,6 @@ traffic is only allowed over HTTPS.
 
 ## Licenses
 
-Fonts included: Space Grotesk, IBM Plex Sans, JetBrains Mono (SIL Open Font
-License). The full license note still needs to be added to the repository.
+Fonts included: Space Grotesk, IBM Plex Sans, JetBrains Mono — all under the
+SIL Open Font License 1.1. The attributions and the full license text are in
+[`docs/FONT-LICENSES.md`](docs/FONT-LICENSES.md).

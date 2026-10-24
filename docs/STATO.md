@@ -147,8 +147,8 @@ monochrome variant is the **mark silhouette**, not a font "OC".
 2. ~~git init + first commit~~ → done, private repo on GitHub.
 3. ~~OMO panel colours~~ → resolved Oct 24 (local patch).
 4. ~~Icon recolouring to petrol `#8ED8C6`~~ → dropped, not wanted.
-5. OFL font license note (the only open item).
-6. Optional: private GitHub release with the signed APK.
+5. ~~OFL font license note~~ → done: `docs/FONT-LICENSES.md`, linked from the README.
+6. Optional: private GitHub release with the signed APK (only debug builds today).
 
 ## OMO panel colours fix (local patch, Oct 24)
 

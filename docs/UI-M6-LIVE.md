@@ -155,13 +155,14 @@ Column(surfaceContainerLow, border 1dp border 50%, shapes.small, padding 10/8)
 - **Failed**: same layout, dot/label `error`, output visible at the tail; the
   border does **not** turn red (the TUI does not color borders; the status is
   already carried by dot, label and exit).
-- **Denied**: name + command are shown, then the "not run" note in
-  `mutedText`; no output block.
+- **Denied**: name only, then the "not run" note in `mutedText`; no output
+  block (the command is not shown anywhere in the UI since 0.13.0).
 - **"show all · N lines"**: 48dp line, `labelSmall` `interactive`,
-  left-aligned, below the output. Opens the §2.5 sheet with the full
-  command and output. N = total lines of the output.
-- **Selection**: `SelectionContainer` on command and output (separately),
-  never on the whole card, so the tap on the "show all" line stays reliable.
+  left-aligned, below the output. Opens the §2.5 sheet with the full **output
+  only** (the command was removed from the sheet in 0.13.0). N = total lines
+  of the output.
+- **Selection**: `SelectionContainer` on the output, never on the whole card,
+  so the tap on the "show all" line stays reliable.
 
 ### 2.3 Text
 
