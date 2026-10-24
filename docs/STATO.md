@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.8.3-m6**, `versionCode 18`, sha256 `2d9c6ac3…`.
+Ultima build consegnata: **0.9.0-m7**, `versionCode 19`, sha256 `4d71b1e7…` (nome app **OC Remote**, icona neon OC).
 
 ## Dove
 
@@ -22,6 +22,7 @@ Ultima build consegnata: **0.8.3-m6**, `versionCode 18`, sha256 `2d9c6ac3…`.
 - **M3** drawer OMO (3 tab: Agenti/Skill/MCP), picker modello con ricerca, riga sessione, badge task, subagent informativi, indicatore agenti al lavoro — fatto
 - **M4** approvazioni: pannello in chat, badge, notifiche con azioni, foreground service, credenziali cifrate (Keystore) + auto-connect — fatto
 - **M5** hardening: version gate, tassonomia errori, politica 401, sessione sparita, NetworkCallback, watchdog SSE 30 s, countdown corretto, icona launcher — fatto
+- **M7** identità: nome OC Remote, nuova icona (adaptive senza wordmark, legacy con wordmark, monochrome) — fatto
 - **M6** vista turno live: ragionamento con durata, card tool con comando/output/stato/exit,
   testo in streaming, step consecutivi in un'unica bolla — fatto (spec in `docs/UI-M6-LIVE.md`)
 

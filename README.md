@@ -1,4 +1,4 @@
-# OpenCode Remote
+# OC Remote
 
 Client Android per collegarsi al **proprio** server OpenCode (2.x) e gestirne le
 sessioni dal telefono.

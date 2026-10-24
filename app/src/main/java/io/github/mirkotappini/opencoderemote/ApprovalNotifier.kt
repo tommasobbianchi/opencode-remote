@@ -53,7 +53,7 @@ class ApprovalNotifier(private val context: Context) {
         val content = appIntent(null, null)
         return NotificationCompat.Builder(context, CHANNEL_SERVICE)
             .setSmallIcon(android.R.drawable.stat_sys_upload_done)
-            .setContentTitle("OpenCode Remote")
+            .setContentTitle("OC Remote")
             .setContentText("In ascolto delle richieste di approvazione")
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)

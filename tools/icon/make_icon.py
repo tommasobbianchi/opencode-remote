@@ -71,6 +71,71 @@ def circle_mask(size):
     return mask
 
 
+def split_mark(art, min_gap_ratio=0.03, floor=45):
+    """Separa il marchio dall'eventuale wordmark sotto (banda scura più larga).
+
+    Il launcher adattivo non deve contenere testo: un wordmark verrebbe tagliato
+    dalla maschera circolare. Restituisce (immagine del marchio, ha_wordmark).
+    """
+    g = art.convert("L")
+    w, h = g.size
+    px = g.load()
+    step = 2
+    rows = [max(px[x, y] for x in range(0, w, step)) for y in range(h)]
+    content = [i for i, v in enumerate(rows) if v > 90]
+    if not content:
+        return art, False
+    # Wordmark: prima riga in cui il verde domina (testo neon), altrimenti banda scura.
+    rgb = art.load()
+    green_top = None
+    for y in range(content[0], content[-1] + 1):
+        count = 0
+        for x in range(0, w, step):
+            r, gg, b = rgb[x, y][:3]
+            if gg > 120 and gg > r + 40 and gg > b + 40:
+                count += 1
+        if count > w * 0.01:
+            green_top = y
+            break
+    if green_top is not None and green_top > h * 0.3:
+        return art.crop((0, 0, w, max(0, green_top - int(h * 0.015)))), True
+    best = None
+    run_start = None
+    for y in range(content[0], content[-1] + 1):
+        if rows[y] <= floor:
+            if run_start is None:
+                run_start = y
+        elif run_start is not None:
+            if best is None or (y - run_start) > (best[1] - best[0]):
+                best = (run_start, y)
+            run_start = None
+    if run_start is not None and (best is None or (content[-1] + 1 - run_start) > (best[1] - best[0])):
+        best = (run_start, content[-1] + 1)
+    if not best or (best[1] - best[0]) < h * min_gap_ratio:
+        return art, False
+    if not any(v > 90 for v in rows[best[1]:]):
+        return art, False
+    return art.crop((0, 0, w, best[0])), True
+
+
+def luma_alpha(im, floor=14, span=80):
+    """Alpha dalla luminanza: il fondo scuro diventa trasparente, il neon resta."""
+    g = im.convert("L")
+    a = g.point(lambda v: 0 if v <= floor else min(255, int((v - floor) * 255 / span)))
+    return a.filter(ImageFilter.GaussianBlur(max(1, im.size[0] // 240)))
+
+
+def square_crop(im, thr=90, margin=1.04):
+    """Ritaglia sul contenuto luminoso e centra in una tela quadrata."""
+    b = im.convert("L").point(lambda v: 255 if v > thr else 0).getbbox()
+    if b:
+        im = im.crop(b)
+    side = int(max(im.size) * margin)
+    sq = Image.new("RGB", (side, side), (0, 0, 0))
+    sq.paste(im, ((side - im.size[0]) // 2, (side - im.size[1]) // 2))
+    return sq
+
+
 def main(src, out):
     os.makedirs(out, exist_ok=True)
     im = Image.open(src).convert("RGB")
@@ -91,14 +156,15 @@ def main(src, out):
     with open(os.path.join(out, "background.txt"), "w") as fh:
         fh.write("#%02X%02X%02X\n" % bg)
 
-    # --- foreground adattivo: artwork al 68% della tela, bordo sfumato nel colore di fondo
+    # --- foreground adattivo: solo il marchio (niente wordmark), alpha dal neon
+    mark, has_wordmark = split_mark(art)
+    mark = square_crop(mark)
     for dens, scale in DENSITIES.items():
         canvas = int(108 * scale)          # 108dp
-        art_size = int(canvas * 0.80)
+        art_size = int(canvas * 0.66)      # dentro la safe zone della maschera
         layer = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
-        piece = art.resize((art_size, art_size), Image.LANCZOS).convert("RGBA")
-        alpha = radial_alpha(art_size, feather=0.13)
-        piece.putalpha(alpha)
+        piece = mark.resize((art_size, art_size), Image.LANCZOS).convert("RGBA")
+        piece.putalpha(luma_alpha(piece))
         off = (canvas - art_size) // 2
         layer.alpha_composite(piece, (off, off))
         layer.save(os.path.join(out, f"ic_launcher_foreground_{dens}.png"))
@@ -109,9 +175,12 @@ def main(src, out):
         sq = plate_img.resize((px, px), Image.LANCZOS).convert("RGBA")
         sq.putalpha(squircle_mask(px, 0.22))
         sq.save(os.path.join(out, f"ic_launcher_{dens}.png"))
-        rd = plate_img.resize((px, px), Image.LANCZOS).convert("RGBA")
-        rd.putalpha(circle_mask(px))
-        rd.save(os.path.join(out, f"ic_launcher_round_{dens}.png"))
+        rd_canvas = Image.new("RGBA", (px, px), bg + (255,))
+        inner_px = int(px * 0.94)
+        rd_piece = plate_img.resize((inner_px, inner_px), Image.LANCZOS).convert("RGBA")
+        rd_canvas.alpha_composite(rd_piece, ((px - inner_px) // 2, (px - inner_px) // 2))
+        rd_canvas.putalpha(circle_mask(px))
+        rd_canvas.save(os.path.join(out, f"ic_launcher_round_{dens}.png"))
 
         # monochrome per icone tematizzate: "OC" nel font dell'app (JetBrains Mono)
         mono = Image.new("RGBA", (px, px), (0, 0, 0, 0))

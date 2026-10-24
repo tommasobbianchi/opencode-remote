@@ -93,7 +93,7 @@ fun SetupScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Eyebrow("OpenCode Remote")
+                    Eyebrow("OC Remote")
                     Spacer(Modifier.weight(1f))
                     ServerNamePill(serverName(state.url))
                 }
@@ -332,7 +332,7 @@ fun VersionMismatchScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Eyebrow("OpenCode Remote")
+                    Eyebrow("OC Remote")
                     Spacer(Modifier.weight(1f))
                     ServerNamePill(serverName(state.url))
                 }
