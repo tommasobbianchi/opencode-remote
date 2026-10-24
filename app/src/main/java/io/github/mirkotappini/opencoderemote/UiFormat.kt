@@ -8,7 +8,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Età relativa compatta da timestamp epoch in millisecondi. */
+/** Compact relative age from an epoch timestamp in milliseconds. */
 fun relativeAge(epochMs: Long?, now: Long = System.currentTimeMillis()): String {
     if (epochMs == null || epochMs <= 0L) return "—"
     val diffMs = (now - epochMs).coerceAtLeast(0L)
@@ -22,11 +22,11 @@ fun relativeAge(epochMs: Long?, now: Long = System.currentTimeMillis()): String 
     }
 }
 
-/** Costo in USD con 4 decimali, come da DESIGN/API-M1. */
+/** Cost in USD with 4 decimals, per DESIGN/API-M1. */
 fun costText(cost: Double?): String =
     if (cost == null) "—" else String.format(Locale.US, "$%.4f", cost)
 
-/** Nome leggibile del server, ricavato dall'host: mac-mini.tail… → mac-mini. */
+/** Human-readable server name, derived from the host: mac-mini.tail… → mac-mini. */
 fun serverName(url: String): String {
     val host = runCatching { URI(url).host }.getOrNull()
         ?.takeIf { it.isNotBlank() }
@@ -36,7 +36,7 @@ fun serverName(url: String): String {
     return host.substringBefore('.').ifBlank { "server" }
 }
 
-/** Riga secondaria della lista: agente · modello · costo. */
+/** Secondary line of the list: agent · model · cost. */
 fun sessionMeta(session: SessionUi): String {
     val parts = buildList {
         session.agent?.takeIf { it.isNotBlank() }?.let(::add)
@@ -47,9 +47,9 @@ fun sessionMeta(session: SessionUi): String {
 }
 
 /**
- * Meta compatta per le righe del drawer: una sessione mai usata non ha ancora
- * `agent`/`model` (compaiono dopo il primo turno o un cambio esplicito), quindi
- * la riga non resta mai vuota: mostra "predefinito".
+ * Compact meta for drawer rows: a session never used does not have
+ * `agent`/`model` yet (they appear after the first turn or an explicit change),
+ * so the row is never left empty: it shows "predefinito".
  */
 fun drawerSessionMeta(session: SessionUi): String {
     val agent = session.agent?.takeIf { it.isNotBlank() }
@@ -62,17 +62,17 @@ fun drawerSessionMeta(session: SessionUi): String {
     }
 }
 
-/** Riferimento `provider/modello`, oppure null quando il server non lo espone. */
+/** `provider/model` reference, or null when the server does not expose it. */
 fun modelRefLabel(providerId: String?, modelId: String?): String? = when {
     !providerId.isNullOrBlank() && !modelId.isNullOrBlank() -> "$providerId/$modelId"
     !modelId.isNullOrBlank() -> modelId
     else -> null
 }
 
-/** Famiglia cromatica dello stato SSE, tradotta in colori dal tema. */
+/** Color family for the SSE state, mapped to colors by the theme. */
 enum class StreamTone { Live, Warning, Muted }
 
-/** Etichetta unica dello stato SSE: lista, chat e drawer usano le stesse parole. */
+/** Single label for the SSE state: list, chat and drawer share the same wording. */
 data class StreamStatusUi(
     val label: String,
     val tone: StreamTone,
@@ -80,9 +80,9 @@ data class StreamStatusUi(
 )
 
 /**
- * M5 F1 / M5.1: il semaforo deriva solo da [StreamState]. Mai "SSE live" quando
- * lo stream è in riconnessione o fermo: i dati in lista possono essere cache.
- * Con la rete assente il chip dice "rete assente", senza countdown.
+ * M5 F1 / M5.1: the traffic light derives only from [StreamState]. Never
+ * "SSE live" while the stream is reconnecting or stalled: the list data may
+ * be cached. With the network down the chip says "rete assente", no countdown.
  */
 fun streamStatusUi(
     state: StreamState,
@@ -90,7 +90,7 @@ fun streamStatusUi(
     suspended: Boolean = false,
 ): StreamStatusUi = when (state) {
     StreamState.Live -> StreamStatusUi("SSE live", StreamTone.Live, pulsing = true)
-    is StreamState.Connecting -> StreamStatusUi("riconnessione", StreamTone.Warning, pulsing = true)
+    is StreamState.Connecting -> StreamStatusUi("reconnecting", StreamTone.Warning, pulsing = true)
     is StreamState.Reconnecting -> StreamStatusUi(
         label = ReconnectPolicy.statusLabel(secondsLeft, suspended || state.suspended),
         tone = StreamTone.Warning,
@@ -99,10 +99,10 @@ fun streamStatusUi(
     StreamState.Idle -> StreamStatusUi("SSE ferma", StreamTone.Muted, pulsing = false)
 }
 
-/** Etichetta italiana e breve per l'esito di una sessione. */
+/** Short Italian label for a session's outcome. */
 fun outcomeLabel(outcome: String?): String? = when (outcome?.lowercase(Locale.ROOT)) {
     "succeeded", "success", "done" -> "ok"
-    "failed", "failure", "error" -> "errore"
+    "failed", "failure", "error" -> "error"
     "interrupted", "aborted" -> "interrotta"
     "running", "active" -> "in corso"
     null, "" -> null
@@ -110,8 +110,8 @@ fun outcomeLabel(outcome: String?): String? = when (outcome?.lowercase(Locale.RO
 }
 
 /**
- * Orario del messaggio: solo ora se è oggi, altrimenti giorno + ora.
- * Formato coerente in tutta la chat, in italiano.
+ * Time of the message: time only if it is today, otherwise day + time.
+ * Consistent formatting across the whole chat, in Italian.
  */
 fun messageTime(epochMs: Long?, now: Long = System.currentTimeMillis()): String {
     if (epochMs == null || epochMs <= 0L) return ""
@@ -126,11 +126,11 @@ fun messageTime(epochMs: Long?, now: Long = System.currentTimeMillis()): String 
     }
 }
 
-/** Stato leggibile di un tool, ricavato dal JSON già troncato del modello UI. */
+/** Human-readable tool state, derived from the truncated JSON in the UI model. */
 enum class ToolStatus(val label: String) {
     Ok("ok"),
     Running("in corso"),
-    Failed("errore"),
+    Failed("error"),
     Denied("negato"),
 }
 
@@ -148,7 +148,7 @@ fun toolStatusOf(state: String?): ToolStatus? {
     }
 }
 
-/** Una riga del log SSE: "HH:mm:ss.SSS  [kind] payload". */
+/** One line of the SSE log: "HH:mm:ss.SSS  [kind] payload". */
 data class EventLineParts(
     val time: String,
     val kind: String,

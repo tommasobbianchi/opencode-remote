@@ -1,39 +1,39 @@
 # OC Remote
 
-Client Android per collegarsi al **proprio** server OpenCode (2.x) e gestirne le
-sessioni dal telefono.
+An Android client to connect to **your own** OpenCode server (2.x) and manage
+its sessions from your phone.
 
-L'app non ha server, account o modelli preimpostati: al primo avvio si inserisce
-l'indirizzo del proprio server OpenCode e le credenziali del servizio.
+The app has no pre-configured server, account, or preset models: on first launch
+you enter the address of your OpenCode server and the service credentials.
 
-## Cosa si può fare
+## What you can do
 
-- lista delle sessioni, nuova sessione, apertura della chat
-- prompt e risposta in streaming, con vista live del turno: ragionamento con
-  durata, tool con comando e output, testo in streaming
-- interruzione del turno, riconnessione automatica con risincronizzazione
-- approvazioni dei permessi, con notifica e azioni
-- pannello agenti / skill / MCP del server, scelta del modello
-- cambio server dalla lista (le credenziali cifrate vengono cancellate)
+- session list, new session, opening the chat
+- prompt and response in streaming, with a live view of the turn: reasoning with
+  duration, tools with command and output, text in streaming
+- interrupting the turn, automatic reconnection with re-synchronization
+- permission approvals, with notifications and actions
+- server agents / skill / MCP panel, model selection
+- changing server from the list (the encrypted credentials are deleted)
 
-## Requisiti
+## Requirements
 
-- server OpenCode **2.x** con il servizio HTTP attivo
-- endpoint **HTTPS** raggiungibile dal telefono (per esempio con
-  `tailscale serve`, così il certificato è valido)
-- utente e password del servizio OpenCode (di norma l'utente è `opencode`)
+- an OpenCode **2.x** server with the HTTP service running
+- an **HTTPS** endpoint reachable from the phone (for example with
+  `tailscale serve`, so the certificate is valid)
+- the OpenCode service username and password (typically the user is `opencode`)
 
-## Primo avvio
+## First launch
 
-1. apri l'app e inserisci l'indirizzo del server, per esempio
-   `https://macchina.tailxxxx.ts.net`
-2. inserisci utente e password del servizio
-3. connetti: le credenziali vengono salvate cifrate (Android Keystore) e
-   riusate al riavvio
+1. open the app and enter the server address, for example
+   `https://machine.tailxxxx.ts.net`
+2. enter the service username and password
+3. connect: the credentials are saved encrypted (Android Keystore) and
+   reused at restart
 
 ## Build
 
-Serve JDK 17 e Android SDK 36 (compile/target 36, min 29).
+Requires JDK 17 and Android SDK 36 (compile/target 36, min 29).
 
 ```bash
 ./gradlew testDebugUnitTest
@@ -42,11 +42,11 @@ Serve JDK 17 e Android SDK 36 (compile/target 36, min 29).
 
 ## Privacy
 
-L'app parla solo con il server configurato: nessun servizio terzo, nessuna
-telemetria. Le credenziali restano sul telefono, cifrate con l'Android Keystore;
-il traffico è ammesso solo su HTTPS.
+The app only talks to the configured server: no third-party services, no
+telemetry. Credentials stay on the phone, encrypted with the Android Keystore;
+traffic is only allowed over HTTPS.
 
-## Licenze
+## Licenses
 
-Font inclusi: Space Grotesk, IBM Plex Sans, JetBrains Mono (SIL Open Font
-License). La nota di licenza completa va aggiunta al repository.
+Fonts included: Space Grotesk, IBM Plex Sans, JetBrains Mono (SIL Open Font
+License). The full license note still needs to be added to the repository.

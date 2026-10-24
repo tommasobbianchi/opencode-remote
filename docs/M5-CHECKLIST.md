@@ -1,54 +1,54 @@
-# M5 — checklist di hardening
+# M5 — hardening checklist
 
-Criterio del design: *test di rete persa, token scaduto, server spento*.
-Ogni voce ha un esito atteso verificabile; le voci marcate **[dev]** si provano sul Fold
-via `adb` (USB dal MacBook), le altre sono coperte da test JVM.
+Design criterion: *lost network, expired token, server off*.
+Each item has a verifiable expected outcome; items marked **[dev]** are tested on the Fold
+via `adb` (USB from the MacBook), the others are covered by JVM tests.
 
-## A. Connettività
+## A. Connectivity
 
-| # | Scenario | Comportamento atteso | Verifica |
+| # | Scenario | Expected behavior | Verification |
 |---|---|---|---|
-| A1 | Wi-Fi spento con app aperta e SSE viva | banner "rete assente · attendo la connessione", tentativi sospesi (nessun backoff/numero), nessun crash | [dev] |
-| A2 | Wi-Fi riacceso | riconnessione immediata (callback di rete), backoff azzerato, rilettura messaggi, nessun duplicato | [dev] |
-| A3 | Wi-Fi spento per > 2 min (Doze simulato) | al ritorno si riallinea da sola; se l'app era in background, al foreground riparte | [dev] |
-| A4 | Nessuna rete all'avvio (solo Tailscale spento) | schermata con errore "rete privata non attiva", pulsante Riprova; nessun crash | [dev] |
+| A1 | Wi-Fi off with the app open and SSE alive | banner "no network · waiting for connection", attempts suspended (no backoff/number), no crash | [dev] |
+| A2 | Wi-Fi back on | immediate reconnection (network callback), backoff reset, message re-read, no duplicates | [dev] |
+| A3 | Wi-Fi off for > 2 min (simulated Doze) | on return it re-aligns by itself; if the app was in the background, it restarts on foreground | [dev] |
+| A4 | No network at startup (Tailscale off only) | screen with error "private network not active", Retry button; no crash | [dev] |
 
 ## B. Server
 
-| # | Scenario | Comportamento atteso | Verifica |
+| # | Scenario | Expected behavior | Verification |
 |---|---|---|---|
-| B1 | servizio OpenCode fermo sul server di sviluppo | stato offline con messaggio chiaro; i dati in cache restano visibili; nessun retry aggressivo | [dev] |
-| B2 | servizio riavviato | riconnessione automatica entro il backoff; la sessione aperta si riallinea | [dev] |
-| B3 | macchina in sleep / non raggiungibile | timeout mappato su "server non raggiungibile (timeout)", non su un errore generico | test + [dev] |
-| B4 | versione server ≠ 2.x | schermata bloccante `VersionMismatch` con versione trovata e spiegazione; nessuna richiesta ulteriore | test + [dev con server finto] |
+| B1 | OpenCode service stopped on the dev server | offline state with a clear message; cached data stays visible; no aggressive retry | [dev] |
+| B2 | service restarted | automatic reconnection within the backoff; the open session re-aligns | [dev] |
+| B3 | machine asleep / unreachable | timeout mapped to "server unreachable (timeout)", not to a generic error | test + [dev] |
+| B4 | server version ≠ 2.x | blocking `VersionMismatch` screen with the version found and an explanation; no further requests | test + [dev with fake server] |
 
-## C. Credenziali
+## C. Credentials
 
-| # | Scenario | Comportamento atteso | Verifica |
+| # | Scenario | Expected behavior | Verification |
 |---|---|---|---|
-| C1 | password cambiata sul server (401) | stato `AuthFailed`, stop dei retry, invito a rifare il pairing; cache visibile | [dev] |
-| C2 | token cancellato/disconnesso | il servizio in background si ferma, notifiche rimosse, setup mostrato | [dev] |
-| C3 | 401 durante un invio prompt | il prompt non viene ritentato in automatico; messaggio chiaro; nessun duplicato inviato | test + [dev] |
+| C1 | password changed on the server (401) | `AuthFailed` state, retries stopped, invite to redo pairing; cache visible | [dev] |
+| C2 | token dismissed/disconnected | the background service stops, notifications removed, setup shown | [dev] |
+| C3 | 401 during a prompt send | the prompt is not retried automatically; clear message; no duplicated send | test + [dev] |
 
-## D. Dati
+## D. Data
 
-| # | Scenario | Comportamento atteso | Verifica |
+| # | Scenario | Expected behavior | Verification |
 |---|---|---|---|
-| D1 | sessione cancellata mentre è aperta | messaggio + ritorno alla lista (padre se figlia), nessun crash | test + [dev] |
-| D2 | risposte grandi (`/api/skill` ~98 KB, `/api/agent` 26 KB) | nessun blocco UI; parsing fuori dal main thread | test |
-| D3 | cursore di paginazione scaduto (400) | messaggio "pagina non più valida" + refresh, non crash | test |
-| D4 | eventi fuori ordine / duplicati | stato coerente (i messaggi sono la verità), nessun doppio testo | test (già coperto in parte) |
+| D1 | session deleted while it is open | message + back to the list (parent if it is a child), no crash | test + [dev] |
+| D2 | large responses (`/api/skill` ~98 KB, `/api/agent` 26 KB) | no UI block; parsing off the main thread | test |
+| D3 | expired pagination cursor (400) | "page no longer valid" message + refresh, no crash | test |
+| D4 | out-of-order / duplicate events | consistent state (the messages are the truth), no double text | test (already partially covered) |
 
-## E. Risorse
+## E. Resources
 
-| # | Scenario | Comportamento atteso | Verifica |
+| # | Scenario | Expected behavior | Verification |
 |---|---|---|---|
-| E1 | SSE aperta 10 min in foreground | nessuna crescita monotona di memoria, CPU a riposo bassa | [dev] `dumpsys meminfo` |
-| E2 | animazioni attive su agenti in esecuzione | nessun consumo anomalo | [dev] |
-| E3 | nessun segreto nei log | grep su logcat: password/token mai presenti | [dev] |
+| E1 | SSE open 10 min in foreground | no monotonic memory growth, CPU low at rest | [dev] `dumpsys meminfo` |
+| E2 | animations active on running agents | no abnormal consumption | [dev] |
+| E3 | no secrets in the logs | grep on logcat: password/token never present | [dev] |
 
-## Note di prova
+## Test notes
 
-- Wi-Fi: `adb shell svc wifi disable|enable` (USB resta attivo).
-- Servizio: `ssh build-host 'opencode service stop|start'`; le sessioni restano nel DB.
-- Password: `opencode service set password <x>` + `restart` per simulare la revoca, poi ripristino.
+- Wi-Fi: `adb shell svc wifi disable|enable` (USB stays active).
+- Service: `ssh build-host 'opencode service stop|start'`; the sessions remain in the DB.
+- Password: `opencode service set password <x>` + `restart` to simulate a revocation, then restore.

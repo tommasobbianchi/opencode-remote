@@ -1,66 +1,66 @@
-# UI M1 — note di design
+# UI M1 — design notes
 
-Data: 23 ottobre 2026. Riferimento di prodotto: `docs/DESIGN.md` §5–6, dati: `docs/API-M1.md`.
+Date: Oct 23 2026. Product reference: `docs/DESIGN.md` §5–6, data: `docs/API-M1.md`.
 
-## Direzione
+## Direction
 
-Strumento di controllo per sviluppatore, uso serale e a una mano. Grafite quasi nera,
-superfici a gradini (`surfaceContainer*`) per la profondità. Dal tema M2 l'accento non è
-più il verde-petrolio: l'app usa i **token reali del tema builtin `opencode`** del TUI
-2.1.4 (dark), con accento viola per heading/keyword e arancio per l'interattivo. L'unico
-alone colorato è il backdrop del setup, appena percettibile. Tema **scuro di default**
-(`AppTheme()`); il tema chiaro è completo e si attiva con `AppTheme(darkTheme = false)`.
+Control tool for a developer, evening and one-handed use. Near-black graphite,
+stepped surfaces (`surfaceContainer*`) for depth. From the M2 theme the accent is
+no longer the petrol-green: the app uses the **real tokens of the builtin `opencode`** theme of the TUI
+2.1.4 (dark), with a purple accent for heading/keyword and orange for the interactive. The only
+colored halo is the setup backdrop, just barely perceptible. **Dark theme by default**
+(`AppTheme()`); the light theme is complete and enabled with `AppTheme(darkTheme = false)`.
 
 ## Palette
 
-Tabella completa token → hex, mappatura semantica e contrasti: `docs/THEME.md`.
-In sintesi (dark): background `#0a0a0a`, raised `#141414`, high `#1e1e1e`, testo
-`#eeeeee`, muted `#808080`, bordo `#484848`; feedback warning `#f5a742` (ragionamento),
+Full token → hex table, semantic mapping and contrasts: `docs/THEME.md`.
+In short (dark): background `#0a0a0a`, raised `#141414`, high `#1e1e1e`, text
+`#eeeeee`, muted `#808080`, border `#484848`; feedback warning `#f5a742` (reasoning),
 error `#e06c75`, success `#7fd88f`, info `#56b6c2`; heading/keyword `#9d7cd8`,
-interattivo `#fab283`. Bolla utente su `high`, assistente su `raised`.
+interactive `#fab283`. User bubble on `high`, assistant on `raised`.
 
-## Tipografia
+## Typography
 
-- **Space Grotesk** — titoli, nomi sessione, etichette display.
-- **IBM Plex Sans** — testo di lettura, meta, controlli.
-- **JetBrains Mono** — log, output tool, orari, conteggi.
+- **Space Grotesk** — titles, session names, display labels.
+- **IBM Plex Sans** — reading text, meta, controls.
+- **JetBrains Mono** — log, tool output, times, counts.
 
-Le tre famiglie sono incluse in `res/font/` (licenza SIL OFL, file statici da Google
-Fonts). Nessuna dipendenza da `material-icons-extended`: i glifi (chevron, refresh,
-lucchetto, occhio, warning, overflow) sono disegnati in Compose, con tratto coerente.
+The three families are included in `res/font/` (SIL OFL license, static files from Google
+Fonts). No dependency on `material-icons-extended`: the glyphs (chevron, refresh,
+lock, eye, warning, overflow) are drawn in Compose, with a coherent stroke.
 
-## Spaziatura e layout
+## Spacing and layout
 
-Scala 4/8/12/16/24/32 (`Spacing`). Larghezze massime: setup 480 dp, lista 680 dp,
-chat 920 dp con bolle all'85% della larghezza utile, log 960 dp. Sul Fold interno la
-lista resta leggibile e la chat sfrutta la larghezza senza bolle lunghe.
-Tutti i target interattivi sono ≥48 dp; i testi usano solo `sp` e vanno a capo.
+Scale 4/8/12/16/24/32 (`Spacing`). Maximum widths: setup 480 dp, list 680 dp,
+chat 920 dp with bubbles at 85% of the usable width, log 960 dp. On the Fold inner
+the list stays legible and the chat uses the width without long bubbles.
+All interactive targets are ≥48 dp; the texts use only `sp` and wrap.
 
-## Scelte per schermata
+## Choices per screen
 
-- **Setup** — eyebrow + host, titolo hero, spiegazione Tailscale; card unica con i tre
-  campi, toggle occhio sulla password, Connetti pieno a 54 dp; errore in banner distinto
-  (`errorContainer` + bordo) e nota "credenziali solo in memoria"; IME gestito con
-  `WindowInsets.safeDrawing`, Done che connette.
-- **SessionList** — header compatto con host/versione e overflow (Log SSE, Disconnetti);
-  righe da lista con titolo 1–2 righe, meta `agente · modello · costo`, età e badge a
-  destra; divisori sottili; refresh sia pull-to-refresh sia pulsante in basso (pollice);
-  skeleton pulsante a dimensioni fisse; empty state con azione; errore in banner.
-- **Chat** — bolle utente a destra su `high` (`#1e1e1e`) con bordo `#484848`, assistente a
-  sinistra su `raised` (`#141414`); reasoning collassabile con chevron, conteggio righe e
-  `stateDescription`, chip ambra (warning) e corpo muted; tool chip compatti con nome in
-  `interactive`, stato success/error e output mono con syntax; markdown minimale (heading,
-  strong, inline code, link); "Carica precedenti" è un controllo
-  a pillola, non una bolla; timestamp mono discreti; autoscroll all'ultimo e ancoraggio
-  quando si caricano pagine precedenti; meta/status come divisore sottile.
-- **EventLog** — console in mono con prefisso ora/​tipo colorato, stato live/fermo,
-  Avvia/Ferma a 48 dp, empty "terminale", autoscroll se si è in fondo.
-- **MainScreen** — routing invariato, avvolto in `AppTheme`; back di sistema invariato.
+- **Setup** — eyebrow + host, hero title, Tailscale explanation; a single card with the three
+  fields, eye toggle on the password, full "connect" at 54 dp; error in a distinct banner
+  (`errorContainer` + border) and a "credentials in memory only" note; IME handled with
+  `WindowInsets.safeDrawing`, Done that connects.
+- **SessionList** — compact header with host/version and overflow (SSE log, Disconnect);
+  list rows with a 1–2 line title, meta `agent · model · cost`, age and a badge on
+  the right; thin dividers; refresh both pull-to-refresh and a bottom button (thumb);
+  fixed-size pulsing skeleton; empty state with action; error in a banner.
+- **Chat** — user bubbles on the right on `high` (`#1e1e1e`) with border `#484848`, assistant on
+  the left on `raised` (`#141414`); collapsible reasoning with a chevron, line count
+  and `stateDescription`, amber (warning) chip and muted body; compact tool chip with the name in
+  `interactive`, success/error state and mono output with syntax; minimal markdown (heading,
+  strong, inline code, links); "load previous" is a pill
+  control, not a bubble; discreet mono timestamps; auto-scroll to the last and anchoring
+  when loading previous pages; meta/status as a thin divider.
+- **EventLog** — mono console with a colored time/type prefix, live/stop state,
+  Start/Stop at 48 dp, empty "terminal", auto-scroll if at the bottom.
+- **MainScreen** — routing unchanged, wrapped in `AppTheme`; system back unchanged.
 
-## Scostamenti dichiarati
+## Declared deviations
 
-- Aggiunti i font in `res/font/` (asset, non librerie) e aggiornati `themes.xml` /
-  `colors.xml` per evitare il flash bianco prima di Compose. Nessuna modifica a
-  manifest, permessi, rete, `net/*` o logica di `AppViewModel` (solo nuove firme di
-  presentazione: `ChatScreen.onRetry`).
-- Nessuna libreria di navigazione o iconografia aggiunta; nessun commit git.
+- Added the fonts in `res/font/` (assets, not libraries) and updated `themes.xml` /
+  `colors.xml` to avoid the white flash before Compose. No change to
+  manifest, permissions, network, `net/*` or `AppViewModel` logic (only a new presentation
+  signature: `ChatScreen.onRetry`).
+- No navigation or iconography library added; no git commit.

@@ -33,7 +33,7 @@ class ApprovalNotifier(private val context: Context) {
             "Approvazioni",
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
-            description = "Richieste di permesso in attesa sul server OpenCode"
+            description = "Permission requests waiting on the OpenCode server"
             enableVibration(true)
         }
         val service = NotificationChannel(
@@ -41,7 +41,7 @@ class ApprovalNotifier(private val context: Context) {
             "Connessione in background",
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "Mantiene la connessione per ricevere le richieste di permesso"
+            description = "Keeps the connection to receive permission requests"
             setShowBadge(false)
         }
         system.createNotificationChannels(listOf(approvals, service))
@@ -54,7 +54,7 @@ class ApprovalNotifier(private val context: Context) {
         return NotificationCompat.Builder(context, CHANNEL_SERVICE)
             .setSmallIcon(android.R.drawable.stat_sys_upload_done)
             .setContentTitle("OC Remote")
-            .setContentText("In ascolto delle richieste di approvazione")
+            .setContentText("Listening for approval requests")
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setSilent(true)
@@ -70,7 +70,7 @@ class ApprovalNotifier(private val context: Context) {
         val summary = buildSummary(request)
         val builder = NotificationCompat.Builder(context, CHANNEL_APPROVALS)
             .setSmallIcon(android.R.drawable.stat_sys_warning)
-            .setContentTitle("Approvazione richiesta · OpenCode")
+            .setContentTitle("Approval requested · OpenCode")
             .setContentText(summary)
             .setStyle(NotificationCompat.BigTextStyle().bigText(summary))
             .setPriority(NotificationCompat.PRIORITY_HIGH)

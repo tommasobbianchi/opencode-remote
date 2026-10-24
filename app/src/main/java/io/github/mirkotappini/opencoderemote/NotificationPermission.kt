@@ -7,10 +7,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 
 /**
- * Helper minimo per `POST_NOTIFICATIONS` (Android 13+).
+ * Minimal helper for `POST_NOTIFICATIONS` (Android 13+).
  *
- * Non viene chiamato automaticamente: il layer UI lo collegherà quando mostra
- * per la prima volta lo stato "connesso". Su API < 33 è sempre concesso.
+ * It is not called automatically: the UI layer hooks it in when the "connected"
+ * state is first shown. On API < 33 it is always granted.
  */
 object NotificationPermission {
 

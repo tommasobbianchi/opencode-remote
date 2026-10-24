@@ -967,7 +967,7 @@ fun ApprovalBadge(
     if (count <= 0) return
     val oc = OpenColors.current
     val description = if (count == 1) {
-        "1 approvazione in attesa"
+        "1 approval waiting"
     } else {
         "$count approvazioni in attesa"
     }
@@ -986,7 +986,7 @@ fun ApprovalBadge(
             GlyphWarning(size = 12.dp, color = oc.warningInk)
             Text(
                 text = if (withLabel) {
-                    if (count == 1) "1 approvazione" else "$count approvazioni"
+                    if (count == 1) "1 approval" else "$count approvals"
                 } else {
                     count.toString()
                 },
@@ -1006,7 +1006,7 @@ fun ApprovalBadge(
 fun ErrorBanner(
     message: String,
     modifier: Modifier = Modifier,
-    title: String = "Qualcosa non ha funzionato",
+    title: String = "Something went wrong",
     onAction: (() -> Unit)? = null,
     actionLabel: String = "Riprova",
     onDismiss: (() -> Unit)? = null,

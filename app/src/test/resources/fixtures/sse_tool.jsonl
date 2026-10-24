@@ -4,7 +4,7 @@ data: {"id":"evt_fixture_0001","type":"server.connected","data":{}}
 
 data: {"id":"evt_16d95c9e6001Hr5j61athBd1xw","created":1792839895526,"type":"session.created","location":{"directory":"/Users/patchouli"},"data":{"sessionID":"ses_e926a361dffeWewG25nQBy0Kk5","slug":"neon-canyon","version":"2.1.4","projectID":"9884ae44980a203aa1fb89969bdddb3a1ba33b96","location":{"directory":"/Users/patchouli"},"subpath":"","title":"capture eventi tool 2"},"durable":{"aggregateID":"ses_e926a361dffeWewG25nQBy0Kk5","seq":0,"version":1}}
 
-data: {"id":"evt_16d95ca12001yiOTmud4uyZXPf","created":1792839895570,"type":"session.inbox.enqueued","location":{"directory":"/Users/patchouli"},"data":{"inboxID":"msg_16d95ca10001mg3BCwaIBUNWE7","sessionID":"ses_e926a361dffeWewG25nQBy0Kk5","item":{"type":"user","payload":{"text":"Esegui con il tool shell il comando `uname -s` e dimmi l'output esatto in una riga."},"delivery":"steer"}},"durable":{"aggregateID":"ses_e926a361dffeWewG25nQBy0Kk5","seq":1,"version":1}}
+data: {"id":"evt_16d95ca12001yiOTmud4uyZXPf","created":1792839895570,"type":"session.inbox.enqueued","location":{"directory":"/Users/patchouli"},"data":{"inboxID":"msg_16d95ca10001mg3BCwaIBUNWE7","sessionID":"ses_e926a361dffeWewG25nQBy0Kk5","item":{"type":"user","payload":{"text":"Run the command `uname -s` with the shell tool and tell me the exact output in one line."},"delivery":"steer"}},"durable":{"aggregateID":"ses_e926a361dffeWewG25nQBy0Kk5","seq":1,"version":1}}
 
 data: {"id":"evt_16d95ca16001EzO0oMvMMGs1Rb","created":1792839895574,"type":"session.execution.started","data":{"sessionID":"ses_e926a361dffeWewG25nQBy0Kk5"},"durable":{"aggregateID":"ses_e926a361dffeWewG25nQBy0Kk5","seq":2,"version":1}}
 

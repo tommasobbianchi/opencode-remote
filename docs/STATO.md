@@ -1,108 +1,108 @@
-# Stato del progetto (chiusura sessione, 24 ott 2026)
+# Project status (session close, Oct 24 2026)
 
-Client Android generico per controllare un server **OpenCode 2.x** dal telefono
-(nessun preset personale: URL vuoto, credenziali dell'utente).
+Generic Android client to control an **OpenCode 2.x** server from the phone
+(no personal preset: empty URL, user's credentials).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.9.0-m7**, `versionCode 19`, sha256 `4d71b1e7…` (nome app **OC Remote**, icona neon OC).
+Last delivered build: **0.9.0-m7**, `versionCode 19`, sha256 `4d71b1e7…` (app name **OC Remote**, neon OC icon).
 
-## Dove
+## Where
 
-| Cosa | Dove |
+| What | Where |
 |---|---|
-| Sorgente | `serber:/home/mirko/opencode-mobile` (**non è un repo git**) |
-| Build | `build-host:/Users/<utente>/opencode-mobile` (JDK+SDK in `~/android-toolchain`) |
-| Distribuzione | `serber:python3 serve.py` → `http://<ip-tailnet>:8091/app.apk` (sempre l'ultima da `dist/current.txt`) |
-| Documenti | `docs/DESIGN.md`, `docs/API-M1..M4.md`, `docs/UI-M1..M4.md`, `docs/THEME.md`, `docs/M5-CHECKLIST.md`, `docs/M2-NOTE.md` |
+| Source | `serber:/home/mirko/opencode-mobile` (**not a git repo**) |
+| Build | `build-host:/Users/<user>/opencode-mobile` (JDK+SDK in `~/android-toolchain`) |
+| Distribution | `serber:python3 serve.py` → `http://<ip-tailnet>:8091/app.apk` (always the latest from `dist/current.txt`) |
+| Docs | `docs/DESIGN.md`, `docs/API-M1..M4.md`, `docs/UI-M1..M4.md`, `docs/THEME.md`, `docs/M5-CHECKLIST.md`, `docs/M2-NOTE.md` |
 
-## Stato per milestone
+## Status by milestone
 
-- **M0** trasporto (Tailscale serve, Basic auth, SSE) — fatto
-- **M1** lista sessioni + chat read-only + storico — fatto
-- **M2** invio prompt, streaming live, interrupt, riconnessione con resync — fatto
-- **M3** drawer OMO (3 tab: Agenti/Skill/MCP), picker modello con ricerca, riga sessione, badge task, subagent informativi, indicatore agenti al lavoro — fatto
-- **M4** approvazioni: pannello in chat, badge, notifiche con azioni, foreground service, credenziali cifrate (Keystore) + auto-connect — fatto
-- **M5** hardening: version gate, tassonomia errori, politica 401, sessione sparita, NetworkCallback, watchdog SSE 30 s, countdown corretto, icona launcher — fatto
-- **M7** identità: nome OC Remote, nuova icona (adaptive senza wordmark, legacy con wordmark, monochrome) — fatto
-- **M6** vista turno live: ragionamento con durata, card tool con comando/output/stato/exit,
-  testo in streaming, step consecutivi in un'unica bolla — fatto (spec in `docs/UI-M6-LIVE.md`)
+- **M0** transport (Tailscale serve, Basic auth, SSE) — done
+- **M1** session list + read-only chat + history — done
+- **M2** prompt send, live streaming, interrupt, reconnection with resync — done
+- **M3** OMO drawer (3 tabs: Agents/Skill/MCP), model picker with search, session row, task badge, informational subagents, working-agents indicator — done
+- **M4** approvals: in-chat panel, badge, notifications with actions, foreground service, encrypted credentials (Keystore) + auto-connect — done
+- **M5** hardening: version gate, error taxonomy, 401 policy, vanished session, NetworkCallback, 30 s SSE watchdog, correct countdown, launcher icon — done
+- **M7** identity: OC Remote name, new icon (adaptive without wordmark, legacy with wordmark, monochrome) — done
+- **M6** live turn view: reasoning with duration, tool card with command/output/state/exit,
+  text in streaming, consecutive steps in a single bubble — done (spec in `docs/UI-M6-LIVE.md`)
 
-Test: **78 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
+Tests: **78 JVM**, all green, run with `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` on the dev server.
 
-## Cambio server dalla lista (0.6.4-m5)
+## Change server from the list (0.6.4-m5)
 
-Non c'era modo di tornare alla schermata di accesso dalla lista sessioni (solo
-drawer OMO → "Disconnetti", troppo nascosto). Ora nell'header il vecchio eyebrow
-host/versione è una **pillola tappabile** (`ServerChip`) con pallino di stato e
-chevron: apre un `ModalBottomSheet` "Server" con host, URL, versione e i pulsanti
-`Annulla` / `Cambia server`. `Cambia server` = `AppViewModel.disconnect()`: ferma
-stream, servizio e notifiche, cancella le credenziali cifrate, e riporta al
-`SetupScreen` **precompilato** con l'ultimo URL/utente/password (nessuna nuova
-macchina a stati). Il drawer resta invariato, con la stessa copy sulle conseguenze.
+There was no way to get back to the login screen from the session list (only
+the OMO drawer → "Disconnect", too hidden). Now in the header the old host/version
+eyebrow is a **tappable pill** (`ServerChip`) with a status dot and a
+chevron: it opens a "Server" `ModalBottomSheet` with host, URL, version, and the
+`Cancel` / `Change server` buttons. `Change server` = `AppViewModel.disconnect()`: it stops
+the stream, the service, and the notifications, deletes the encrypted credentials, and returns
+to `SetupScreen` **pre-filled** with the last URL/user/password (no new
+state machine). The drawer stays unchanged, with the same copy about the consequences.
 
-## Scoperte tecniche da non riscoprire
+## Technical findings not to rediscover
 
-- `/api/experimental/session/{id}/log?seq=N` **non** riproduce la storia: risponde `log.synced` con la seq corrente.
-- Eventi approvazione reali: `permission.asked` (porta l'intero request) e `permission.replied`.
-- La risposta alle approvazioni usa il campo **`decision`** (`once|always|reject`), non `reply`.
-- `GET /api/model` espone `settings.apiKey`: il client deve scartare `settings`.
-- Nel catalogo modelli `modelID` è la famiglia (duplicata), `id` è il riferimento concreto: chiavi di lista e `Model.Ref` usano `id`.
-- Un `opencode service stop` sul server di sviluppo **non tiene fermo** il servizio: riparte da solo in ~8 s.
-- Heartbeat SSE ogni ~10-12 s; watchdog client 30 s.
+- `/api/experimental/session/{id}/log?seq=N` **does not** replay the history: it answers `log.synced` with the current seq.
+- Real approval events: `permission.asked` (carries the whole request) and `permission.replied`.
+- The approval reply uses the **`decision`** field (`once|always|reject`), not `reply`.
+- `GET /api/model` exposes `settings.apiKey`: the client must discard `settings`.
+- In the model catalog `modelID` is the family (duplicated), `id` is the concrete reference: list keys and `Model.Ref` use `id`.
+- An `opencode service stop` on the dev server **does not hold** the service: it restarts by itself in ~8 s.
+- SSE heartbeat every ~10–12 s; client watchdog 30 s.
 
-## Contratto eventi del turno (M6)
+## Turn events contract (M6)
 
-Catturato dal server 2.1.4 e messo in fixture (`app/src/test/resources/fixtures/sse_tool.jsonl`,
+Captured from server 2.1.4 and put in fixtures (`app/src/test/resources/fixtures/sse_tool.jsonl`,
 `sse_reasoning.jsonl`):
 
 - `session.reasoning.started {assistantMessageID, ordinal, native}` / `.delta {delta}` / `.ended {text}`
-- `session.tool.input.started {id, name}` / `.delta` / `.ended {text = JSON dell'input}`
+- `session.tool.input.started {id, name}` / `.delta` / `.ended {text = JSON of the input}`
 - `session.tool.called {id, input, executed}` / `.progress {metadata}`
 - `session.tool.success {content[], metadata{status,truncated,exit}, executed}` / `.failed`
 - `session.text.started {ordinal}` / `.delta {delta}` / `.ended {text}`
 
-Gotcha: **`executed` non significa "permesso di eseguire"** — su 170 tool part reali
-vale `false` anche con `state.status = completed`. L'esito vero è `state.status`
-(`completed` / `error`); `Denied` solo con messaggi espliciti ("Permission denied", …).
-Le part REST hanno `time.{created,ran,completed}`: la durata si calcola da lì.
+Gotcha: **`executed` does not mean "permission to execute"** — on 170 real tool parts
+it is `false` even with `state.status = completed`. The real outcome is `state.status`
+(`completed` / `error`); `Denied` only with explicit messages ("Permission denied", …).
+The REST parts have `time.{created,ran,completed}`: the duration is computed from there.
 
-## Thread aperti
+## Open threads
 
-1. ~~Ripristinare la password generata~~ → **decisione dell'utente: NON toccarla.**
-   La password di test del servizio resta quella impostata a mano: niente
-   `opencode service unset password`, niente restart per rigenerarla (24 ott 2026).
-2. ~~**git init + primo commit**~~ → fatto: repo privata `github.com/mirkotappini/opencode-remote`.
-3. ~~**Color i del pannello OMO**~~ → **risolto il 24 ott** (vedi sotto)
-4. Eventuale **ricolorazione dell'icona** dal blu elettrico al petrolio `#8ED8C6`.
-5. Licenza OFL dei font da includere come nota nel repo.
+1. ~~Restore the generated password~~ → **user's decision: do not touch it.**
+   The service test password stays the one set by hand: no
+   `opencode service unset password`, no restart to regenerate it (Oct 24 2026).
+2. ~~**git init + first commit**~~ → done: private repo `github.com/mirkotappini/opencode-remote`.
+3. ~~**Colors of the OMO panel**~~ → **resolved Oct 24** (see below)
+4. Eventual **icon recoloring** from electric blue to petrol `#8ED8C6`.
+5. OFL font license to be included as a note in the repo.
 
-## Fix colori pannello OMO (patch locale, 24 ott)
+## OMO panel colors fix (local patch, Oct 24)
 
-Il plugin `oh-my-opencode-slim` (fino a 3.0.5) mappa il tema v2 con chiavi
-vecchie: `background.default`, `text.default`, `text.subdued`, `border.default`.
-L'host 2.1.4 espone `currentTokens()` con `background.base`, `text.base`,
-`text.muted`, `border.base` (e `text.feedback.*.base`), quindi sfondo, testo e
-bordo del pannello cadevano sui default opentui.
+The `oh-my-opencode-slim` plugin (up to 3.0.5) maps the v2 theme with old
+keys: `background.default`, `text.default`, `text.subdued`, `border.default`.
+The 2.1.4 host exposes `currentTokens()` with `background.base`, `text.base`,
+`text.muted`, `border.base` (and `text.feedback.*.base`), so the panel background, text, and
+border fell back to the opentui defaults.
 
-- Script idempotente: `build-host:~/.config/opencode/omo-theme-fix.py` (`-v` per il dettaglio).
-- Patcher riscrive `v2ThemeView()` in **tutte** le copie caricate dal plugin:
-  `~/.cache/opencode/packages/oh-my-opencode-slim*/…` **e**
-  `~/.cache/opencode/npm/<pkg>@latest/<hash>/…` (quest'ultima è quella davvero
-  in uso: lo ha rivelato `OMO_THEME_DEBUG=1`, che scrive la vista risolta in
+- Idempotent script: `build-host:~/.config/opencode/omo-theme-fix.py` (`-v` for the detail).
+- The patcher rewrites `v2ThemeView()` in **all** the copies loaded by the plugin:
+  `~/.cache/opencode/packages/oh-my-opencode-slim*/…` **and**
+  `~/.cache/opencode/npm/<pkg>@latest/<hash>/…` (the latter is the one actually
+  in use: revealed by `OMO_THEME_DEBUG=1`, which writes the resolved view to
   `/tmp/omo-theme-debug.json`).
-- I token sono oggetti colore (`toInts() -> [r,g,b,a]`), non stringhe: la patch li
-  converte in `#rrggbb` prima di passarli al renderer.
-- Vista risolta verificata: `#9d7cd8` accent, `#0a0a0a` bg, `#141414` raised,
+- The tokens are color objects (`toInts() -> [r,g,b,a]`), not strings: the patch
+  converts them to `#rrggbb` before passing them to the renderer.
+- Resolved view verified: `#9d7cd8` accent, `#0a0a0a` bg, `#141414` raised,
   `#484848` border, `#eeeeee` text, `#808080` muted, `#1e1e1e` hover,
   `#7fd88f` success, `#f5a742` warning.
-- **Da rilanciare dopo ogni update del plugin** (la dipendenza è `@latest`, quindi
-  un update reintroduce il bug): in `~/.zshrc` del server di sviluppo c'è la funzione
-  `opencode()` che esegue lo script prima del binario
+- **To re-run after every plugin update** (the dependency is `@latest`, so
+  an update reintroduces the bug): in the dev server's `~/.zshrc` there is the `opencode()`
+  function that runs the script before the binary
   (`command /opt/homebrew/bin/opencode`), backup `.zshrc.bak-omo-theme`.
-  Non usare `command -v opencode` dentro la funzione: in zsh ritorna il nome della
-  funzione e va in ricorsione.
+  Do not use `command -v opencode` inside the function: in zsh it returns the function name
+  and recurses.
 
-## Prossimo passo suggerito
+## Suggested next step
 
-Resta: eventuale ricolorazione icona (petrolio `#8ED8C6`), nota licenza OFL,
-throttle di pubblicazione dei delta (§4.4 di `docs/UI-M6-LIVE.md`) se si notano scatti.
-Ripresa: "riprendiamo opencode mobile".
+Remaining: eventual icon recoloring (petrol `#8ED8C6`), OFL license note,
+delta publish throttling (§4.4 of `docs/UI-M6-LIVE.md`) if stutters are noticed.
+Pick up again: "let's resume opencode mobile".

@@ -11,7 +11,7 @@ import java.io.IOException
 import java.security.MessageDigest
 
 // ---------------------------------------------------------------------------
-// DTO grezzi di `Permission.Request` (docs/API-M4.md)
+// Raw DTO for `Permission.Request` (docs/API-M4.md)
 // ---------------------------------------------------------------------------
 
 @Serializable
@@ -38,7 +38,7 @@ data class PermissionRequestDto(
 @Serializable
 data class PermissionsEnvelope(val data: List<PermissionRequestDto> = emptyList())
 
-/** Modello normalizzato visto dalla UI: nessun JSON, nessun campo sconosciuto. */
+/** Normalized model seen by the UI: no JSON, no unknown field. */
 data class ApprovalUi(
     val id: String,
     val sessionId: String,
@@ -59,11 +59,11 @@ object ApprovalParsing {
         coerceInputValues = true
     }
 
-    /** `GET /api/session/{id}/permission` → lista tollerante. */
+    /** `GET /api/session/{id}/permission` → lenient list. */
     fun parsePermissions(body: String): List<ApprovalUi> =
         json.decodeFromString<PermissionsEnvelope>(body).data.mapNotNull(::normalize)
 
-    /** `data` di `permission.asked` (stessa forma della GET, senza involucro). */
+    /** `data` of `permission.asked` (same shape as the GET, without envelope). */
     fun parsePermission(element: JsonElement?): ApprovalUi? {
         val obj = element as? JsonObject ?: return null
         val dto = runCatching {
@@ -89,7 +89,7 @@ object ApprovalParsing {
 }
 
 // ---------------------------------------------------------------------------
-// Risposta: `{"decision":"once|always|reject"}` (+ `message` facoltativo)
+// Response: `{"decision":"once|always|reject"}` (+ optional `message`)
 // ---------------------------------------------------------------------------
 
 @Serializable
@@ -110,9 +110,9 @@ object ApprovalReply {
     fun isDecision(value: String): Boolean = value in decisions
 
     /**
-     * Body JSON compatto. `message` viene omesso quando null o vuoto: il
-     * contratto accetta sia `{"decision":"once"}` sia la variante con motivo.
-     * Non lancia per decisioni ignote: il chiamante le scarta prima.
+     * Compact JSON body. `message` is omitted when null or empty: the
+     * contract accepts both `{"decision":"once"}` and the variant with reason.
+     * Does not throw for unknown decisions: the caller drops them first.
      */
     fun bodyJson(decision: String, message: String? = null): String =
         json.encodeToString(
@@ -125,13 +125,13 @@ object ApprovalReply {
 }
 
 // ---------------------------------------------------------------------------
-// Errori: 404 PermissionNotFound ≠ 404 sessione
+// Errors: 404 PermissionNotFound ≠ 404 session
 // ---------------------------------------------------------------------------
 
-/** La richiesta non esiste più (scaduta o già risposta). */
+/** The request no longer exists (expired or already answered). */
 class ApprovalExpiredException(
     val requestId: String? = null,
-) : IOException("richiesta non più valida")
+) : IOException("request no longer valid")
 
 object ApprovalErrors {
 
@@ -142,8 +142,8 @@ object ApprovalErrors {
     }
 
     /**
-     * Traduce un HTTP non-2xx della reply. Il corpo viene letto solo per
-     * distinguere `PermissionNotFoundError`; non finisce mai nell'eccezione.
+     * Translates a non-2xx HTTP of the reply. The body is read only to
+     * distinguish `PermissionNotFoundError`; it never ends up in the exception.
      */
     fun fromHttpFailure(code: Int, body: String?, path: String): IOException {
         if (code == 404) {
@@ -164,15 +164,15 @@ object ApprovalErrors {
 }
 
 // ---------------------------------------------------------------------------
-// Utilità pure condivise da notifier e watcher
+// Pure shared utilities for notifier and watcher
 // ---------------------------------------------------------------------------
 
 object ApprovalIds {
 
     /**
-     * Id stabile di notifica per `requestID` (SHA-256, 28 bit). Stabile tra
-     * processi: lo stesso requestID produce sempre lo stesso id. La soglia
-     * bassa evita collisioni con gli id fissi del servizio.
+     * Stable notification id for `requestID` (SHA-256, 28 bits). Stable across
+     * processes: the same requestID always produces the same id. The low
+     * threshold avoids collisions with the service's fixed ids.
      */
     fun notificationId(requestId: String): Int {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -184,14 +184,14 @@ object ApprovalIds {
         return (value and 0x0FFFFFFF) + 0x10000000
     }
 
-    /** requestCode distinto per richiesta e azione (PendingIntent ignora gli extra). */
+    /** requestCode distinct per request and action (PendingIntent ignores the extras). */
     fun actionRequestCode(requestId: String, action: String): Int =
         (notificationId(requestId) * 31 + action.hashCode()) and 0x7FFFFFFF
 }
 
 /**
- * Dedupe delle notifiche: una sola per `requestID`, fino alla risoluzione.
- * Puro e testabile in JVM.
+ * Notification dedupe: one per `requestID`, until resolution.
+ * Pure and testable on JVM.
  */
 class ApprovalNotificationTracker {
 
@@ -199,10 +199,10 @@ class ApprovalNotificationTracker {
 
     fun isShown(requestId: String): Boolean = requestId in shown
 
-    /** true solo la prima volta per una richiesta: in quel caso va notificata. */
+    /** true only the first time for a request: in that case it must be notified. */
     fun markShown(requestId: String): Boolean = shown.add(requestId)
 
-    /** true se la richiesta era notificata: in quel caso va annullata. */
+    /** true if the request was notified: in that case it must be cancelled. */
     fun markResolved(requestId: String): Boolean = shown.remove(requestId)
 
     fun shownIds(): Set<String> = shown.toSet()
@@ -211,8 +211,8 @@ class ApprovalNotificationTracker {
 }
 
 /**
- * Throttle per sessione (~2 s): limita le GET di allineamento quando arrivano
- * raffiche di eventi sulla stessa sessione.
+ * Per-session throttle (~2 s): limits the alignment GETs when bursts of
+ * events arrive on the same session.
  */
 class ApprovalThrottle(
     private val minIntervalMs: Long = 2_000L,
@@ -228,7 +228,7 @@ class ApprovalThrottle(
         return true
     }
 
-    /** Forza il prossimo fetch (es. dopo `permission.replied`). */
+    /** Force the next fetch (e.g. after `permission.replied`). */
     fun reset(sessionId: String) {
         lastFetch.remove(sessionId)
     }

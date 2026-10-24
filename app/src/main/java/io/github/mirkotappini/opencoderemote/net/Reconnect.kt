@@ -1,27 +1,27 @@
 package io.github.mirkotappini.opencoderemote.net
 
 /**
- * M5.1 — politica pura della riconnessione SSE.
+ * M5.1 — pure SSE reconnection policy.
  *
- * Il countdown deriva sempre da un istante assoluto (`nextAttemptAt`) e non da
- * un contatore decrementato a mano: così non resta bloccato a "0s" mentre il
- * socket appeso aspetta l'handshake. Con la rete assente i tentativi sono
- * sospesi e i testi non mostrano numeri.
+ * The countdown is always derived from an absolute instant (`nextAttemptAt`),
+ * never from a manually decremented counter: this keeps it from getting stuck
+ * at "0s" while a hung socket waits for the handshake. When the network is
+ * absent the attempts are suspended and the texts show no numbers.
  */
 object ReconnectPolicy {
 
-    /** Motivo unico usato da REST, callback di rete e banner. */
-    const val NETWORK_ABSENT = "rete assente"
+    /** Single reason shared by REST, network callbacks and the banner. */
+    const val NETWORK_ABSENT = "no network"
 
-    /** Banner quando la rete manca: si attende, non si riprova. */
-    const val NETWORK_WAITING = "rete assente · attendo la connessione"
+    /** Banner when the network is down: wait, do not retry. */
+    const val NETWORK_WAITING = "no network · waiting for connection"
 
-    const val CONNECTION_LOST = "connessione persa"
+    const val CONNECTION_LOST = "connection lost"
 
-    /** Tentativo già dovuto/partito: mai "riprovo tra 0s". */
-    const val NEW_ATTEMPT = "connessione persa · nuovo tentativo"
+    /** Attempt already due/started: never "retrying in 0s". */
+    const val NEW_ATTEMPT = "connection lost · new attempt"
 
-    /** Secondi interi (ceil) mancanti a [nextAttemptAt], mai negativi. */
+    /** Whole seconds (ceil) left until [nextAttemptAt], never negative. */
     fun secondsUntil(nextAttemptAt: Long, now: Long): Int {
         if (nextAttemptAt <= 0L) return 0
         val left = nextAttemptAt - now
@@ -29,34 +29,34 @@ object ReconnectPolicy {
         return ((left + 999L) / 1_000L).toInt()
     }
 
-    /** Banner di lista/chat, a partire dal tempo reale al prossimo tentativo. */
+    /** List/chat banner, counting live time to the next attempt. */
     fun bannerLabel(nextAttemptAt: Long, now: Long, suspended: Boolean): String =
         bannerLabel(secondsUntil(nextAttemptAt, now), suspended)
 
     /**
-     * Banner a partire dai secondi già derivati da `nextAttemptAt`.
-     * Sospeso → testo dedicato senza numeri; tentativo dovuto → niente "0s".
+     * Banner derived from the seconds already computed from `nextAttemptAt`.
+     * Suspended → dedicated text without numbers; attempt due → no "0s".
      */
     fun bannerLabel(secondsLeft: Int, suspended: Boolean): String = when {
         suspended -> NETWORK_WAITING
         secondsLeft <= 0 -> NEW_ATTEMPT
-        else -> "$CONNECTION_LOST · riprovo tra ${secondsLeft.coerceAtLeast(0)}s"
+        else -> "$CONNECTION_LOST · retrying in ${secondsLeft.coerceAtLeast(0)}s"
     }
 
-    /** Etichetta compatta del chip (lista, chat, drawer). */
+    /** Compact label for the chip (list, chat, drawer). */
     fun statusLabel(secondsLeft: Int, suspended: Boolean): String = when {
         suspended -> NETWORK_ABSENT
-        secondsLeft <= 0 -> "riconnessione"
-        else -> "riconnessione · ${secondsLeft.coerceAtLeast(0)}s"
+        secondsLeft <= 0 -> "reconnecting"
+        else -> "reconnecting · ${secondsLeft.coerceAtLeast(0)}s"
     }
 
-    /** La rete assente è l'unico motivo che sospende i tentativi. */
+    /** A missing network is the only reason that suspends attempts. */
     fun isNetworkAbsent(reason: String): Boolean = reason == NETWORK_ABSENT
 }
 
 /**
- * Stato puro del ciclo di retry. Le transizioni sono idempotenti: più callback
- * di rete ravvicinate producono una sola richiesta di riconnessione.
+ * Pure state of the retry cycle. Transitions are idempotent: several close
+ * network callbacks produce a single reconnection request.
  */
 data class RetryState(
     val attempt: Int = 0,
@@ -66,13 +66,13 @@ data class RetryState(
 
 object RetryTransitions {
 
-    /** Rete persa: backoff azzerato e nessun tentativo finché non torna. */
+    /** Network lost: backoff reset and no attempts until it returns. */
     fun networkLost(): RetryState =
         RetryState(attempt = 0, nextAttemptAt = 0L, suspended = true)
 
     /**
-     * Rete tornata: `null` se non c'era nulla da riprendere (callback
-     * duplicata). Un valore non-null chiede una sola riconnessione.
+     * Network recovered: `null` if there was nothing to resume (duplicate
+     * callback). A non-null value requests a single reconnection.
      */
     fun networkAvailable(state: RetryState, now: Long): RetryState? =
         if (!state.suspended) {
@@ -81,7 +81,7 @@ object RetryTransitions {
             RetryState(attempt = 0, nextAttemptAt = now, suspended = false)
         }
 
-    /** Programma il prossimo tentativo a un istante assoluto. */
+    /** Schedules the next attempt at an absolute instant. */
     fun scheduled(attempt: Int, delayMs: Long, now: Long): RetryState =
         RetryState(
             attempt = attempt,
@@ -89,15 +89,15 @@ object RetryTransitions {
             suspended = false,
         )
 
-    /** Tentativo in corso: nessun countdown attivo. */
+    /** Attempt in progress: no active countdown. */
     fun attempting(attempt: Int): RetryState =
         RetryState(attempt = attempt, nextAttemptAt = 0L, suspended = false)
 
     fun clear(): RetryState = RetryState()
 
     /**
-     * Stato dopo un `markOffline(reason)`: solo "rete assente" sospende i
-     * tentativi, gli altri errori di raggiungibilità lasciano il backoff.
+     * State after a `markOffline(reason)`: only "network down" suspends the
+     * attempts, other reachability errors leave the backoff intact.
      */
     fun offline(reason: String, previous: RetryState = RetryState()): RetryState =
         if (ReconnectPolicy.isNetworkAbsent(reason)) networkLost() else previous

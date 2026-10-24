@@ -8,13 +8,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Test JVM sul parsing/normalizzazione con payload inline minimi.
- * Nessuna rete, nessuna credenziale, nessun dato reale.
+ * JVM tests for parsing/normalization with minimal inline payloads.
+ * No network, no credentials, no real data.
  */
 class ApiParsingTest {
 
     @Test
-    fun `sessione normalizzata con titolo e fallback id`() {
+    fun `normalized session with title and id fallback`() {
         val body = """
             {"data":[
               {"id":"ses_1","agent":"orchestrator",
@@ -39,20 +39,20 @@ class ApiParsingTest {
     }
 
     @Test
-    fun `titolo vuoto ricade su id`() {
+    fun `empty title falls back to id`() {
         val page = ApiParsing.parseSessions("""{"data":[{"id":"ses_2","title":""}]}""")
         assertEquals("ses_2", page.sessions.single().title)
     }
 
     @Test
-    fun `active vuoto significa nessuna sessione`() {
+    fun `empty active means no sessions`() {
         assertNull(ApiParsing.parseActiveSession("""{"data":{}}"""))
         assertEquals("ses_9", ApiParsing.parseActiveSession("""{"data":{"id":"ses_9"}}"""))
     }
 
     @Test
-    fun `messaggi normalizzati e type ignoto non fa crashare`() {
-        // Il server risponde in ordine desc: il parser deve restituire cronologico.
+    fun `normalized messages and unknown type do not crash`() {
+        // The server replies in descending order: the parser must return chronological order.
         val body = """
             {"data":[
               {"id":"msg_a","type":"assistant","time":{"created":3000},
@@ -75,7 +75,7 @@ class ApiParsingTest {
         assertEquals(3, page.messages.size)
         assertEquals("prev-tok", page.previous)
 
-        // Ordine cronologico: user → meta → assistant
+        // Chronological order: user → meta → assistant
         assertEquals(Role.User, page.messages[0].role)
         assertEquals("domanda", page.messages[0].text)
 
@@ -94,7 +94,7 @@ class ApiParsingTest {
     }
 
     @Test
-    fun `tool state lungo viene troncato e tool ignorato senza nome non crasha`() {
+    fun `long tool state truncated and unnamed tool ignored without crashing`() {
         val body = """
             {"data":[{"id":"msg_x","type":"assistant","content":[
               {"type":"tool","name":"","state":{"blob":"${"x".repeat(400)}"}},
@@ -112,7 +112,7 @@ class ApiParsingTest {
     }
 
     @Test
-    fun `messaggio senza id viene scartato`() {
+    fun `message without id is discarded`() {
         val page = ApiParsing.parseMessages(
             """{"data":[{"type":"user","text":"senza id"},{"id":"ok","type":"user","text":"a"}]}""",
         )

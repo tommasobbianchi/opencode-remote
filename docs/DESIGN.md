@@ -1,151 +1,151 @@
-# Client Android per OpenCode remoto — documento di progetto
+# Android client for a remote OpenCode — project document
 
-Stato: bozza di design, nessun codice scritto.
-Data: 22 ottobre 2026.
-Target: server di sviluppo (macOS, OpenCode 2.1.3).
-
----
-
-## 1. Obiettivo
-
-Controllare da Android le sessioni OpenCode che girano sul server di sviluppo, agganciandosi al
-**server già in esecuzione** (non a un'istanza indipendente), così da vedere e
-continuare le stesse sessioni che si usano dalla TUI.
-
-Requisito dichiarato dall'utente: un pannello laterale (swipe dal bordo destro verso
-sinistra) che mostri l'elenco in stile sidebar OMO — sessioni, agenti, skill, MCP,
-stato dei task.
-
-### Non-obiettivi (prima versione)
-
-- Terminale remoto (per quello esiste già Moshi).
-- Editor di file, gestione worktree, PTY, settings avanzati.
-- Replica del companion animato o delle animazioni della TUI.
-- Invocazione diretta di singoli tool: si passa da prompt, comando slash o skill.
-- Funzionamento senza Tailscale attivo.
+Status: design draft, no code written yet.
+Date: Oct 22 2026.
+Target: dev server (macOS, OpenCode 2.1.3).
 
 ---
 
-## 2. Vincoli tecnici verificati
+## 1. Goal
 
-Fonte: ricognizione read-only del 22/10/2026 sul server di sviluppo.
+Control from Android the OpenCode sessions running on the dev server, attaching to
+**the already running server** (not an independent instance), so as to see and
+continue the same sessions used from the TUI.
 
-| Vincolo | Dettaglio |
+Requirement stated by the user: a side panel (swipe from the right edge toward
+the left) showing a list in OMO sidebar style — sessions, agents, skills, MCP,
+task states.
+
+### Non-goals (first version)
+
+- Remote terminal (for that, Moshi already exists).
+- File editor, worktree management, PTY, advanced settings.
+- Replica of the animated companion or the TUI animations.
+- Direct invocation of individual tools: you go through a prompt, a slash command, or a skill.
+- Running without Tailscale active.
+
+---
+
+## 2. Verified technical constraints
+
+Source: read-only survey of Oct 22 2026 on the dev server.
+
+| Constraint | Detail |
 |---|---|
-| Versione server | OpenCode 2.1.3, API V2 (`/api/*`) |
-| Trasporto | server su `127.0.0.1:49374`; esposto dal 22/10/2026 via `tailscale serve` su `https://<macchina>.<tailnet>.ts.net` (solo tailnet, TLS valido) |
-| Autenticazione | HTTP Basic, utente `opencode`, password/token come password |
-| Pairing | `POST /api/pair` → codice monouso; `GET /auth/connect/{code}` con `Accept: application/json` → token da usare come password |
-| Invio messaggio | `POST /api/session/{id}/prompt` è **asincrono**: risponde con un ack (`Session.Inbox.User`), non con l'output |
-| Streaming | `GET /api/event` → SSE. **Live-only, nessun replay.** Heartbeat periodico |
-| Recupero storico | `GET /api/session/{id}/message`; per precisione `GET /api/experimental/session/{id}/log?seq=<n>&follow=true` |
-| Approvazioni | `GET /api/session/{id}/permission`, `POST .../permission/{requestID}/reply` con `once` / `always` / `reject` |
-| Agenti | `GET /api/agent`, `POST /api/session/{id}/agent` |
-| Modelli | `GET /api/model`, `POST /api/session/{id}/model` |
-| Skill / comandi | `GET /api/skill`, `GET /api/command`, `POST /api/session/{id}/command` |
-| MCP | `GET /api/mcp` (stato connessione) |
-| Salute / versione | `GET /api/info` → version, pid, urls, capabilities |
-| Porta gestita | **fissa a 49374** di default (`opencode service set port` per cambiarla). Una sola istanza gestita per porta: una seconda istanza isolata va in conflitto, non ne parte un'altra |
-| Cose solo TUI | Companion, sidebar, tab, palette, statusline, animazioni |
+| Server version | OpenCode 2.1.3, API V2 (`/api/*`) |
+| Transport | server on `127.0.0.1:49374`; exposed since Oct 22 2026 via `tailscale serve` on `https://<machine>.<tailnet>.ts.net` (tailnet only, valid TLS) |
+| Authentication | HTTP Basic, user `opencode`, password/token as the password |
+| Pairing | `POST /api/pair` → one-time code; `GET /auth/connect/{code}` with `Accept: application/json` → token to use as password |
+| Message send | `POST /api/session/{id}/prompt` is **async**: it answers with an ack (`Session.Inbox.User`), not with the output |
+| Streaming | `GET /api/event` → SSE. **Live-only, no replay.** Periodic heartbeat |
+| History recovery | `GET /api/session/{id}/message`; for precision `GET /api/experimental/session/{id}/log?seq=<n>&follow=true` |
+| Approvals | `GET /api/session/{id}/permission`, `POST .../permission/{requestID}/reply` with `once` / `always` / `reject` |
+| Agents | `GET /api/agent`, `POST /api/session/{id}/agent` |
+| Models | `GET /api/model`, `POST /api/session/{id}/model` |
+| Skill / commands | `GET /api/skill`, `GET /api/command`, `POST /api/session/{id}/command` |
+| MCP | `GET /api/mcp` (connection state) |
+| Health / version | `GET /api/info` → version, pid, urls, capabilities |
+| Managed port | **fixed at 49374** by default (`opencode service set port` to change it). One managed instance per port: a second isolated instance conflicts, none starts |
+| TUI-only | Companion, sidebar, tab, palette, statusline, animations |
 
-Nota: `1.18.35` è la versione del pacchetto `@opencode-ai/plugin`, **non** del runtime.
-Un client costruito sul contratto V1 non funzionerebbe qui.
+Note: `1.18.35` is the version of the `@opencode-ai/plugin` package, **not** of the runtime.
+A client built on the V1 contract would not work here.
 
 ---
 
-## 3. Decisioni da chiudere prima di scrivere codice
+## 3. Decisions to close before writing code
 
-### D1 — Ciclo di vita del server — ✅ RISOLTA (22/10/2026)
+### D1 — Server lifecycle — ✅ RESOLVED (Oct 22 2026)
 
-**Esito: il servizio sopravvive all'uscita del client che lo ha avviato.**
+**Outcome: the service survives the exit of the client that started it.**
 
-Verifiche:
+Verifications:
 
-1. Il servizio gira in **sessione e process group propri** (`PGID = PID`, `STAT Ss`,
-   `TTY ??`): è stato avviato con `setsid`, quindi un SIGHUP alla finestra non lo
-   raggiunge.
-2. Test in sandbox isolata (XDG dirs temporanee, porta 49375): un client effimero ha
-   avviato il servizio e poi è uscito. Il servizio è passato a **PPID 1**, ha
-   mantenuto sessione e group propri, e rispondeva `HTTP 200` su `/api/info` dopo
-   10 secondi.
-3. Nel contesto che la TUI riceve dal server, `service` espone solo `reconnect` e
-   `restart`: **non esiste un `stop`** invocabile dal client all'uscita.
+1. The service runs in **its own session and process group** (`PGID = PID`, `STAT Ss`,
+   `TTY ??`): it was started with `setsid`, so a SIGHUP to the window does not
+   reach it.
+2. Test in an isolated sandbox (temporary XDG dirs, port 49375): an ephemeral client
+   started the service and then exited. The service moved to **PPID 1**, kept
+   its own session and group, and answered `HTTP 200` on `/api/info` after
+   10 seconds.
+3. In the context the TUI receives from the server, `service` exposes only `reconnect` and
+   `restart`: **there is no `stop`** invokable by the client on exit.
 
-Conseguenze:
+Consequences:
 
-- Non serve `opencode service start`: il servizio nasce con la prima TUI e resta.
-- Il client Android può collegarsi anche a TUI chiusa, a patto che la macchina sia
-  accesa e il servizio non sia stato fermato esplicitamente.
-- Resta un banner di stato nell'app: se il servizio è stato fermato o la macchina
-  dorme, la connessione fallisce e va mostrato un messaggio chiaro.
-- Non testato direttamente: chiusura della TUI reale (avrebbe terminato la sessione
-  di lavoro). L'evidenza strutturale e il test sandbox coprono lo stesso percorso.
+- No `opencode service start` needed: the service is born with the first TUI and stays.
+- The Android client can connect even with the TUI closed, provided the machine is
+   on and the service was not explicitly stopped.
+- A status banner remains in the app: if the service was stopped or the machine
+   is asleep, the connection fails and a clear message must be shown.
+- Not tested directly: closing the real TUI (it would have terminated the working
+   session). The structural evidence and the sandbox test cover the same path.
 
-### D2 — Trasporto e autenticazione — ✅ ATTIVA (22/10/2026)
+### D2 — Transport and authentication — ✅ ACTIVE (Oct 22 2026)
 
-Configurazione in essere:
+Configuration in place:
 
 ```
 tailscale serve --bg 49374
-→ https://<macchina>.<tailnet>.ts.net  (tailnet only)
-   proxy → http://127.0.0.1:49374
+→ https://<machine>.<tailnet>.ts.net  (tailnet only)
+    proxy → http://127.0.0.1:49374
 ```
 
-Verifiche eseguite:
+Verifications run:
 
-| Test | Esito |
+| Test | Outcome |
 |---|---|
-| `GET https://…/api/info` senza credenziali | **401** — l'auth non è aggirata dal proxy |
-| Stesso endpoint con Basic `opencode:<password>` | **200**, `version 2.1.3`, `pid 37490` |
-| Certificato TLS | valido (`ssl_verify_result = 0`), IP `<ip-tailnet>` (tailnet) |
-| `tailscale funnel status` | nessuna esposizione pubblica: "tailnet only" |
+| `GET https://…/api/info` without credentials | **401** — the auth is not bypassed by the proxy |
+| Same endpoint with Basic `opencode:<password>` | **200**, `version 2.1.3`, `pid 37490` |
+| TLS certificate | valid (`ssl_verify_result = 0`), IP `<ip-tailnet>` (tailnet) |
+| `tailscale funnel status` | no public exposure: "tailnet only" |
 
-Regole da mantenere:
+Rules to maintain:
 
-- **Mai** `tailscale funnel`, **mai** `opencode pair --remote` (espongono a internet).
-- Token di pairing al posto della password permanente del servizio.
-- Il server continua ad ascoltare solo su loopback: l'unica porta "aperta" è quella
-  di Tailscale, e solo nel tailnet.
-- Disattivazione: `tailscale serve --https=443 off`.
+- **Never** `tailscale funnel`, **never** `opencode pair --remote` (they expose to the internet).
+- Pairing token instead of the permanent service password.
+- The server keeps listening only on loopback: the only "open" port is the
+  Tailscale one, and only inside the tailnet.
+- Disable: `tailscale serve --https=443 off`.
 
-### D3 — Perimetro MVP
+### D3 — MVP scope
 
-Drawer + chat + approvazioni + switch agente/modello. Il resto dopo.
+Drawer + chat + approvals + agent/model switch. The rest after.
 
 ---
 
-## 4. Architettura dell'app
+## 4. App architecture
 
 ```
 UI (Compose)
   └─ ViewModel (StateFlow)
-       └─ Repository
-            ├─ OpenCodeApi      (REST, OkHttp + kotlinx.serialization)
-            ├─ EventStream      (OkHttp SSE, foreground service)
-            └─ LocalCache       (Room)
+        └─ Repository
+             ├─ OpenCodeApi      (REST, OkHttp + kotlinx.serialization)
+             ├─ EventStream      (OkHttp SSE, foreground service)
+             └─ LocalCache       (Room)
 ```
 
 - **Kotlin**, **Jetpack Compose** + Material 3, minSdk 29, target 36.
-- **OkHttp** + `okhttp-sse`; **kotlinx.serialization** con modelli generati
-  dall'OpenAPI (`/openapi.json`, 146 operazioni, 293 schemi) — solo modelli e
-  interfacce, il client HTTP resta scritto a mano.
-- **Room** per cache di sessioni e messaggi (apertura istantanea, lettura offline).
-- **DataStore + Android Keystore** per il token.
-- **Foreground service** (`dataSync`) che tiene l'SSE e mostra le notifiche.
+- **OkHttp** + `okhttp-sse`; **kotlinx.serialization** with models generated
+  from the OpenAPI (`/openapi.json`, 146 operations, 293 schemas) — models and
+  interfaces only, the HTTP client stays hand-written.
+- **Room** for the cache of sessions and messages (instant open, offline read).
+- **DataStore + Android Keystore** for the token.
+- **Foreground service** (`dataSync`) that holds the SSE and shows the notifications.
 
-Separazione netta: `EventStream` produce eventi normalizzati in un `Flow`; i
-ViewModel non conoscono né SSE né JSON.
+Clean separation: `EventStream` produces normalized events in a `Flow`; the
+ViewModels know neither SSE nor JSON.
 
 ---
 
-## 5. Modello dati
+## 5. Data model
 
-Entità locali (Room):
+Local entities (Room):
 
 ```
 ServerConfig   id, label, baseUrl, username="opencode", tokenRef, lastSeenAt, version
 SessionRow     id, projectId, title, agent, modelProvider, modelId, costUsd,
-               tokensIn/Out/Reasoning, state (running|idle), createdAt, updatedAt, lastSeq
+                tokensIn/Out/Reasoning, state (running|idle), createdAt, updatedAt, lastSeq
 MessageRow     id, sessionId, role, createdAt, partsJson, seq
 AgentRow       id, name, mode, provider, model, variant        (cache, TTL)
 SkillRow       id, name, description, path                      (cache, TTL)
@@ -153,194 +153,194 @@ McpRow         name, status                                    (cache, TTL)
 ApprovalRow    id, sessionId, action, resourcesJson, message, status
 ```
 
-Stato UI (non persistito):
+UI state (not persisted):
 
 ```
-DrawerState    isOpen, tab (Sessioni|Agenti|Skill|MCP)
+DrawerState    isOpen, tab (Sessions|Agents|Skill|MCP)
 ChatState      messages, streamingText, isBusy, pendingApprovals, error
 Connection     Disconnected | Connecting | Connected | AuthFailed | VersionMismatch
 ```
 
-Il drawer legge da `SessionRow` + `AgentRow` + `SkillRow` + `McpRow`: nessuna
-chiamata bloccante all'apertura, refresh in background.
+The drawer reads from `SessionRow` + `AgentRow` + `SkillRow` + `McpRow`: no
+blocking call on open, refresh in the background.
 
 ---
 
-## 6. Schermate
+## 6. Screens
 
-1. **ServerSetup** — nome, URL (`https://<macchina>.<tailnet>.ts.net`), stato
-   connessione, pulsante "Pair".
-2. **Pairing** — scanner QR del link `/auth/connect/{code}` generato dalla TUI
-   (`opencode pair` / comando `/pair`), oppure incolla-link. Al successo salva il
-   token nel Keystore e fa `GET /api/info` per validare versione.
-3. **SessionList** — lista sessioni con stato, costo, agente; pull-to-refresh;
-   "nuova sessione" (agente + modello).
-4. **Chat** — timeline messaggi, streaming, input con allegati, pulsante interrupt,
-   badge approvazioni.
-5. **Drawer laterale destro** — vedi §7.
-6. **ApprovalsSheet** — richiesta permesso con Once / Always / Reject.
-7. **Settings** — server, token (revoca), tema, diagnostica (versione, ping, stato SSE).
+1. **ServerSetup** — name, URL (`https://<machine>.<tailnet>.ts.net`), connection
+   state, "Pair" button.
+2. **Pairing** — QR scanner of the `/auth/connect/{code}` link generated by the TUI
+   (`opencode pair` / `/pair` command), or paste-link. On success it stores the
+   token in the Keystore and does `GET /api/info` to validate the version.
+3. **SessionList** — session list with state, cost, agent; pull-to-refresh;
+   "new session" (agent + model).
+4. **Chat** — message timeline, streaming, input with attachments, interrupt button,
+   approvals badge.
+5. **Right side drawer** — see §7.
+6. **ApprovalsSheet** — permission request with Once / Always / Reject.
+7. **Settings** — server, token (revoke), theme, diagnostics (version, ping, SSE state).
 
-Navigazione: `Scaffold` + `ModalNavigationDrawer` con drawer **sul lato end**
-(destro), apertura via edge-swipe da destra verso sinistra e via icona. La gesture
-nativa di sistema va rispettata: usare `gesturesEnabled` e una soglia laterale per
-non entrare in conflitto con il back gesture.
+Navigation: `Scaffold` + `ModalNavigationDrawer` with the drawer **on the end side**
+(right), opened via edge-swipe from right to left and via icon. The native system
+gesture must be respected: use `gesturesEnabled` and a lateral threshold to
+not conflict with the back gesture.
 
 ---
 
-## 7. Il drawer "sidebar OMO"
+## 7. The "OMO sidebar" drawer
 
-Contenuto, con la fonte dati di ciascun blocco:
+Content, with the data source of each block:
 
-| Blocco | Dati | Endpoint |
+| Block | Data | Endpoint |
 |---|---|---|
-| Sessioni | titolo, agente, stato, costo, tokens | `GET /api/session`, `GET /api/session/active` |
-| Agenti | nome, modo, modello, variant | `GET /api/agent` |
-| Skill | nome, descrizione | `GET /api/skill` |
-| MCP | nome, stato connessione | `GET /api/mcp` |
-| Progetto/location | directory corrente | `GET /api/location` |
-| Task/subagenti | stato sintetico | eventi SSE + `Session.Info` |
+| Sessions | title, agent, state, cost, tokens | `GET /api/session`, `GET /api/session/active` |
+| Agents | name, mode, model, variant | `GET /api/agent` |
+| Skill | name, description | `GET /api/skill` |
+| MCP | name, connection state | `GET /api/mcp` |
+| Project/location | current directory | `GET /api/location` |
+| Task/subagents | synthetic state | SSE events + `Session.Info` |
 
-Interazioni: tap su sessione → apre la chat; tap su agente → `session.switchAgent`;
-tap su skill → attiva (`POST /api/experimental/session/{id}/skill`) o la inserisce
-nel prompt; tap su MCP → dettaglio sola lettura.
+Interactions: tap on a session → opens the chat; tap on an agent → `session.switchAgent`;
+tap on a skill → activates it (`POST /api/experimental/session/{id}/skill`) or inserts it
+into the prompt; tap on MCP → read-only detail.
 
-Aggiornamento: gli agenti cambiano raramente → cache con TTL 5 minuti; le sessioni
-si aggiornano sugli eventi e su pull-to-refresh.
+Update: agents rarely change → cache with a 5 minute TTL; sessions
+update on events and on pull-to-refresh.
 
 ---
 
-## 8. Flusso di connessione
+## 8. Connection flow
 
-### 8.1 Primo avvio (pairing)
+### 8.1 First startup (pairing)
 
-1. Sulla macchina: `opencode pair --url https://<macchina>.<tailnet>.ts.net`
-   (stampa link monouso + QR).
-2. Sull'app: scansione QR → `GET {link}` con `Accept: application/json`.
-3. Il server risponde con il token → salvataggio nel Keystore.
-4. `GET /api/info` → confronto versione con la minima supportata (2.x).
-5. `GET /api/session` → popolamento cache.
+1. On the machine: `opencode pair --url https://<machine>.<tailnet>.ts.net`
+   (prints a one-time link + QR).
+2. On the app: scan the QR → `GET {link}` with `Accept: application/json`.
+3. The server answers with the token → stored in the Keystore.
+4. `GET /api/info` → version compared with the minimum supported (2.x).
+5. `GET /api/session` → cache populated.
 
-Se il token scade o viene revocato: 401 → stato `AuthFailed` → si rifà il pairing.
+If the token expires or is revoked: 401 → `AuthFailed` state → redo pairing.
 
-### 8.2 Avvio normale
+### 8.2 Normal startup
 
 ```
-GET /api/info            → versione, pid, capabilities
-GET /api/session?limit=50&order=desc  → lista
-GET /api/session/active  → eventuale sessione in corso
-GET /api/event (SSE)     → live
+GET /api/info                       → version, pid, capabilities
+GET /api/session?limit=50&order=desc  → list
+GET /api/session/active             → eventual in-progress session
+GET /api/event (SSE)                → live
 ```
 
-### 8.3 Invio di un prompt
+### 8.3 Sending a prompt
 
 ```
 POST /api/session/{id}/prompt
 { "text": "...", "delivery": "steer" | "queue", "files": [...] }
-→ 200 { data: Session.Inbox.User }   // solo ack
+→ 200 { data: Session.Inbox.User }   // ack only
 ```
 
-L'output arriva esclusivamente dagli eventi. UI: messaggio utente ottimistico,
-indicatore "in coda" finché non arriva il primo evento della sessione.
+The output arrives exclusively via events. UI: optimistic user message,
+"queued" indicator until the first event of the session arrives.
 
-### 8.4 Riconnessione e recupero (punto critico)
+### 8.4 Reconnection and recovery (critical point)
 
-L'SSE non ha replay: ogni disconnessione è una potenziale perdita di eventi.
+SSE has no replay: every disconnection is a potential loss of events.
 
-Algoritmo:
+Algorithm:
 
-1. Su `onFailure`/`onClosed`: stato `Connecting`, backoff esponenziale
-   (1s → 2s → 4s → … max 30s) con jitter.
-2. Alla riconnessione: `GET /api/event` di nuovo **e** rilettura completa di
-   `GET /api/session/{id}/message` per la sessione aperta.
-3. ~~Colmare il buco con
-   `GET /api/experimental/session/{id}/log?seq={lastSeq}&follow=true`.~~ **Corretto il
-   23/10/2026:** quell'endpoint non riproduce la storia — risponde subito con
-   `log.synced` e la seq corrente, poi resta in ascolto. Va usato solo come ping di
-   allineamento; il recupero è sempre la rilettura dei messaggi (punto 2). Vedi
+1. On `onFailure`/`onClosed`: `Connecting` state, exponential backoff
+   (1s → 2s → 4s → … max 30s) with jitter.
+2. On reconnection: `GET /api/event` again **and** full re-read of
+   `GET /api/session/{id}/message` for the open session.
+3. ~~Fill the gap with
+   `GET /api/experimental/session/{id}/log?seq={lastSeq}&follow=true`.~~ **Corrected on
+   Oct 23 2026:** that endpoint does not replay the history — it answers immediately with
+   `log.synced` and the current seq, then stays listening. Use it only as an
+   alignment ping; the recovery is always the message re-read (point 2). See
    `docs/API-M2.md` §4.
-4. Deduplicazione per `messageID` e per `event.id`.
-5. Timeout heartbeat: se non arriva nulla per 30s, considerare la connessione morta e
-   riconnettere. La perdita di rete è rilevata subito dal `NetworkCallback` del
-   `ConnectivityManager` (tentativi sospesi finché la rete non torna).
+4. Deduplication by `messageID` and by `event.id`.
+5. Heartbeat timeout: if nothing arrives for 30s, consider the connection dead and
+   reconnect. The network loss is detected immediately by the `NetworkCallback` of
+   `ConnectivityManager` (attempts suspended until the network returns).
 
-Regola d'oro: **la UI non deve mai dipendere dall'ordine degli eventi**; i messaggi
-sono la verità, gli eventi sono un acceleratore.
+Golden rule: **the UI must never depend on the order of the events**; the messages
+are the truth, the events are an accelerator.
 
 ### 8.5 Background
 
-Foreground service con notifica persistente e SSE attiva. Android può sospendere la
-rete in Doze: al risveglio si applica §8.4. Senza FCM non c'è garanzia di notifica
-immediata a processo ucciso — limite accettato e documentato.
+Foreground service with a persistent notification and active SSE. Android can suspend the
+network in Doze: on waking apply §8.4. Without FCM there is no delivery guarantee of an
+immediate notification to a killed process — accepted and documented limit.
 
 ---
 
-## 9. Approvazioni
+## 9. Approvals
 
-- Sorgente: `GET /api/session/{id}/permission` + eventi.
-- Notifica locale con tre azioni: Once / Always / Reject.
-- Risposta: `POST /api/session/{id}/permission/{requestID}/reply`.
-- `Always` ha effetto permanente lato server: va mostrato con conferma esplicita,
-  mai come default.
-- Se la richiesta è scaduta (sessione interrotta), la risposta restituisce errore:
-  gestire con messaggio "richiesta non più valida" e refresh.
+- Source: `GET /api/session/{id}/permission` + events.
+- Local notification with three actions: Once / Always / Reject.
+- Reply: `POST /api/session/{id}/permission/{requestID}/reply`.
+- `Always` has a permanent effect on the server: show it with explicit confirmation,
+  never as the default.
+- If the request is expired (session interrupted), the reply returns an error:
+  handle it with a "request no longer valid" message and a refresh.
 
 ---
 
-## 10. Gestione errori
+## 10. Error handling
 
-| Situazione | Stato UI | Azione |
+| Situation | UI state | Action |
 |---|---|---|
-| 401 | `AuthFailed` | proponi nuovo pairing |
-| Versione server ≠ 2.x | `VersionMismatch` | blocca, spiega |
-| Tailscale assente | `Disconnected` | banner "rete privata non attiva" |
-| Server non raggiungibile | `Disconnected` | retry con backoff |
-| Sessione cancellata | torna alla lista | toast |
-| SSE chiuso dal server | `Connecting` | §8.4 |
+| 401 | `AuthFailed` | propose a new pairing |
+| Server version ≠ 2.x | `VersionMismatch` | block, explain |
+| Tailscale absent | `Disconnected` | banner "private network not active" |
+| Server unreachable | `Disconnected` | retry with backoff |
+| Session deleted | back to the list | toast |
+| SSE closed by the server | `Connecting` | §8.4 |
 
 ---
 
-## 11. Sicurezza
+## 11. Security
 
-- `cleartextTrafficPermitted=false`; solo HTTPS (Tailscale serve).
-- Token nel Keystore, mai in log, mai in Room.
-- Nessun log di header, prompt o contenuto file.
-- Revoca: cancellazione token + nuovo pairing.
-- Superficie esposta: solo il tailnet; nessun funnel, nessuna porta pubblica.
-- Il QR contiene un token monouso: va mostrato solo sulla macchina, non condiviso.
+- `cleartextTrafficPermitted=false`; only HTTPS (Tailscale serve).
+- Token in the Keystore, never in the logs, never in Room.
+- No logging of headers, prompt, or file content.
+- Revocation: token deletion + new pairing.
+- Exposed surface: only the tailnet; no funnel, no public port.
+- The QR contains a one-time token: it should be shown only on the machine, not shared.
 
 ---
 
-## 12. Milestone
+## 12. Milestones
 
-| M | Contenuto | Criterio di accettazione |
+| M | Content | Acceptance criterion |
 |---|---|---|
-| M0 | Spike: Tailscale serve + pairing + `GET /api/info` + SSE | Da telefono vedo versione e ricevo almeno un evento |
-| M1 | Lista sessioni + chat read-only + storico | Apro una sessione e leggo la conversazione |
-| M2 | Invio prompt + streaming + riconnessione | Il testo arriva in tempo reale e sopravvive a un cambio rete |
-| M3 | Drawer OMO + switch agente/modello + interrupt | Lo swipe apre il pannello e i dati sono corretti |
-| M4 | Approvazioni con notifiche | Approvo da notifica senza aprire l'app |
-| M5 | Hardening | Test di rete persa, token scaduto, server spento |
+| M0 | Spike: Tailscale serve + pairing + `GET /api/info` + SSE | From the phone I see the version and receive at least one event |
+| M1 | Session list + read-only chat + history | I open a session and read the conversation |
+| M2 | Prompt send + streaming + reconnection | The text arrives in real time and survives a network change |
+| M3 | OMO drawer + agent/model switch + interrupt | The swipe opens the panel and the data are correct |
+| M4 | Approvals with notifications | I approve from the notification without opening the app |
+| M5 | Hardening | Lost network, expired token, server-off tests |
 
 ---
 
-## 13. Rischi
+## 13. Risks
 
-1. ~~**Ciclo di vita del servizio** (D1)~~ — risolta: il servizio sopravvive
-   all'uscita del client. Resta il caso "servizio fermato o macchina in sleep", da
-   coprire con un banner di stato.
-2. **SSE senza replay**: buchi nei messaggi se la riconnessione è mal gestita.
-   Mitigazione: §8.4 e deduplicazione.
-3. **Endpoint `experimental`**: possono cambiare. Isolarli dietro un adapter con
-   fallback.
-4. **Doze / batteria**: notifiche non garantite a processo ucciso.
-5. **Deriva del contratto**: OpenCode 2.x evolve; fissare una versione minima e
-   validarla con `/api/info` all'avvio.
+1. ~~**Service lifecycle** (D1)~~ — resolved: the service survives
+   the client exit. The "service stopped or machine asleep" case remains, to
+   be covered with a status banner.
+2. **SSE without replay**: gaps in the messages if the reconnection is poorly handled.
+   Mitigation: §8.4 and deduplication.
+3. **`experimental` endpoint**: it may change. Isolate it behind an adapter with
+   a fallback.
+4. **Doze / battery**: notifications not guaranteed to a killed process.
+5. **Contract drift**: OpenCode 2.x evolves; pin a minimum version and
+   validate it with `/api/info` at startup.
 
 ---
 
-## 14. Domande ancora aperte
+## 14. Open questions
 
-- Le ACL tailnet sono già restrittive o vanno impostate?
-- Il drawer deve mostrare anche i task in background con dettaglio, o solo un badge?
-- Serve la modalità offline in sola lettura, o è sufficiente la cache per l'avvio?
+- Are the tailnet ACLs already restrictive or should they be set?
+- Should the drawer also show the background tasks with detail, or only a badge?
+- Is a read-only offline mode needed, or is the cache for startup enough?

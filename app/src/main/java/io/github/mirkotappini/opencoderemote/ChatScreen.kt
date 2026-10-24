@@ -269,11 +269,11 @@ fun ChatScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                     ) {
-                        if (message.contains("non più valida", ignoreCase = true)) {
+                        if (message.contains("no longer valid", ignoreCase = true)) {
                             ApprovalExpiredNotice(onDismiss = onDismissError)
                         } else {
                             ErrorBanner(
-                                title = "Operazione non riuscita",
+                                title = "Operation failed",
                                 message = if (reconnecting != null && !suspended) {
                                     "$message · riprovo tra " +
                                         "${state.reconnectInSeconds.coerceAtLeast(0)}s"
@@ -315,10 +315,10 @@ fun ChatScreen(
                                     symbol = "›_",
                                     title = "Nessun messaggio",
                                     body = if (state.openReadOnly) {
-                                        "La sessione figlia non ha ancora messaggi."
+                                        "The child session has no messages yet."
                                     } else {
-                                        "Scrivi il primo prompt qui sotto: la risposta " +
-                                            "arriverà in tempo reale."
+                                        "Write your first prompt below: the reply " +
+                                            "will arrive in real time."
                                     },
                                     action = {
                                         TextButton(
@@ -329,7 +329,7 @@ fun ChatScreen(
                                                 if (state.canGoBackToParent) {
                                                     "Torna al padre"
                                                 } else {
-                                                    "Torna alle sessioni"
+                                                    "Back to sessions"
                                                 },
                                             )
                                         }
@@ -460,7 +460,7 @@ private fun ChatHeader(
 ) {
     val scheme = MaterialTheme.colorScheme
     val oc = OpenColors.current
-    val backLabel = if (canGoBackToParent) "Torna al padre" else "Torna alle sessioni"
+    val backLabel = if (canGoBackToParent) "Back to parent" else "Back to sessions"
     val reconnecting = state.streamState is StreamState.Reconnecting ||
         state.streamState is StreamState.Connecting
     val stream = streamStatusUi(state.streamState, state.reconnectInSeconds, state.retrySuspended)
@@ -535,7 +535,7 @@ private fun ChatHeader(
                     modifier = Modifier
                         .size(48.dp)
                         .semantics {
-                            contentDescription = "Apri il pannello di agenti, skill e MCP"
+                            contentDescription = "Open the agents, skills and MCP panel"
                         },
                 ) {
                     GlyphSidebar(size = 20.dp)
@@ -563,7 +563,7 @@ private fun ReadOnlyHeaderLabel(agent: String?) {
             border = BorderStroke(1.dp, oc.interactive.copy(alpha = 0.28f)),
         ) {
             Text(
-                text = agent?.let { "subagent $it" } ?: "sessione figlia",
+                text = agent?.let { "subagent $it" } ?: "child session",
                 style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                 maxLines = 1,
@@ -596,7 +596,7 @@ private fun StreamIdleBanner() {
         ) {
             StatusDot(oc.mutedText, size = 5.dp)
             Text(
-                text = "SSE ferma · dati non aggiornati",
+                text = "SSE stopped · data not up to date",
                 style = MaterialTheme.typography.labelMedium,
                 color = oc.mutedText,
                 maxLines = 1,
@@ -761,9 +761,9 @@ private fun ReadOnlyFooter(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = if (canGoBackToParent) {
-                            "torna al padre per scrivere"
+                            "back to parent to write"
                         } else {
-                            "sessione figlia senza composer"
+                            "child session without composer"
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = scheme.onSurfaceVariant,
@@ -1061,7 +1061,7 @@ private fun ReasoningBlock(
             )
             Spacer(Modifier.weight(1f))
             Text(
-                text = if (expanded) "chiudi" else "apri",
+                text = if (expanded) "close" else "open",
                 style = MaterialTheme.typography.labelSmall,
                 color = oc.mutedText,
             )
@@ -1109,7 +1109,7 @@ private fun ReasoningBlock(
                 }
                 if (limited.truncated) {
                     ShowAllRow(
-                        label = "mostra tutto · " + lineLabel(lineCount),
+                        label = "show all · " + lineLabel(lineCount),
                         onClickLabel = "Mostra tutto il ragionamento",
                         onClick = {
                             onOpenDetail(
@@ -1243,7 +1243,7 @@ private fun ToolCard(
 
             if (denied) {
                 Text(
-                    text = "non eseguito",
+                    text = "not executed",
                     style = MaterialTheme.typography.bodySmall,
                     color = oc.mutedText,
                 )
@@ -1268,7 +1268,7 @@ private fun ToolCard(
                 }
                 if (output.totalLines > 0 || command.truncated) {
                     ShowAllRow(
-                        label = "mostra tutto · " + lineLabel(showAllLines),
+                        label = "show all · " + lineLabel(showAllLines),
                         onClickLabel = "Mostra tutto l'output di " +
                             part.name.ifBlank { "tool" },
                         onClick = {
@@ -1279,7 +1279,7 @@ private fun ToolCard(
                                         if (command.text.isNotBlank()) {
                                             add(
                                                 DetailSection(
-                                                    label = "comando",
+                                                    label = "command",
                                                     text = part.command.orEmpty(),
                                                 ),
                                             )
@@ -1396,7 +1396,7 @@ private fun TurnDetailSheet(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "chiudi",
+                        text = "close",
                         style = MaterialTheme.typography.labelSmall,
                         color = oc.mutedText,
                     )
@@ -2317,7 +2317,7 @@ private fun toolPhaseUi(part: ToolPartUi): ToolStatusUi {
     }
     return when (part.phase) {
         PartPhase.Streaming -> ToolStatusUi(
-            label = "scrivo il comando…",
+            label = "writing command…",
             color = oc.warningInk,
             pulsing = true,
             talkBack = "Tool in corso",
@@ -2338,7 +2338,7 @@ private fun toolPhaseUi(part: ToolPartUi): ToolStatusUi {
         )
 
         PartPhase.Failed -> ToolStatusUi(
-            label = "errore",
+            label = "error",
             color = oc.error,
             pulsing = false,
             talkBack = "Tool fallito",

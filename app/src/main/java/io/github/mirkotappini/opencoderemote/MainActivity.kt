@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
         handleApprovalIntent(intent)
     }
 
-    /** Tap sulla notifica / azione "Always": apre la sessione indicata. */
+    /** Notification tap / "Always" action: opens the indicated session. */
     private fun handleApprovalIntent(intent: Intent?) {
         val sessionId = intent?.getStringExtra(ApprovalNotifier.EXTRA_SESSION_ID) ?: return
         ApprovalIntentRouter.request(sessionId)

@@ -132,7 +132,7 @@ class OpenCodeApi(
         } catch (e: ApiException) {
             throw e
         } catch (e: Exception) {
-            throw IOException("Risposta /api/info non valida (${e.javaClass.simpleName})")
+            throw IOException("Invalid /api/info response (${e.javaClass.simpleName})")
         }
     }
 
@@ -187,7 +187,7 @@ class OpenCodeApi(
         message: String? = null,
     ) {
         if (!ApprovalReply.isDecision(decision)) {
-            throw IOException("decisione non valida")
+            throw IOException("invalid decision")
         }
         val url = url("/api/session")
             .newBuilder()
@@ -219,7 +219,7 @@ class OpenCodeApi(
     @Throws(IOException::class)
     fun createSession(): SessionUi {
         val payload = post(url("/api/session"), EMPTY_JSON_BODY)
-        return ApiParsing.parseSession(payload) ?: throw IOException("sessione non creata")
+        return ApiParsing.parseSession(payload) ?: throw IOException("session not created")
     }
 
     /** `GET /api/session/active`; `data` vuoto (`{}`) = nessuna sessione attiva. */
@@ -234,7 +234,7 @@ class OpenCodeApi(
         val value = ApiParsing.parseSession(
             get(url("/api/session").newBuilder().addPathSegment(sessionId).build()),
         )
-        return value ?: throw IOException("sessione non trovata")
+        return value ?: throw IOException("session not found")
     }
 
     /** `GET /api/session?parentID=…` — sessioni figlie (task in background). */

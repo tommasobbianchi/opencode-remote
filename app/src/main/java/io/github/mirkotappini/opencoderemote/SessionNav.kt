@@ -3,11 +3,11 @@ package io.github.mirkotappini.opencoderemote
 import io.github.mirkotappini.opencoderemote.net.SessionUi
 
 /**
- * Un livello della pila di navigazione: la sessione che era aperta prima di
- * entrare in un task figlio, con la modalità con cui era stata aperta.
+ * One level of the navigation stack: the session that was open before
+ * entering a child task, with the mode it was opened with.
  *
- * È logica pura (nessuna dipendenza da Android) così la pila si può testare
- * offline. Il ViewModel la usa per `openSession`/`back`; la UI legge solo
+ * Pure logic (no Android dependency) so the stack can be tested
+ * offline. The ViewModel uses it for `openSession`/`back`; the UI only reads
  * `UiState.canGoBackToParent`.
  */
 data class SessionFrame(
@@ -15,28 +15,28 @@ data class SessionFrame(
     val readOnly: Boolean = false,
 )
 
-/** Esito di un'apertura: pila da salvare e modalità della sessione richiesta. */
+/** Outcome of an open: the stack to save and the mode of the requested session. */
 data class SessionOpenPlan(
     val stack: List<SessionFrame>,
     val readOnly: Boolean,
 )
 
-/** Esito di un `back()`: frame da riaprire (null = lista) e pila rimasta. */
+/** Outcome of a `back()`: frame to reopen (null = list) and the stack left. */
 data class SessionPopPlan(
     val frame: SessionFrame?,
     val stack: List<SessionFrame>,
 )
 
 /**
- * Regole della pila padre → figlio:
- *  - apertura dalla lista (nessuna sessione aperta): pila vuota, scrivibile;
- *  - apertura con una sessione già aperta: la corrente viene impilata e la
- *    nuova sessione è figlia, quindi in sola lettura;
- *  - stesso id della sessione aperta (retry, refresh, notifica): nessun
- *    duplicato in pila;
- *  - id già presente più in basso nella pila: si torna a quel livello senza
- *    creare cicli (A → B → A non lascia B impilato sopra A);
- *  - `back`: riapre l'ultimo frame impilato; pila vuota = lista.
+ * Parent → child stack rules:
+ *  - open from the list (no session open): empty stack, writable;
+ *  - open with a session already open: the current one is pushed and the
+ *    new session is a child, therefore read-only;
+ *  - same id as the open session (retry, refresh, notification): no
+ *    duplicate in the stack;
+ *  - id already present further down the stack: return to that level without
+ *    creating cycles (A → B → A does not leave B pushed above A);
+ *  - `back`: reopens the last pushed frame; empty stack = list.
  */
 object SessionNav {
 
@@ -45,15 +45,15 @@ object SessionNav {
         current: SessionFrame?,
         nextSession: SessionUi,
     ): SessionOpenPlan {
-        // Dalla lista: la pila riparte da zero, la sessione è scrivibile.
+        // From the list: the stack starts over, the session is writable.
         if (current == null) return SessionOpenPlan(emptyList(), readOnly = false)
 
-        // Retry/refresh della stessa sessione: pila e modalità non cambiano.
+        // Retry/refresh of the same session: stack and mode are unchanged.
         if (current.session.id == nextSession.id) {
             return SessionOpenPlan(stack, readOnly = current.readOnly)
         }
 
-        // Salto a un antenato: si chiudono i livelli sopra di lui.
+        // Jump to an ancestor: the levels above it are closed.
         val ancestor = stack.indexOfLast { it.session.id == nextSession.id }
         if (ancestor >= 0) {
             return SessionOpenPlan(
@@ -62,7 +62,7 @@ object SessionNav {
             )
         }
 
-        // Nuovo figlio: la sessione corrente resta in pila, lui è sola lettura.
+        // New child: the current session stays in the stack, the child is read-only.
         return SessionOpenPlan(stack + current, readOnly = true)
     }
 
@@ -73,7 +73,7 @@ object SessionNav {
             SessionPopPlan(frame = stack.last(), stack = stack.dropLast(1))
         }
 
-    /** `backToList()` e `disconnect()` azzerano sempre la pila. */
+    /** `backToList()` and `disconnect()` always reset the stack. */
     fun cleared(): List<SessionFrame> = emptyList()
 
     fun canGoBackToParent(stack: List<SessionFrame>): Boolean = stack.isNotEmpty()

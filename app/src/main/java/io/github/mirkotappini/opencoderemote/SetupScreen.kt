@@ -101,15 +101,15 @@ fun SetupScreen(
                 Spacer(Modifier.height(24.dp))
 
                 Text(
-                    text = "Le tue sessioni,\nqui.",
+                    text = "Your sessions,\nhere.",
                     style = MaterialTheme.typography.displaySmall,
                     color = scheme.onBackground,
                 )
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "Sessioni e conversazioni dal tuo server OpenCode (2.x). " +
-                        "Serve il servizio esposto in HTTPS — per esempio con Tailscale serve — " +
-                        "e la rete privata Tailscale attiva su questo telefono.",
+                    text = "Sessions and conversations from your OpenCode (2.x) server. " +
+                        "It needs the service exposed over HTTPS — for example with Tailscale serve — " +
+                        "and the private Tailscale network active on this phone.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = scheme.onSurfaceVariant,
                 )
@@ -130,7 +130,7 @@ fun SetupScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Eyebrow("Accesso al server")
+                            Eyebrow("Server access")
                             Spacer(Modifier.weight(1f))
                             StatusDot(
                                 color = when {
@@ -149,9 +149,9 @@ fun SetupScreen(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !connecting,
                             singleLine = true,
-                            label = { Text("Indirizzo del server") },
+                            label = { Text("Server address") },
                             placeholder = { Text("https://macchina.tailxxxx.ts.net") },
-                            supportingText = { Text("Solo HTTPS · rete privata Tailscale") },
+                            supportingText = { Text("HTTPS only · private Tailscale network") },
                             shape = MaterialTheme.shapes.small,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Uri,
@@ -191,9 +191,9 @@ fun SetupScreen(
                                     onClick = { passwordVisible = !passwordVisible },
                                     modifier = Modifier.semantics {
                                         contentDescription = if (passwordVisible) {
-                                            "Nascondi password"
+                                            "Hide password"
                                         } else {
-                                            "Mostra password"
+                                            "Show password"
                                         }
                                     },
                                 ) {
@@ -250,7 +250,7 @@ fun SetupScreen(
                 if (error != null) {
                     Spacer(Modifier.height(14.dp))
                     ErrorBanner(
-                        title = "Connessione non riuscita",
+                        title = "Connection failed",
                         message = error,
                         onAction = onConnect,
                     )
@@ -280,7 +280,7 @@ fun SetupScreen(
 
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "versione " + BuildConfig.VERSION_NAME,
+                    text = "version " + BuildConfig.VERSION_NAME,
                     style = MaterialTheme.typography.labelSmall,
                     color = oc.mutedText,
                     textAlign = TextAlign.Center,
@@ -294,9 +294,9 @@ fun SetupScreen(
 }
 
 /**
- * M5: il server risponde ma non è la 2.x. Schermata bloccante volutamente
- * scarna: solo "Riprova" (nuovo /api/info) e "Disconnetti". Riusa i componenti
- * del setup, nessuna grafica nuova.
+ * M5: the server responds but it is not 2.x. A deliberately bare blocking screen:
+ * only "Retry" (new /api/info) and "Disconnect". Reuses the setup components,
+ * no new graphics.
  */
 @Composable
 fun VersionMismatchScreen(
@@ -340,14 +340,14 @@ fun VersionMismatchScreen(
                 Spacer(Modifier.height(24.dp))
 
                 Text(
-                    text = "Versione non\nsupportata.",
+                    text = "Unsupported\nversion.",
                     style = MaterialTheme.typography.displaySmall,
                     color = scheme.onBackground,
                 )
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "Questa build parla con OpenCode 2.x. " +
-                        "Aggiorna il server oppure installa una build compatibile.",
+                    text = "This build talks to OpenCode 2.x. " +
+                        "Update the server or install a compatible build.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = scheme.onSurfaceVariant,
                 )
@@ -371,8 +371,8 @@ fun VersionMismatchScreen(
                             color = scheme.onSurface,
                         )
                         Text(
-                            text = "Nessuna richiesta viene inviata al server finché non " +
-                                "riprovi o ti disconnetti.",
+                            text = "No request is sent to the server until you " +
+                                "retry or disconnect.",
                             style = MaterialTheme.typography.bodySmall,
                             color = scheme.onSurfaceVariant,
                         )

@@ -8,10 +8,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * M5.1 — test JVM offline del rilevamento rete e del countdown.
+ * M5.1 — offline JVM tests of network detection and countdown.
  *
- * Il ViewModel usa queste transizioni pure: `markOffline("rete assente")`
- * sospende, `onAvailable` riparte una sola volta, il countdown deriva da
+ * The ViewModel uses these pure transitions: `markOffline("no network")`
+ * suspends, `onAvailable` restarts only once, the countdown derives from
  * `nextAttemptAt` e il watchdog SSE scatta a 30 s.
  */
 class M5RetryTest {
@@ -19,7 +19,7 @@ class M5RetryTest {
     // 1. Rete assente ---------------------------------------------------------
 
     @Test
-    fun `markOffline rete assente sospende i tentativi e usa il testo dedicato`() {
+    fun `markOffline no network suspends attempts and uses the dedicated text`() {
         val now = 1_700_000_000_000L
         val state = RetryTransitions.offline(ReconnectPolicy.NETWORK_ABSENT)
 
@@ -29,22 +29,22 @@ class M5RetryTest {
 
         val banner = ReconnectPolicy.bannerLabel(state.nextAttemptAt, now, state.suspended)
         assertEquals(ReconnectPolicy.NETWORK_WAITING, banner)
-        assertFalse("il banner sospeso non deve contenere numeri", banner.any { it.isDigit() })
+        assertFalse("the suspended banner must not contain numbers", banner.any { it.isDigit() })
         assertEquals(ReconnectPolicy.NETWORK_ABSENT, ReconnectPolicy.statusLabel(0, true))
 
-        // Un errore di raggiungibilità diverso non sospende il backoff.
-        val other = RetryTransitions.offline("server non raggiungibile")
+        // A different reachability error does not suspend backoff.
+        val other = RetryTransitions.offline("server unreachable")
         assertFalse(other.suspended)
     }
 
-    // 2. Ritorno della rete ---------------------------------------------------
+    // 2. Network return ---------------------------------------------------
 
     @Test
-    fun `onAvailable azzera il backoff e chiede una sola riconnessione`() {
+    fun `onAvailable resets backoff and asks for a single reconnect`() {
         var state = RetryTransitions.offline(ReconnectPolicy.NETWORK_ABSENT)
         var requests = 0
 
-        // Callback ravvicinate: solo la prima transizione chiede il restart.
+        // Close callbacks: only the first transition asks for restart.
         listOf(1_000L, 1_050L, 1_100L).forEach { now ->
             RetryTransitions.networkAvailable(state, now)?.let { resumed ->
                 requests += 1
@@ -57,7 +57,7 @@ class M5RetryTest {
         assertEquals("backoff azzerato", 0, state.attempt)
         assertEquals("nessuna attesa residua", 0L, state.nextAttemptAt - 1_000L)
 
-        // Con lo stato già ripartito non si chiede nulla.
+        // With the state already restarted nothing is asked.
         assertNull(RetryTransitions.networkAvailable(state, 2_000L))
         assertNotNull(RetryTransitions.networkAvailable(RetryTransitions.networkLost(), 3_000L))
     }
@@ -65,7 +65,7 @@ class M5RetryTest {
     // 3. Countdown ------------------------------------------------------------
 
     @Test
-    fun `countdown deriva da nextAttemptAt e non resta a zero`() {
+    fun `countdown derives from nextAttemptAt and does not stay at zero`() {
         val now = 10_000L
         val next = now + 8_000L
 
@@ -74,24 +74,24 @@ class M5RetryTest {
         }
         assertEquals(listOf(8, 7, 6, 5, 4, 3, 2, 1, 0), shown)
         assertEquals(
-            "connessione persa · riprovo tra 8s",
+            "connection lost · retrying in 8s",
             ReconnectPolicy.bannerLabel(next, now, suspended = false),
         )
 
-        // A metà secondo il ceil evita lo "0s" prematuro.
+        // At half a second the ceil avoids a premature "0s".
         assertEquals(1, ReconnectPolicy.secondsUntil(next, next - 200L))
 
-        // Al momento del tentativo il testo non dice più "riprovo tra 0s".
+        // At attempt time the text no longer says "retrying in 0s".
         val due = ReconnectPolicy.bannerLabel(next, next, suspended = false)
         assertEquals(ReconnectPolicy.NEW_ATTEMPT, due)
         assertFalse(due.contains("0s"))
-        assertEquals("riconnessione", ReconnectPolicy.statusLabel(0, suspended = false))
+        assertEquals("reconnecting", ReconnectPolicy.statusLabel(0, suspended = false))
     }
 
     // 4. Watchdog SSE ---------------------------------------------------------
 
     @Test
-    fun `watchdog SSE a 30 secondi riconnette dopo 31s di silenzio`() {
+    fun `SSE watchdog at 30 seconds reconnects after 31s of silence`() {
         assertEquals(30_000L, SseWatchdog.TIMEOUT_MS)
 
         val last = 42_000L

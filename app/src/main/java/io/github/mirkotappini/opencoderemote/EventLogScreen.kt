@@ -98,7 +98,7 @@ fun EventLogScreen(
                             onClick = onClose,
                             modifier = Modifier
                                 .size(48.dp)
-                                .semantics { contentDescription = "Torna alla lista sessioni" },
+                                .semantics { contentDescription = "Back to session list" },
                         ) {
                             GlyphChevron(
                                 direction = ChevronDirection.Left,
@@ -113,7 +113,7 @@ fun EventLogScreen(
                                 maxLines = 1,
                             )
                             Text(
-                                text = "Flusso eventi dal server · M0",
+                                text = "Event stream from server · M0",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = scheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -181,7 +181,7 @@ fun EventLogScreen(
                         ?.takeIf { !state.streaming }
                         ?.let { message ->
                             ErrorBanner(
-                                title = "Stream non disponibile",
+                                title = "Stream unavailable",
                                 message = message,
                                 onAction = onStart,
                             )

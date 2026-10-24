@@ -14,10 +14,10 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Test JVM offline di "nuova sessione": contratto di `POST /api/session` e
- * transizione di stato (riga in cima, chat scrivibile). Il contratto HTTP usa
- * MockWebServer su loopback; il ViewModel non è istanziabile senza Android,
- * quindi la transizione è coperta dalle funzioni pure che usa al suo interno
+ * Offline JVM tests for "new session": contract of `POST /api/session` and
+ * state transition (row on top, writable chat). The HTTP contract uses
+ * MockWebServer on loopback; the ViewModel cannot be instantiated without Android,
+ * so the transition is covered by the pure functions it uses internally
  * (`prependSession` + `SessionNav`).
  */
 class NewSessionTest {
@@ -43,7 +43,7 @@ class NewSessionTest {
     )
 
     @Test
-    fun `crea la sessione con POST corpo vuoto e auth corretta`() {
+    fun `creates the session with empty POST body and correct auth`() {
         server.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -76,7 +76,7 @@ class NewSessionTest {
     }
 
     @Test
-    fun `sessione creata va in cima e la chat si apre scrivibile`() {
+    fun `created session goes on top and chat opens writable`() {
         val existing = listOf(
             SessionUi(id = "ses_old", title = "vecchia"),
             SessionUi(id = "ses_older", title = "più vecchia"),
@@ -86,7 +86,7 @@ class NewSessionTest {
         val sessions = prependSession(existing, created)
 
         assertEquals(listOf("ses_new", "ses_old", "ses_older"), sessions.map { it.id })
-        // Stesso id non duplica (come l'apertura da notifica).
+        // Same id does not duplicate (like opening from a notification).
         assertEquals(sessions, prependSession(sessions, created))
 
         // `openSession(created.id)` riparte dalla riga in lista con pila vuota.
@@ -100,7 +100,7 @@ class NewSessionTest {
     }
 
     @Test
-    fun `errore del server non modifica la lista`() {
+    fun `server error does not modify the list`() {
         server.enqueue(
             MockResponse()
                 .setResponseCode(500)
@@ -111,7 +111,7 @@ class NewSessionTest {
 
         val result = runCatching { api().createSession() }
         val error = result.exceptionOrNull()
-        // Stessa sequenza del ViewModel: antepone solo in caso di successo.
+        // Same sequence as the ViewModel: prepends only on success.
         result.onSuccess { created -> sessions = prependSession(sessions, created) }
 
         assertTrue(error is ApiException)
@@ -122,7 +122,7 @@ class NewSessionTest {
     }
 
     @Test
-    fun `401 viene mappato a credenziali rifiutate`() {
+    fun `401 maps to rejected credentials`() {
         server.enqueue(
             MockResponse()
                 .setResponseCode(401)

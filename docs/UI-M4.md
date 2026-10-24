@@ -1,128 +1,128 @@
-# UI M4 — approvazioni
+# UI M4 — approvals
 
-Data: 24 ottobre 2026. Riferimenti: `docs/API-M4.md`, `docs/DESIGN.md` §9,
+Date: Oct 24 2026. References: `docs/API-M4.md`, `docs/DESIGN.md` §9,
 `docs/THEME.md`, `docs/UI-M1.md`, `docs/UI-M3.md`.
 
-Dati: `UiState.approvals`, `approvalsLoading`, `approvalsError`,
-`pendingApprovals`, `replyApproval()`, `refreshApprovals()`. Il backend è
-invariato: eventi SSE, `GET …/permission`, risposta `decision` e 404
-`PermissionNotFoundError` restano come da contratto.
+Data: `UiState.approvals`, `approvalsLoading`, `approvalsError`,
+`pendingApprovals`, `replyApproval()`, `refreshApprovals()`. The backend is
+unchanged: SSE events, `GET …/permission`, `decision` reply and the 404
+`PermissionNotFoundError` stay as per contract.
 
-## Pannello in chat
+## In-chat panel
 
-Il pannello vive **sopra il composer**, dentro la colonna della chat: non è un
-dialog e non blocca la lettura della conversazione. Compare con una transizione
-breve (fade + espansione) solo quando `approvals` non è vuota e sparisce appena
-l'ultima richiesta viene risolta.
+The panel lives **above the composer**, inside the chat column: it is not a
+dialog and it does not block reading the conversation. It appears with a brief
+transition (fade + expand) only when `approvals` is not empty and disappears as soon
+as the last request is resolved.
 
-- **Titolo** — azione + prima risorsa, in mono: `read perm-probe.env`,
-  `bash rm -rf /tmp/x`. Se ci sono altre risorse, un chip `+N risorse`; se il
-  server indica regole da salvare, un chip `save +N`. Il conteggio `1/2` è
-  accanto al titolo.
-- **Riga secondaria** — origine discreta in mono, `origine tool · per_3f9a…`.
-  `ApprovalUi` espone `sourceLabel` (il tipo, es. `tool`) e il `requestID`: il
-  vecchio campo `source.id` non è nel modello UI, quindi l'id troncato mostrato
-  è quello della richiesta, non del tool. Se `message` è presente, compare
-  sotto in `bodySmall` muted, massimo 3 righe.
-- **Azioni** — *Consenti una volta* è l'unica azione piena (interactive
-  `#FAB283`, testo scuro), *Nega* è un outlined neutro, *Consenti sempre* è un
-  text button ambra (`warningInk`, nel dark `#F5A742`) separato sulla riga
-  sotto, con la nota "vale per sempre sul server". Nessun default su "sempre".
-- **Pila** — con più richieste la selezionata è espansa e le altre restano in
-  righe compatte da 48 dp (massimo 3, poi `+N altre richieste`). Si cambia con
-  swipe orizzontale sulla scheda (soglia 64 dp), con le frecce nella testata o
-  toccando una riga. Durante l'invio la navigazione è disabilitata, così lo
-  spinner resta sulla richiesta premuta.
-- **Invio** — lo stato è locale al pannello: spinner nell'azione premuta e
-  tutte le azioni disabilitate. Il pulsante di refresh nella testata mostra uno
-  spinner mentre `approvalsLoading` è vero.
-- **404** — `richiesta non più valida` diventa una nota informativa (`info`,
-  non `error`): "Richiesta non più attiva: era già stata risolta. La lista è
-  stata aggiornata." Il ViewModel ha già rifatto la GET. Anche il banner
-  generale della chat usa la stessa nota discreta con "Chiudi" invece del
-  banner rosso.
+- **Title** — action + first resource, in mono: `read perm-probe.env`,
+  `bash rm -rf /tmp/x`. If there are other resources, a `+N resources` chip; if the
+  server indicates rules to save, a `save +N` chip. The `1/2` count is
+  next to the title.
+- **Secondary row** — discreet origin in mono, `origin tool · per_3f9a…`.
+  `ApprovalUi` exposes `sourceLabel` (the type, e.g. `tool`) and the `requestID`: the
+  old `source.id` field is not in the UI model, so the truncated id shown
+  is that of the request, not the tool's. If `message` is present, it appears
+  below in `bodySmall` muted, maximum 3 lines.
+- **Actions** — *Allow once* is the only full action (interactive
+  `#FAB283`, dark text), *Deny* is a neutral outlined, *Allow always* is an
+  amber text button (`warningInk`, in dark `#F5A742`) separated on the
+  line below, with the note "lasts forever on the server". No default on "always".
+- **Stack** — with multiple requests the selected one is expanded and the others stay as
+  compact 48 dp rows (maximum 3, then `+N more requests`). You switch with
+  a horizontal swipe on the card (threshold 64 dp), with the arrows in the header, or
+  by touching a row. During the send the navigation is disabled, so the
+  spinner stays on the pressed request.
+- **Send** — the state is local to the panel: spinner on the pressed action and
+  all actions disabled. The header refresh button shows a
+  spinner while `approvalsLoading` is true.
+- **404** — `request no longer valid` becomes an informational note (`info`,
+  not `error`): "Request no longer active: it had already been resolved. The list was
+  updated." The ViewModel already redid the GET. The general
+  chat banner uses the same discreet note with "Close" instead of the
+  red banner.
 
 ## Badge
 
-- **Top bar della chat** — badge compatto ambra con il numero, accanto allo
-  stato della sessione. Non è rosso: una richiesta da approvare non è un guasto.
-- **Lista sessioni** — badge nella colonna di destra della riga, sopra età e
-  stato.
-- **Drawer** — badge sulla card della sessione aperta e su ogni riga dei task nel
-  foglio dei task. La vecchia tab Sessioni con il pallino ambra è stata rimossa in
-  `0.5.2-m4` (vedi `docs/UI-M3.md`): il drawer non duplica più la lista. La
-  descrizione per TalkBack dice quante approvazioni sono in attesa.
+- **Chat top bar** — compact amber badge with the number, next to the
+  session state. It is not red: a request to approve is not a failure.
+- **Session list** — badge in the right column of the row, above the age and
+  state.
+- **Drawer** — badge on the open-session card and on each row of the tasks
+  in the task sheet. The old Sessions tab with the amber dot was removed in
+  `0.5.2-m4` (see `docs/UI-M3.md`): the drawer no longer duplicates the list. The
+  TalkBack description says how many approvals are pending.
 
-I badge usano `UiState.pendingApprovals`, una mappa `sessione → requestID`
-alimentata dagli eventi `permission.asked` / `permission.replied` e dalla GET
-della sessione aperta. È **solo presentazione**: nessuna nuova chiamata di rete,
-nessuna seconda fonte di verità. Una richiesta risolta da app o notifica esce
-subito dalla mappa; per le altre il badge resta finché una GET della sessione
-non le smentisce.
+The badges use `UiState.pendingApprovals`, a `session → requestID` map
+fed by the `permission.asked` / `permission.replied` events and by the GET
+of the open session. It is **presentation only**: no new network call,
+no second source of truth. A request resolved from the app or a notification leaves
+the map immediately; for the others the badge stays until a GET of the session
+disproves it.
 
-## Permesso notifiche
+## Notifications permission
 
-Al primo ingresso nella superficie connessa (quindi dopo un `connect()`
-riuscito) l'app mostra una riga informativa non modale — "Per approvare anche da
-fuori dall'app, consenti le notifiche." — e apre una sola volta il dialogo di
-sistema `POST_NOTIFICATIONS` su Android 13+. L'esito viene ricordato in
-preferenze private (`NotificationOptInStore`): agli avvii successivi non viene
-richiesto di nuovo, né dopo un consenso né dopo un rifiuto. Se il permesso è
-negato, l'avviso diventa "Notifiche non attive: le approvazioni restano qui in
-chat" con azione **Impostazioni** (`ACTION_APP_NOTIFICATION_SETTINGS`) e
-**Chiudi**. Il pannello in-app continua a funzionare in ogni caso.
+On the first entry into the connected surface (so after a successful
+`connect()`) the app shows a non-modal informational row — "To approve even
+from outside the app, allow notifications." — and opens the system `POST_NOTIFICATIONS`
+dialog only once on Android 13+. The outcome is remembered in
+private preferences (`NotificationOptInStore`): on subsequent startups it is not
+asked again, neither after consent nor after a refusal. If the permission is
+denied, the notice becomes "Notifications not active: the approvals stay here in
+the chat" with **Settings** (`ACTION_APP_NOTIFICATION_SETTINGS`) and
+**Close** actions. The in-app panel keeps working in any case.
 
-## Copy del setup
+## Setup copy
 
-La vecchia nota "Le credenziali restano solo in memoria" non era più vera. Ora
-il setup dice: **"Credenziali cifrate sul dispositivo con il Keystore.
-«Disconnetti» le cancella."** Il pulsante resta "Connetti".
+The old note "The credentials stay in memory only" was no longer true. Now
+the setup says: **"Credentials encrypted on the device with the Keystore.
+"Disconnect" deletes them."** The button stays "connect".
 
-## Notifiche
+## Notifications
 
-In `ApprovalNotifier` sono cambiate solo le stringhe, non la dedupe, gli id o
-l'annullamento:
+In `ApprovalNotifier` only the strings changed, not the dedupe, the ids or
+the cancel:
 
-- titolo: `Approvazione richiesta · OpenCode`;
-- corpo: azione + prima risorsa (`read perm-probe.env`), eventuale `+N`,
-  `message` e, se presente, `Sempre salverebbe: …`;
-- azioni: **Consenti**, **Nega**, **Sempre…** (quest'ultima apre l'app: la
-  conferma esplicita resta in-app come da DESIGN §9).
+- title: `Approval requested · OpenCode`;
+- body: action + first resource (`read perm-probe.env`), eventual `+N`,
+  `message` and, if present, `Always would save: …`;
+- actions: **Allow**, **Deny**, **Always…** (the last opens the app: the
+  explicit confirmation stays in-app as per DESIGN §9).
 
-Il nome del progetto/agente non è disponibile in `ApprovalUi` e non si è
-voluto leggere il token nel notifier solo per comporre il titolo: "OpenCode" è
-il contesto stabile e comprensibile.
+The project/agent name is not available in `ApprovalUi` and reading the
+token in the notifier was not wanted just to compose the title: "OpenCode" is
+the stable and understandable context.
 
-## Disconnessione
+## Disconnection
 
-"Disconnetti" nel footer del drawer ora apre una conferma esplicita: il token
-salvato e le credenziali cifrate vengono cancellati, la connessione in
-background e le notifiche si fermano. È un modale usato solo per un'azione
-distruttiva, non per le approvazioni.
+"Disconnect" in the drawer footer now opens an explicit confirmation: the saved
+token and the encrypted credentials are deleted, the background connection and the
+notifications stop. It is a modal used only for a
+destructive action, not for the approvals.
 
-## Palette, accessibilità, misure
+## Palette, accessibility, measures
 
-Solo token TUI: `warningInk` per le approvazioni e i badge, `interactive` per
-l'azione primaria e i link, `info` per la nota 404 e l'avviso notifiche,
-`error` solo per la disconnessione e gli errori veri. Nessun colore fuori
-palette. Ogni azione e ogni freccia ha un target di 48 dp, le descrizioni
-TalkBack chiariscono numero e posizione della richiesta; i testi vanno a capo e
-il pannello non copre la conversazione.
+TUI tokens only: `warningInk` for the approvals and the badges, `interactive` for
+the primary action and the links, `info` for the 404 note and the notifications notice,
+`error` only for the disconnection and the real errors. No color outside the
+palette. Every action and every arrow has a 48 dp target, the TalkBack
+descriptions make clear the number and position of the request; the texts wrap and
+the panel does not cover the conversation.
 
-## Modifiche di codice
+## Code changes
 
-- Nuovi: `ApprovalPanel.kt` (pannello, pila, conferma "sempre", nota 404),
-  `NotificationOptIn.kt` (avviso non modale + memoria del primo ask),
+- New: `ApprovalPanel.kt` (panel, stack, "always" confirmation, 404 note),
+  `NotificationOptIn.kt` (non-modal notice + memory of the first ask),
   `docs/UI-M4.md`.
-- `ChatScreen.kt`: pannello sopra il composer, badge in top bar, avviso
-  notifiche, nota 404 al posto del banner rosso.
-- `SessionListScreen.kt` / `OmoDrawer.kt`: badge per riga, pallino sulla tab
-  Sessioni, conferma di disconnessione.
-- `Theme.kt`: `ApprovalBadge` condiviso (ambra, descrizione TalkBack).
-- `SetupScreen.kt`: nuova nota su Keystore e Disconnetti.
-- `ApprovalNotifier.kt`: solo i testi di titolo, corpo e azioni.
-- `AppViewModel.kt`: **solo presentazione** — mappa `pendingApprovals` derivata
-  dagli eventi e dalla GET già esistenti, helper `approvalCount` /
-  `approvalCountTotal`, azzeramento dell'errore precedente all'invio. Nessuna
-  modifica a `net/*`, `security/TokenStore.kt`, `ApprovalService` o receiver.
-- Version `0.5.0-m4` / `5`. Nessun commit git.
+- `ChatScreen.kt`: panel above the composer, badge in the top bar, notifications
+  notice, 404 note in place of the red banner.
+- `SessionListScreen.kt` / `OmoDrawer.kt`: badge per row, dot on the Sessions tab,
+  disconnection confirmation.
+- `Theme.kt`: shared `ApprovalBadge` (amber, TalkBack description).
+- `SetupScreen.kt`: new note on the Keystore and Disconnect.
+- `ApprovalNotifier.kt`: only the title, body and actions texts.
+- `AppViewModel.kt`: **presentation only** — `pendingApprovals` map derived
+  from the already existing events and GET, `approvalCount` /
+  `approvalCountTotal` helpers, resetting the previous error on send. No
+  change to `net/*`, `security/TokenStore.kt`, `ApprovalService` or the receiver.
+- Version `0.5.0-m4` / `5`. No git commit.

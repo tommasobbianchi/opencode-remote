@@ -431,7 +431,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 resyncOpenSession()
                 refreshApprovals()
             }
-            appendLog("net", "rete disponibile · riconnessione")
+            appendLog("net", "network available · reconnecting")
         }
     }
 
@@ -624,7 +624,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshSessions() {
         val client = api
         if (client == null) {
-            _state.update { it.copy(error = "non connesso") }
+            _state.update { it.copy(error = "not connected") }
             return
         }
         viewModelScope.launch { loadSessions(client) }
@@ -638,7 +638,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun createSession() {
         val client = api
         if (client == null) {
-            _state.update { it.copy(error = "non connesso") }
+            _state.update { it.copy(error = "not connected") }
             return
         }
         if (_state.value.creatingSession) return
@@ -667,7 +667,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun retryConnection() {
         val client = api
         if (client == null) {
-            _state.update { it.copy(error = "non connesso") }
+            _state.update { it.copy(error = "not connected") }
             return
         }
         viewModelScope.launch { loadSessions(client) }
@@ -690,7 +690,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun openSession(id: String) {
         val client = api
         if (client == null) {
-            _state.update { it.copy(error = "non connesso") }
+            _state.update { it.copy(error = "not connected") }
             return
         }
         val current = _state.value.openSession?.let { open ->
@@ -808,7 +808,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (_state.value.openSession?.id != id) return
         if (!_state.value.openReadOnly) {
             backToList()
-            _state.update { it.copy(error = "sessione non più disponibile") }
+            _state.update { it.copy(error = "session no longer available") }
             return
         }
         val popped = SessionNav.pop(_state.value.sessionStack)
@@ -822,11 +822,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 readOnly = frame.readOnly,
             )
             _state.update {
-                it.copy(error = "sessione non trovata · sei tornato alla sessione padre")
+                it.copy(error = "session not found · you returned to the parent session")
             }
         } else {
             backToList()
-            _state.update { it.copy(error = "sessione non più disponibile") }
+            _state.update { it.copy(error = "session no longer available") }
         }
     }
 
@@ -981,8 +981,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         _state.update {
                             it.copy(
                                 approvals = it.approvals.filterNot { a -> a.id == id },
-                                error = "richiesta non più valida",
-                                approvalsError = "richiesta non più valida",
+                                error = "request no longer valid",
+                                approvalsError = "request no longer valid",
                                 pendingApprovals = it.pendingApprovals.withoutApproval(id),
                             )
                         }
@@ -1060,9 +1060,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun describeApprovalError(error: Throwable): String = when {
-        error is ApprovalExpiredException -> "richiesta non più valida"
-        error is ApiException && error.code == 401 -> "credenziali rifiutate"
-        error is ApiException && error.code == 404 -> "sessione non trovata"
+        error is ApprovalExpiredException -> "request no longer valid"
+        error is ApiException && error.code == 401 -> "credentials rejected"
+        error is ApiException && error.code == 404 -> "session not found"
         else -> describeConnectionError(error)
     }
 
@@ -1076,7 +1076,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun loadCatalog(force: Boolean = false) {
         val client = api
         if (client == null) {
-            _state.update { it.copy(catalogError = "non connesso") }
+            _state.update { it.copy(catalogError = "not connected") }
             return
         }
         val now = System.currentTimeMillis()
@@ -1140,11 +1140,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val client = api
         val session = _state.value.openSession
         if (client == null) {
-            _state.update { it.copy(error = "non connesso") }
+            _state.update { it.copy(error = "not connected") }
             return
         }
         if (session == null) {
-            _state.update { it.copy(error = "apri una sessione per cambiare agente") }
+            _state.update { it.copy(error = "open a session to change agent") }
             return
         }
         viewModelScope.launch {
@@ -1162,11 +1162,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val client = api
         val session = _state.value.openSession
         if (client == null) {
-            _state.update { it.copy(error = "non connesso") }
+            _state.update { it.copy(error = "not connected") }
             return
         }
         if (session == null) {
-            _state.update { it.copy(error = "apri una sessione per cambiare modello") }
+            _state.update { it.copy(error = "open a session to change model") }
             return
         }
         viewModelScope.launch {
@@ -1191,12 +1191,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun activateSkill(skillId: String) {
         val client = api
         if (client == null) {
-            _state.update { it.copy(error = "non connesso") }
+            _state.update { it.copy(error = "not connected") }
             return
         }
         val session = _state.value.openSession
         if (session == null) {
-            _state.update { it.copy(error = "apri una sessione per attivare una skill") }
+            _state.update { it.copy(error = "open a session to activate a skill") }
             return
         }
         viewModelScope.launch {
@@ -1225,7 +1225,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshChildren() {
         val client = api
         if (client == null) {
-            _state.update { it.copy(error = "non connesso") }
+            _state.update { it.copy(error = "not connected") }
             return
         }
         val session = _state.value.openSession
@@ -1461,7 +1461,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun startStream() {
         val api = api
         if (api == null) {
-            _state.update { it.copy(error = "Connettiti prima: serve /api/info riuscito") }
+            _state.update { it.copy(error = "Connect first: need a successful /api/info") }
             return
         }
         startStreamInternal()
