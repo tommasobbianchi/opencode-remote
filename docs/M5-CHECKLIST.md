@@ -17,7 +17,7 @@ via `adb` (USB dal MacBook), le altre sono coperte da test JVM.
 
 | # | Scenario | Comportamento atteso | Verifica |
 |---|---|---|---|
-| B1 | servizio OpenCode fermo su patchouli | stato offline con messaggio chiaro; i dati in cache restano visibili; nessun retry aggressivo | [dev] |
+| B1 | servizio OpenCode fermo sul server di sviluppo | stato offline con messaggio chiaro; i dati in cache restano visibili; nessun retry aggressivo | [dev] |
 | B2 | servizio riavviato | riconnessione automatica entro il backoff; la sessione aperta si riallinea | [dev] |
 | B3 | macchina in sleep / non raggiungibile | timeout mappato su "server non raggiungibile (timeout)", non su un errore generico | test + [dev] |
 | B4 | versione server ≠ 2.x | schermata bloccante `VersionMismatch` con versione trovata e spiegazione; nessuna richiesta ulteriore | test + [dev con server finto] |
@@ -50,5 +50,5 @@ via `adb` (USB dal MacBook), le altre sono coperte da test JVM.
 ## Note di prova
 
 - Wi-Fi: `adb shell svc wifi disable|enable` (USB resta attivo).
-- Servizio: `ssh patchouli 'opencode service stop|start'`; le sessioni restano nel DB.
+- Servizio: `ssh build-host 'opencode service stop|start'`; le sessioni restano nel DB.
 - Password: `opencode service set password <x>` + `restart` per simulare la revoca, poi ripristino.

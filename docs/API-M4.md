@@ -1,6 +1,6 @@
 # Contratto API per M4 — approvazioni
 
-Verificato su patchouli 2.1.4 il 24 ott 2026 con chiamate reali.
+Verificato sul server di sviluppo 2.1.4 il 24 ott 2026 con chiamate reali.
 
 ## Richieste pendenti
 
@@ -46,7 +46,7 @@ Catturati dal vivo il 24 ott 2026 con una richiesta genuina (prompt che legge un
 
 ```json
 {"id":"evt_…","created":1792796421246,"type":"permission.asked",
- "location":{"directory":"/Users/patchouli"},
+ "location":{"directory":"/Users/<utente>"},
  "data":{"id":"per_…","sessionID":"ses_…","action":"read",
          "resources":["perm-probe.env"],"save":["*"],
          "source":{"type":"tool","messageID":"msg_…","id":"call_…"}}}

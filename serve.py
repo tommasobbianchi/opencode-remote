@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Server minimale per distribuire l'APK di opencode-mobile sulla tailnet.
+"""Server minimale per distribuire l'APK su una rete privata (APK locale).
 
 Perche' non `python3 -m http.server`: serve un URL stabile (/app.apk) che punta
 sempre alla build corrente, niente cache del browser e redirect dei vecchi nomi
@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 DIST = os.path.dirname(os.path.abspath(__file__)) + "/dist"
 POINTER = os.path.join(DIST, "current.txt")
-BIND = ("100.90.230.65", 8091)
+BIND = (os.environ.get("OCM_BIND", "127.0.0.1"), int(os.environ.get("OCM_PORT", "8091")))
 
 
 def current_apk() -> str | None:

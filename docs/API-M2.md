@@ -1,6 +1,6 @@
 # Contratto API per M2 — prompt, streaming, riconnessione
 
-Verificato dal vivo il 23 ott 2026 su patchouli (OpenCode **2.1.4**), con una sessione usa-e-getta
+Verificato dal vivo il 23 ott 2026 sul server di sviluppo (OpenCode **2.1.4**), con una sessione usa-e-getta
 poi cancellata (`DELETE /api/session/{id}` → 204). Nessun dato dell'utente in questo documento.
 Fixture grezze: `/tmp/opencode/ocm/sse_run.jsonl` (15 eventi di un turno minimo).
 
@@ -30,7 +30,7 @@ Envelope reale:
 
 ```json
 {"id":"evt_...","created":1792792392493,"type":"session.text.delta",
- "location":{"directory":"/Users/patchouli"},
+ "location":{"directory":"/Users/<utente>"},
  "data":{"sessionID":"ses_...","assistantMessageID":"msg_...","ordinal":0,"delta":"pong"},
  "durable":{"aggregateID":"ses_...","seq":6,"version":1}}
 ```

@@ -10,8 +10,8 @@ Ultima build consegnata: **0.8.3-m6**, `versionCode 18`, sha256 `2d9c6ac3…`.
 | Cosa | Dove |
 |---|---|
 | Sorgente | `serber:/home/mirko/opencode-mobile` (**non è un repo git**) |
-| Build | `patchouli:/Users/patchouli/opencode-mobile` (JDK+SDK in `~/android-toolchain`) |
-| Distribuzione | `serber:python3 serve.py` → `http://100.90.230.65:8091/app.apk` (sempre l'ultima da `dist/current.txt`) |
+| Build | `build-host:/Users/<utente>/opencode-mobile` (JDK+SDK in `~/android-toolchain`) |
+| Distribuzione | `serber:python3 serve.py` → `http://<ip-tailnet>:8091/app.apk` (sempre l'ultima da `dist/current.txt`) |
 | Documenti | `docs/DESIGN.md`, `docs/API-M1..M4.md`, `docs/UI-M1..M4.md`, `docs/THEME.md`, `docs/M5-CHECKLIST.md`, `docs/M2-NOTE.md` |
 
 ## Stato per milestone
@@ -25,7 +25,7 @@ Ultima build consegnata: **0.8.3-m6**, `versionCode 18`, sha256 `2d9c6ac3…`.
 - **M6** vista turno live: ragionamento con durata, card tool con comando/output/stato/exit,
   testo in streaming, step consecutivi in un'unica bolla — fatto (spec in `docs/UI-M6-LIVE.md`)
 
-Test: **78 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` su patchouli.
+Test: **78 JVM**, tutti verdi, eseguiti con `./gradlew --no-daemon --no-build-cache clean testDebugUnitTest assembleDebug` sul server di sviluppo.
 
 ## Cambio server dalla lista (0.6.4-m5)
 
@@ -45,7 +45,7 @@ macchina a stati). Il drawer resta invariato, con la stessa copy sulle conseguen
 - La risposta alle approvazioni usa il campo **`decision`** (`once|always|reject`), non `reply`.
 - `GET /api/model` espone `settings.apiKey`: il client deve scartare `settings`.
 - Nel catalogo modelli `modelID` è la famiglia (duplicata), `id` è il riferimento concreto: chiavi di lista e `Model.Ref` usano `id`.
-- Un `opencode service stop` su patchouli **non tiene fermo** il servizio: riparte da solo in ~8 s.
+- Un `opencode service stop` sul server di sviluppo **non tiene fermo** il servizio: riparte da solo in ~8 s.
 - Heartbeat SSE ogni ~10-12 s; watchdog client 30 s.
 
 ## Contratto eventi del turno (M6)
@@ -82,7 +82,7 @@ L'host 2.1.4 espone `currentTokens()` con `background.base`, `text.base`,
 `text.muted`, `border.base` (e `text.feedback.*.base`), quindi sfondo, testo e
 bordo del pannello cadevano sui default opentui.
 
-- Script idempotente: `patchouli:~/.config/opencode/omo-theme-fix.py` (`-v` per il dettaglio).
+- Script idempotente: `build-host:~/.config/opencode/omo-theme-fix.py` (`-v` per il dettaglio).
 - Patcher riscrive `v2ThemeView()` in **tutte** le copie caricate dal plugin:
   `~/.cache/opencode/packages/oh-my-opencode-slim*/…` **e**
   `~/.cache/opencode/npm/<pkg>@latest/<hash>/…` (quest'ultima è quella davvero
@@ -94,7 +94,7 @@ bordo del pannello cadevano sui default opentui.
   `#484848` border, `#eeeeee` text, `#808080` muted, `#1e1e1e` hover,
   `#7fd88f` success, `#f5a742` warning.
 - **Da rilanciare dopo ogni update del plugin** (la dipendenza è `@latest`, quindi
-  un update reintroduce il bug): in `~/.zshrc` di patchouli c'è la funzione
+  un update reintroduce il bug): in `~/.zshrc` del server di sviluppo c'è la funzione
   `opencode()` che esegue lo script prima del binario
   (`command /opt/homebrew/bin/opencode`), backup `.zshrc.bak-omo-theme`.
   Non usare `command -v opencode` dentro la funzione: in zsh ritorna il nome della

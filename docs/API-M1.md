@@ -1,6 +1,6 @@
 # Contratto API per M1 (verificato sul server 2.1.3, 23 ott 2026)
 
-Estratto da `GET /openapi.json` (121 path) e da risposte reali su patchouli.
+Estratto da `GET /openapi.json` (121 path) e da risposte reali sul server di sviluppo.
 Fixture reali (non committare): `/tmp/opencode/ocm/{sessions.json,msgs.json,openapi2.json}`.
 
 Auth: `Authorization: Basic base64(utente:password)`; tutte le risposte sono JSON con
@@ -21,7 +21,7 @@ Query: `limit` (string), `order` = `asc|desc`, `search`, `parentID`, `archived`,
   "outcome":"succeeded",                       // succeeded | failed | interrupted
   "time":{"created":1792791042489,"updated":1792791043724,"idle":...,"viewed":...,"archived":null},
   "title":"Greeting",
-  "location":{"directory":"/Users/patchouli"}
+  "location":{"directory":"/Users/<utente>"}
 }],
  "cursor":{"previous":null,"next":"<token>"}}
 ```

@@ -2,13 +2,13 @@
 
 Stato: bozza di design, nessun codice scritto.
 Data: 22 ottobre 2026.
-Target: `patchouli` (macOS, OpenCode 2.1.3).
+Target: server di sviluppo (macOS, OpenCode 2.1.3).
 
 ---
 
 ## 1. Obiettivo
 
-Controllare da Android le sessioni OpenCode che girano su patchouli, agganciandosi al
+Controllare da Android le sessioni OpenCode che girano sul server di sviluppo, agganciandosi al
 **server già in esecuzione** (non a un'istanza indipendente), così da vedere e
 continuare le stesse sessioni che si usano dalla TUI.
 
@@ -28,12 +28,12 @@ stato dei task.
 
 ## 2. Vincoli tecnici verificati
 
-Fonte: ricognizione read-only del 22/10/2026 su patchouli.
+Fonte: ricognizione read-only del 22/10/2026 sul server di sviluppo.
 
 | Vincolo | Dettaglio |
 |---|---|
 | Versione server | OpenCode 2.1.3, API V2 (`/api/*`) |
-| Trasporto | server su `127.0.0.1:49374`; esposto dal 22/10/2026 via `tailscale serve` su `https://patchouli.tail2897ec.ts.net` (solo tailnet, TLS valido) |
+| Trasporto | server su `127.0.0.1:49374`; esposto dal 22/10/2026 via `tailscale serve` su `https://<macchina>.<tailnet>.ts.net` (solo tailnet, TLS valido) |
 | Autenticazione | HTTP Basic, utente `opencode`, password/token come password |
 | Pairing | `POST /api/pair` → codice monouso; `GET /auth/connect/{code}` con `Accept: application/json` → token da usare come password |
 | Invio messaggio | `POST /api/session/{id}/prompt` è **asincrono**: risponde con un ack (`Session.Inbox.User`), non con l'output |
@@ -87,7 +87,7 @@ Configurazione in essere:
 
 ```
 tailscale serve --bg 49374
-→ https://patchouli.tail2897ec.ts.net  (tailnet only)
+→ https://<macchina>.<tailnet>.ts.net  (tailnet only)
    proxy → http://127.0.0.1:49374
 ```
 
@@ -97,7 +97,7 @@ Verifiche eseguite:
 |---|---|
 | `GET https://…/api/info` senza credenziali | **401** — l'auth non è aggirata dal proxy |
 | Stesso endpoint con Basic `opencode:<password>` | **200**, `version 2.1.3`, `pid 37490` |
-| Certificato TLS | valido (`ssl_verify_result = 0`), IP `100.106.115.79` (tailnet) |
+| Certificato TLS | valido (`ssl_verify_result = 0`), IP `<ip-tailnet>` (tailnet) |
 | `tailscale funnel status` | nessuna esposizione pubblica: "tailnet only" |
 
 Regole da mantenere:
@@ -168,7 +168,7 @@ chiamata bloccante all'apertura, refresh in background.
 
 ## 6. Schermate
 
-1. **ServerSetup** — nome, URL (`https://patchouli.tail2897ec.ts.net`), stato
+1. **ServerSetup** — nome, URL (`https://<macchina>.<tailnet>.ts.net`), stato
    connessione, pulsante "Pair".
 2. **Pairing** — scanner QR del link `/auth/connect/{code}` generato dalla TUI
    (`opencode pair` / comando `/pair`), oppure incolla-link. Al successo salva il
@@ -214,7 +214,7 @@ si aggiornano sugli eventi e su pull-to-refresh.
 
 ### 8.1 Primo avvio (pairing)
 
-1. Sulla macchina: `opencode pair --url https://patchouli.tail2897ec.ts.net`
+1. Sulla macchina: `opencode pair --url https://<macchina>.<tailnet>.ts.net`
    (stampa link monouso + QR).
 2. Sull'app: scansione QR → `GET {link}` con `Accept: application/json`.
 3. Il server risponde con il token → salvataggio nel Keystore.

@@ -1,6 +1,6 @@
 # Contratto API per M3 — drawer OMO (agenti, skill, MCP, modelli)
 
-Verificato su patchouli 2.1.4 il 24 ott 2026 con chiamate reali (dati in `/tmp/opencode/ocm/*.json`).
+Verificato sul server di sviluppo 2.1.4 il 24 ott 2026 con chiamate reali (dati in `/tmp/opencode/ocm/*.json`).
 
 Tutti gli endpoint sotto `/api/*` richiedono Basic auth e rispondono con involucro `{data:...}`
 salvo dove indicato. Le POST di modifica rispondono **204 No Content**.
@@ -9,7 +9,7 @@ salvo dove indicato. Le POST di modifica rispondono **204 No Content**.
 
 ### GET /api/agent — 10 agenti
 ```json
-{"location":{"directory":"/Users/patchouli"},"data":[{
+{"location":{"directory":"/Users/<utente>"},"data":[{
   "id":"orchestrator","name":"orchestrator",
   "model":{"id":"deepseek-flash","providerID":"deepseek","variant":"default"},
   "request":{"settings":{},"headers":{},"body":{}},
@@ -32,7 +32,7 @@ richiederlo per la lista** (l'endpoint lo restituisce comunque, scartarlo in par
 Altri stati possibili (dal contratto): `disabled`, `failed`, `needs_auth`… trattare come stringa.
 
 ### GET /api/location
-`{"directory":"/Users/patchouli","project":{"id":"…","directory":"…","canonical":"…"}}`
+`{"directory":"/Users/<utente>","project":{"id":"…","directory":"…","canonical":"…"}}`
 
 ### GET /api/model — 90 modelli (⚠️ sicurezza)
 Ogni voce ha `id, modelID, providerID, family, name, capabilities, settings, …` e **`settings.apiKey`
