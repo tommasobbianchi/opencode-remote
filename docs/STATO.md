@@ -3,7 +3,7 @@
 Generic Android client to control an **OpenCode 2.x** server from the phone
 (no personal preset: empty URL, user's credentials).
 Package `io.github.mirkotappini.opencoderemote`, app name **OC Remote**.
-Last delivered build: **0.12.1**, `versionCode 35`, sha256 `20af3a25…`.
+Last delivered build: **0.12.3**, `versionCode 37`, sha256 `53a4a185…`.
 
 ## Where
 
@@ -71,6 +71,9 @@ Captured from server 2.1.4, fixtures in `app/src/test/resources/fixtures/`
   reasoning, **not** tool output growth.
 - `scrollToBottom()` needs a measured `scrollBy`: `scrollToItem(last)` aligns
   the item's *top*, and a turn bubble can be taller than the viewport.
+- Foreground: on `ON_RESUME` the list realigns to the bottom (if following) —
+  scrolls issued while the window was hidden are not applied, so after standby
+  the chat used to stay at the stale position.
 - Keyboard: on every IME inset step the list realigns without delay (lagging
   it to the end of the animation was visible as a step).
 
@@ -91,6 +94,8 @@ in the user bubble with a full-screen viewer, document chip otherwise.
 - Send button: enabled only with at least one letter or digit in the draft
   (`hasSendableText`), or with an attachment. Spaces, punctuation and symbols
   alone (`/`, `…`) do not enable it, and the ViewModel enforces the same rule.
+- Enter on an empty composer is ignored (`acceptDraftChange`): it used to insert
+  a newline and grow the pill for nothing.
 - Command palette: typing `/` opens a scrollable, filterable sheet fed by
   `GET /api/command` (TTL 5 min); picking one writes `/name ` in the field and
   sending goes through `POST …/command`. "Cancel" suppresses the palette until

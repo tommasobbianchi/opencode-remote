@@ -70,6 +70,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -98,6 +99,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -306,6 +309,17 @@ fun ChatScreen(
         // Niente attesa: l'IME entra a passi animati e ogni passo riallinea la
         // lista, così la coda resta incollata all'animazione invece di star
         // ferma e saltare alla fine (era il "gradino" all'apertura).
+        listState.scrollToBottom()
+    }
+
+    // Ritorno in primo piano: mentre l'app era in standby possono essere
+    // arrivati messaggi e gli scroll fatti a vista spenta non si applicano.
+    // Se stiamo seguendo il fondo, ci si riporta dove la chat è davvero.
+    var resumeTicks by remember { mutableIntStateOf(0) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumeTicks += 1 }
+    LaunchedEffect(resumeTicks) {
+        if (resumeTicks == 0 || !followBottom) return@LaunchedEffect
+        delay(AUTO_SCROLL_DELAY_MS)
         listState.scrollToBottom()
     }
 
