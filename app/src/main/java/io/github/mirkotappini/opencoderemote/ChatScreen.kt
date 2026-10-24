@@ -802,10 +802,6 @@ private fun Composer(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        AttachButton(
-                            enabled = connected && !attachmentPreparing,
-                            onClick = onPickAttachment,
-                        )
                         Surface(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(18.dp),
@@ -815,39 +811,58 @@ private fun Composer(
                                 if (connected) oc.border else oc.border.copy(alpha = 0.5f),
                             ),
                         ) {
-                            BasicTextField(
-                                value = draft,
-                                onValueChange = onDraftChange,
-                                enabled = connected,
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                    color = oc.text,
+                            // Graffetta dentro la pillola, in fondo a destra: il
+                            // testo ha il suo spazio e non ci finisce mai sotto.
+                            Row(
+                                modifier = Modifier.padding(
+                                    start = 14.dp,
+                                    end = 4.dp,
+                                    top = 4.dp,
+                                    bottom = 4.dp,
                                 ),
-                                cursorBrush = SolidColor(oc.interactive),
-                                maxLines = 5,
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-                                modifier = Modifier.fillMaxWidth(),
-                                decorationBox = { innerTextField ->
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(horizontal = 14.dp, vertical = 10.dp)
-                                            .heightIn(min = 24.dp),
-                                    ) {
-                                        if (draft.isEmpty()) {
-                                            Text(
-                                                text = if (connected) {
-                                                    "Scrivi un messaggio…"
-                                                } else {
-                                                    "Non connesso"
-                                                },
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                color = scheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                            )
+                                verticalAlignment = Alignment.Bottom,
+                            ) {
+                                BasicTextField(
+                                    value = draft,
+                                    onValueChange = onDraftChange,
+                                    enabled = connected,
+                                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                        color = oc.text,
+                                    ),
+                                    cursorBrush = SolidColor(oc.interactive),
+                                    maxLines = 5,
+                                    keyboardOptions = KeyboardOptions(
+                                        imeAction = ImeAction.Default,
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                    decorationBox = { innerTextField ->
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(vertical = 8.dp)
+                                                .heightIn(min = 24.dp),
+                                        ) {
+                                            if (draft.isEmpty()) {
+                                                Text(
+                                                    text = if (connected) {
+                                                        "Scrivi un messaggio…"
+                                                    } else {
+                                                        "Non connesso"
+                                                    },
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    color = scheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                )
+                                            }
+                                            innerTextField()
                                         }
-                                        innerTextField()
-                                    }
-                                },
-                            )
+                                    },
+                                )
+                                AttachButton(
+                                    enabled = connected && !attachmentPreparing,
+                                    onClick = onPickAttachment,
+                                    modifier = Modifier.padding(start = 6.dp),
+                                )
+                            }
                         }
 
                         if (running) {
@@ -867,16 +882,23 @@ private fun Composer(
 }
 
 /**
- * Graffetta del composer: 48 dp, `mutedText`, spenta se non c'è connessione o
+ * Graffetta del composer: sta **dentro** la pillola del campo, in fondo a
+ * destra. Area di tocco 40 dp (il campo non cresce: 40 dp è anche l'altezza
+ * minima della riga di testo), `mutedText`, spenta se non c'è connessione o
  * mentre un allegato è in preparazione (M8 §4.1).
  */
 @Composable
-private fun AttachButton(enabled: Boolean, onClick: () -> Unit) {
+private fun AttachButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp,
+) {
     val oc = OpenColors.current
     val tint = if (enabled) oc.mutedText else oc.mutedText.copy(alpha = 0.4f)
     Box(
-        modifier = Modifier
-            .size(48.dp)
+        modifier = modifier
+            .size(size)
             .clip(CircleShape)
             .clickable(
                 enabled = enabled,
@@ -886,7 +908,7 @@ private fun AttachButton(enabled: Boolean, onClick: () -> Unit) {
             .semantics { contentDescription = "Allega un file" },
         contentAlignment = Alignment.Center,
     ) {
-        GlyphPaperclip(size = 21.dp, color = tint)
+        GlyphPaperclip(size = 20.dp, color = tint)
     }
 }
 
