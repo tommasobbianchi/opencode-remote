@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -190,11 +191,7 @@ fun ChatScreen(
             .collect { snapshot ->
                 if (snapshot.loading || !followBottom) return@collect
                 delay(AUTO_SCROLL_DELAY_MS)
-                // Riletto dopo il ritardo: nel frattempo possono essere
-                // arrivate altre righe pubblicate dal throttle del ViewModel.
-                val rowCount = scrollSnapshot.value.rows
-                if (rowCount == 0) return@collect
-                listState.scrollToItem(rowCount - 1)
+                listState.scrollToBottom()
             }
     }
 
@@ -2412,6 +2409,29 @@ private fun rowScrollSignal(row: ChatRow?): String = when (row) {
     is ChatRow.Single -> "m|${row.message.text.length}"
     is ChatRow.Turn -> partsScrollSignal(row.turn.running, row.turn.parts)
     null -> ""
+}
+
+/**
+ * Porta la lista in fondo **davvero**.
+ *
+ * `scrollToItem(ultimo)` allinea il *top* dell'item al top del viewport: se
+ * l'ultimo item è più alto dello schermo (una bolla di turno con molti tool) si
+ * finisce a mostrare l'inizio della bolla e la coda resta sotto il bordo. Qui
+ * dopo l'allineamento si recupera lo scarto misurato, così l'ultima riga del
+ * contenuto tocca il fondo del viewport.
+ */
+private suspend fun LazyListState.scrollToBottom() {
+    val info = layoutInfo
+    if (info.totalItemsCount == 0) return
+    scrollToItem(info.totalItemsCount - 1)
+    repeat(3) {
+        val current = layoutInfo
+        val last = current.visibleItemsInfo.lastOrNull() ?: return
+        val end = current.viewportEndOffset - current.afterContentPadding
+        val overshoot = last.offset + last.size - end
+        if (overshoot <= 0) return
+        scrollBy(overshoot.toFloat() + 1f)
+    }
 }
 
 /** "Sei in fondo?" stretto: l'ultimo item deve essere visibile. */

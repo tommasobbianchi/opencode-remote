@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.9.3**, `versionCode 22`, sha256 `596764074…` (30,9 MB) (nome app **OC Remote**).
+Ultima build consegnata: **0.9.4**, `versionCode 23`, sha256 `8f4f73ab…` (30,9 MB) (nome app **OC Remote**).
 
 ## Dove
 
@@ -91,6 +91,14 @@ posizione dopo la crescita:
 - La firma del contenuto viene dalla riga in coda (`partsScrollSignal`), che
   include già il turno live: conta testo e ragionamento, **non** l'output dei
   tool (leggere un output lungo non deve trascinare la vista).
+- **`scrollToItem(ultimo)` non basta**: allinea il *top* dell'item al top del
+  viewport, quindi con una bolla di turno più alta dello schermo si finiva a
+  mostrare l'inizio e la coda restava sotto il bordo (verificato sul Fold: a
+  metà turno il visibile era indietro di ~4 tool). Ora `scrollToBottom()`
+  allinea e poi recupera lo scarto misurato (`viewportEndOffset` −
+  `afterContentPadding`) con `scrollBy`, così la fine del contenuto tocca il
+  fondo. Verificato sul Fold con turni da 8 tool: la card nuova resta
+  agganciata al fondo per tutta la durata; fine turno idem.
 - `docs/UI-M6-LIVE.md` §4.4 aggiornato. Test: `ScrollSignalTest` (6 casi).
 
 ## Cambio server dalla lista (0.6.4-m5)
