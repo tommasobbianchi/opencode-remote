@@ -96,7 +96,9 @@ Le part REST hanno `time.{created,ran,completed}`: la durata si calcola da lì.
    `opencode service unset password`, niente restart per rigenerarla (24 ott 2026).
 2. ~~**git init + primo commit**~~ → fatto: repo privata `github.com/mirkotappini/opencode-remote`.
 3. ~~**Color i del pannello OMO**~~ → **risolto il 24 ott** (vedi sotto)
-4. Eventuale **ricolorazione dell'icona** dal blu elettrico al petrolio `#8ED8C6`.
+4. ~~**Ricolorazione dell'icona** al petrolio `#8ED8C6`~~ → **decaduto** (24 ott 2026):
+   non interessa. La formulazione "dal blu elettrico" era comunque superata da M7,
+   che ha rigenerato l'icona dal render neon dell'utente (fondo `#121510`).
 5. Licenza OFL dei font da includere come nota nel repo.
 
 ## Fix colori pannello OMO (patch locale, 24 ott)
@@ -127,6 +129,5 @@ bordo del pannello cadevano sui default opentui.
 
 ## Prossimo passo suggerito
 
-Fatto il throttle (§4.4). Resta: eventuale ricolorazione icona (petrolio
-`#8ED8C6`), nota licenza OFL, release con APK firmato.
+Fatto il throttle (§4.4). Resta: nota licenza OFL, release con APK firmato.
 Ripresa: "riprendiamo opencode remote".
