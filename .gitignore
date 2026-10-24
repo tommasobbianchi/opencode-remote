@@ -14,3 +14,5 @@ captures/
 dist/
 .agents/
 *.log
+
+__pycache__/

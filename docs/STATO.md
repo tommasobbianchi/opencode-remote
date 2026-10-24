@@ -3,7 +3,7 @@
 Client Android generico per controllare un server **OpenCode 2.x** dal telefono
 (nessun preset personale: URL vuoto, credenziali dell'utente).
 Package `io.github.mirkotappini.opencoderemote`.
-Ultima build consegnata: **0.9.2**, `versionCode 21`, sha256 `806d4264…` (30,8 MB) (nome app **OC Remote**, icona neon OC).
+Ultima build consegnata: **0.9.3**, `versionCode 22`, sha256 `596764074…` (30,9 MB) (nome app **OC Remote**).
 
 ## Dove
 
@@ -51,6 +51,25 @@ di fase e fine turno che passano subito. Da 30–60 ricomposizioni/s a ~10.
   `backToList`, `stopStream`.
 - Test: `PublishGateTest` (finestra, terminali, pending, 60 Hz → ~10
   pubblicazioni/s, classificazione eventi).
+
+## Icona 0.9.3 (render 3D "OC remote")
+
+Nuovo render fornito dall'utente: "OC" glossy (O giallo, C viola) con wordmark
+"remote" verde neon, piastra nera arrotondata. Rigenerata con
+`tools/icon/make_icon.py` da `tools/icon/icon-source.png`.
+
+- **Adattiva**: marchio **intero** (glifo + wordmark) senza piastra, alpha dalla
+  luminanza, al 66% della tela (safe zone). Niente riquadro annidato: il fondo
+  nero del render diventa trasparente e sotto c'è `@color/ic_launcher_background`.
+  Il wordmark resta dentro la maschera circolare, quindi non viene tagliato.
+  (Decisione M7 "adattiva senza wordmark" superata da questo render: il taglio
+  al wordmark produceva un bordo netto sul fondo di O e C.)
+- **Legacy/round**: piastra intera, come prima.
+- **Monochrome**: "OC" in JetBrains Mono.
+- Fondo icona: `#040407` (prima `#121510`). Il colore ora è preso dal quantile
+  basso di luminanza della cornice (`dark_background`), non dalla media: il glow
+  giallo/viola trascinava la media su un marrone `#302219`.
+- Anteprima rigenerata: `dist/icon-preview-0.9.3.png` (fuori dal repo).
 
 ## Auto-scroll della chat (0.9.2)
 

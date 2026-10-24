@@ -2,6 +2,12 @@
 """Genera le icone adattive dell'app da un render PNG quadrato.
 
 Uso: python3 make_icon.py source.png outdir
+
+L'icona adattiva usa il **marchio intero** (glifo + eventuale wordmark) senza la
+piastra: l'alpha viene dalla luminanza, quindi il fondo nero del render sparisce
+e resta solo il neon sul colore di fondo dell'icona. Il launcher adattivo non
+deve contenere testo *tagliato*: qui il testo fa parte del marchio e resta
+dentro la safe zone (66% della tela).
 Produce:
   out/ic_launcher_foreground_<dens>.png  (108/162/216/324/432 px, con alpha)
   out/ic_launcher_<dens>.png             (legacy, angoli arrotondati, 48..192)
@@ -47,6 +53,35 @@ def ring_color(im, box, inset_ratio=0.02, band_ratio=0.06):
     return (acc[0] // n, acc[1] // n, acc[2] // n)
 
 
+def dark_background(im, inset_ratio=0.0, band_ratio=0.04, quantile=0.30):
+    """Colore del fondo della piastra: media dei pixel **scuri** della cornice.
+
+    La media semplice si faceva trascinare dal glow del render (fondo marrone
+    invece che nero). Qui si guarda il quantile basso di luminanza: il fondo
+    resta quello vero del render, l'alone colorato non entra nel colore.
+    """
+    x0, y0, x1, y1 = 0, 0, im.size[0], im.size[1]
+    w, h = x1 - x0, y1 - y0
+    inset = int(min(w, h) * inset_ratio)
+    band = max(1, int(min(w, h) * band_ratio))
+    region = im.crop((x0 + inset, y0 + inset, x1 - inset, y1 - inset))
+    px = region.load()
+    rw, rh = region.size
+    samples = []
+    for x in range(rw):
+        for y in list(range(band)) + list(range(rh - band, rh)):
+            samples.append(px[x, y])
+    for y in range(band, rh - band):
+        for x in list(range(band)) + list(range(rw - band, rw)):
+            samples.append(px[x, y])
+    if not samples:
+        return (0, 0, 0)
+    samples.sort(key=lambda p: 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2])
+    keep = samples[:max(1, int(len(samples) * quantile))]
+    n = len(keep)
+    return (sum(p[0] for p in keep) // n, sum(p[1] for p in keep) // n, sum(p[2] for p in keep) // n)
+
+
 def radial_alpha(size, feather=0.14, radius_ratio=0.5):
     """Maschera circolare con bordo sfumato (evita spigoli visibili sulla maschera del launcher)."""
     mask = Image.new("L", (size, size), 0)
@@ -71,69 +106,11 @@ def circle_mask(size):
     return mask
 
 
-def split_mark(art, min_gap_ratio=0.03, floor=45):
-    """Separa il marchio dall'eventuale wordmark sotto (banda scura più larga).
-
-    Il launcher adattivo non deve contenere testo: un wordmark verrebbe tagliato
-    dalla maschera circolare. Restituisce (immagine del marchio, ha_wordmark).
-    """
-    g = art.convert("L")
-    w, h = g.size
-    px = g.load()
-    step = 2
-    rows = [max(px[x, y] for x in range(0, w, step)) for y in range(h)]
-    content = [i for i, v in enumerate(rows) if v > 90]
-    if not content:
-        return art, False
-    # Wordmark: prima riga in cui il verde domina (testo neon), altrimenti banda scura.
-    rgb = art.load()
-    green_top = None
-    for y in range(content[0], content[-1] + 1):
-        count = 0
-        for x in range(0, w, step):
-            r, gg, b = rgb[x, y][:3]
-            if gg > 120 and gg > r + 40 and gg > b + 40:
-                count += 1
-        if count > w * 0.01:
-            green_top = y
-            break
-    if green_top is not None and green_top > h * 0.3:
-        return art.crop((0, 0, w, max(0, green_top - int(h * 0.015)))), True
-    best = None
-    run_start = None
-    for y in range(content[0], content[-1] + 1):
-        if rows[y] <= floor:
-            if run_start is None:
-                run_start = y
-        elif run_start is not None:
-            if best is None or (y - run_start) > (best[1] - best[0]):
-                best = (run_start, y)
-            run_start = None
-    if run_start is not None and (best is None or (content[-1] + 1 - run_start) > (best[1] - best[0])):
-        best = (run_start, content[-1] + 1)
-    if not best or (best[1] - best[0]) < h * min_gap_ratio:
-        return art, False
-    if not any(v > 90 for v in rows[best[1]:]):
-        return art, False
-    return art.crop((0, 0, w, best[0])), True
-
-
 def luma_alpha(im, floor=14, span=80):
     """Alpha dalla luminanza: il fondo scuro diventa trasparente, il neon resta."""
     g = im.convert("L")
     a = g.point(lambda v: 0 if v <= floor else min(255, int((v - floor) * 255 / span)))
     return a.filter(ImageFilter.GaussianBlur(max(1, im.size[0] // 240)))
-
-
-def square_crop(im, thr=90, margin=1.04):
-    """Ritaglia sul contenuto luminoso e centra in una tela quadrata."""
-    b = im.convert("L").point(lambda v: 255 if v > thr else 0).getbbox()
-    if b:
-        im = im.crop(b)
-    side = int(max(im.size) * margin)
-    sq = Image.new("RGB", (side, side), (0, 0, 0))
-    sq.paste(im, ((side - im.size[0]) // 2, (side - im.size[1]) // 2))
-    return sq
 
 
 def main(src, out):
@@ -151,19 +128,19 @@ def main(src, out):
     cx, cy = (gx0 + gx1) // 2, (gy0 + gy1) // 2
     box = (cx - side // 2, cy - side // 2, cx + side // 2, cy + side // 2)
     art = im.crop(box)
-    bg = ring_color(art, (0, 0, art.size[0], art.size[1]), inset_ratio=0.0, band_ratio=0.04)
+    bg = dark_background(art, band_ratio=0.04)
 
     with open(os.path.join(out, "background.txt"), "w") as fh:
         fh.write("#%02X%02X%02X\n" % bg)
 
-    # --- foreground adattivo: solo il marchio (niente wordmark), alpha dal neon
-    mark, has_wordmark = split_mark(art)
-    mark = square_crop(mark)
+    # --- foreground adattivo: marchio intero (glifo + wordmark), alpha dal neon.
+    # La piastra nera del render sparisce con l'alpha: sotto c'è il colore di
+    # fondo dell'icona, quindi non si vede nessun riquadro annidato.
     for dens, scale in DENSITIES.items():
         canvas = int(108 * scale)          # 108dp
         art_size = int(canvas * 0.66)      # dentro la safe zone della maschera
         layer = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
-        piece = mark.resize((art_size, art_size), Image.LANCZOS).convert("RGBA")
+        piece = art.resize((art_size, art_size), Image.LANCZOS).convert("RGBA")
         piece.putalpha(luma_alpha(piece))
         off = (canvas - art_size) // 2
         layer.alpha_composite(piece, (off, off))
