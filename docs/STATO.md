@@ -3,7 +3,7 @@
 Generic Android client to control an **OpenCode 2.x** server from the phone
 (no personal preset: empty URL, user's credentials).
 Package `io.github.mirkotappini.opencoderemote`, app name **OC Remote**.
-Last delivered build: **0.11.3**, `versionCode 33`, sha256 `294ea77a…`.
+Last delivered build: **0.12.1**, `versionCode 35`, sha256 `20af3a25…`.
 
 ## Where
 
@@ -88,6 +88,9 @@ in the user bubble with a full-screen viewer, document chip otherwise.
   The **panel above the composer** renders text, single choice, yes/no, numbers
   with min/max and multiselect; required fields gate "answer"; "cancel" sends
   `DELETE`. With a pending question the composer is disabled and "Stop" stays.
+- Send button: enabled only with at least one letter or digit in the draft
+  (`hasSendableText`), or with an attachment. Spaces, punctuation and symbols
+  alone (`/`, `…`) do not enable it, and the ViewModel enforces the same rule.
 - Command palette: typing `/` opens a scrollable, filterable sheet fed by
   `GET /api/command` (TTL 5 min); picking one writes `/name ` in the field and
   sending goes through `POST …/command`. "Cancel" suppresses the palette until
