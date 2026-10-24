@@ -13,11 +13,11 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Credenziali per il foreground service.
+ * Credentials for the foreground service.
  *
- * Il `toString` è oscurato: la password non deve mai finire in un log o in
- * un'eccezione. Il contenuto è cifrato AES/GCM con una chiave non esportabile
- * in AndroidKeyStore; su disco resta solo IV+ciphertext in base64.
+ * `toString` is masked: the password must never end up in a log or in an
+ * exception. The content is encrypted AES/GCM with a non-exportable key
+ * in AndroidKeyStore; only IV+ciphertext in base64 remains on disk.
  */
 class StoredCredentials(
     val baseUrl: String,
@@ -36,11 +36,11 @@ private data class StoredToken(
 )
 
 /**
- * Persistenza cifrata delle credenziali in preferenze private.
+ * Encrypted persistence of credentials in private preferences.
  *
- * AES/GCM con chiave `opencode-token` in AndroidKeyStore. Qualunque errore di
- * cifratura/decifratura viene degradato a "nessun token": mai un crash e mai
- * il contenuto in chiaro su disco. Non testabile in JVM (Keystore assente).
+ * AES/GCM with the `opencode-token` key in AndroidKeyStore. Any
+ * encryption/decryption error degrades to "no token": never a crash and
+ * never plaintext content on disk. Not testable in the JVM (Keystore absent).
  */
 class TokenStore(context: Context) {
 
@@ -62,13 +62,13 @@ class TokenStore(context: Context) {
             ).toByteArray(Charsets.UTF_8)
             val encrypted = cipher.doFinal(plain)
             val payload = b64(cipher.iv) + ":" + b64(encrypted)
-            // Credenziali nuove = pairing rifatto: via il blocco dei retry automatici.
+            // Fresh credentials = pairing redone: clear the automatic-retry block.
             prefs.edit()
                 .putString(KEY_PAYLOAD, payload)
                 .putBoolean(KEY_AUTH_REJECTED, false)
                 .apply()
         } catch (_: Exception) {
-            // Se la cifratura fallisce non lasciamo credenziali stantie.
+            // If encryption fails, do not leave stale credentials behind.
             prefs.edit().remove(KEY_PAYLOAD).apply()
         }
     }
@@ -110,8 +110,8 @@ class TokenStore(context: Context) {
     }
 
     /**
-     * M5: il server ha rifiutato il token (401). Il token resta — serve a
-     * precompilare il setup — ma all'avvio non si ritenta più da soli.
+     * M5: the server rejected the token (401). The token stays — it is used
+     * to prefill the setup — but on startup it no longer retries by itself.
      */
     @Synchronized
     fun markAuthRejected() {

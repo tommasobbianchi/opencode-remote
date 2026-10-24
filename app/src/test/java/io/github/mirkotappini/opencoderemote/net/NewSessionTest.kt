@@ -79,7 +79,7 @@ class NewSessionTest {
     fun `created session goes on top and chat opens writable`() {
         val existing = listOf(
             SessionUi(id = "ses_old", title = "vecchia"),
-            SessionUi(id = "ses_older", title = "più vecchia"),
+            SessionUi(id = "ses_older", title = "older"),
         )
         val created = SessionUi(id = "ses_new", title = "nuova")
 
@@ -89,7 +89,7 @@ class NewSessionTest {
         // Same id does not duplicate (like opening from a notification).
         assertEquals(sessions, prependSession(sessions, created))
 
-        // `openSession(created.id)` riparte dalla riga in lista con pila vuota.
+        // `openSession(created.id)` resumes from the list row with an empty stack.
         val plan = SessionNav.planOpen(
             stack = emptyList(),
             current = null,

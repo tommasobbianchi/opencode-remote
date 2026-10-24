@@ -13,17 +13,17 @@ import io.github.mirkotappini.opencoderemote.net.ApprovalNotificationTracker
 import io.github.mirkotappini.opencoderemote.net.ApprovalUi
 
 /**
- * Costruzione e dedupe delle notifiche di approvazione.
+ * Building and deduplication of approval notifications.
  *
- * Il tracker è condiviso a livello di processo: anche il receiver, che vive in
- * un'istanza diversa del notifier, vede lo stesso stato. Una notifica per
- * `requestID`, `setOnlyAlertOnce`, annullamento alla risoluzione.
+ * The tracker is shared at process level: the receiver as well, which lives in
+ * a different instance of the notifier, sees the same state. One notification
+ * per `requestID`, `setOnlyAlertOnce`, cancellation on resolution.
  */
 class ApprovalNotifier(private val context: Context) {
 
     private val manager = NotificationManagerCompat.from(context)
 
-    /** RequestID già notificati per sessione (per annullare quelli spariti). */
+    /** RequestIDs already notified per session (to cancel the ones that disappeared). */
     private val perSession = HashMap<String, Set<String>>()
 
     fun ensureChannels() {
@@ -38,7 +38,7 @@ class ApprovalNotifier(private val context: Context) {
         }
         val service = NotificationChannel(
             CHANNEL_SERVICE,
-            "Connessione in background",
+            "Background connection",
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
             description = "Keeps the connection to receive permission requests"
@@ -47,7 +47,7 @@ class ApprovalNotifier(private val context: Context) {
         system.createNotificationChannels(listOf(approvals, service))
     }
 
-    /** Notifica persistente del foreground service. */
+    /** Persistent notification of the foreground service. */
     fun serviceNotification(): Notification {
         ensureChannels()
         val content = appIntent(null, null)
@@ -81,7 +81,7 @@ class ApprovalNotifier(private val context: Context) {
             .setContentIntent(appIntent(request.sessionId, request.id))
             .addAction(0, "Consenti", replyIntent(request, "once"))
             .addAction(0, "Nega", replyIntent(request, "reject"))
-            // "Sempre" ha effetto permanente: mai da notifica, apre l'app.
+            // "Always" has a permanent effect: never from a notification, it opens the app.
             .addAction(0, "Sempre…", appIntent(request.sessionId, request.id, "always"))
 
         manager.notify(ApprovalIds.notificationId(request.id), builder.build())
@@ -91,7 +91,7 @@ class ApprovalNotifier(private val context: Context) {
         cancelFor(context, requestId)
     }
 
-    /** Allinea le notifiche di una sessione alla lista autorevole del server. */
+    /** Aligns the notifications of a session with the server's authoritative list. */
     fun sync(sessionId: String, requests: List<ApprovalUi>) {
         val ids = requests.mapTo(LinkedHashSet()) { it.id }
         val previous = perSession.put(sessionId, ids) ?: emptySet()
@@ -136,7 +136,7 @@ class ApprovalNotifier(private val context: Context) {
         )
     }
 
-    /** Tap e azione "Always": aprono l'app (la conferma esplicita è in-app). */
+    /** Tap and the "Always" action: they open the app (the explicit confirmation is in-app). */
     private fun appIntent(
         sessionId: String?,
         requestId: String?,
@@ -173,7 +173,7 @@ class ApprovalNotifier(private val context: Context) {
 
         private val tracker = ApprovalNotificationTracker()
 
-        /** Usato anche dal ViewModel/receiver fuori dal servizio. */
+        /** Also used by the ViewModel/receiver outside the service. */
         fun cancelFor(context: Context, requestId: String) {
             tracker.markResolved(requestId)
             NotificationManagerCompat.from(context)
@@ -181,12 +181,12 @@ class ApprovalNotifier(private val context: Context) {
         }
 
         /**
-         * M5: annulla tutte le approvazioni note (401, disconnessione, stop del
-         * servizio). Le notifiche sono ricostruite alla prossima riconnessione.
+         * M5: cancels all known approvals (401, disconnection, service stop).
+         * The notifications are rebuilt at the next reconnection.
          */
         fun cancelAll(context: Context) {
-            // cancelAll() copre anche le notifiche rimaste da un processo
-            // precedente, che il tracker in memoria non conosce più.
+            // cancelAll() also covers notifications left over from a previous
+            // process, which the in-memory tracker no longer knows about.
             NotificationManagerCompat.from(context).cancelAll()
             tracker.clear()
         }

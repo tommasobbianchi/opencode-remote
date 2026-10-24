@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-/** Metadati di delivery dell'evento (sequence monotona per sessione). */
+/** Delivery metadata of the event (monotonic sequence per session). */
 @Serializable
 data class DurableDto(
     val aggregateID: String? = null,
@@ -15,7 +15,7 @@ data class DurableDto(
     val version: Int? = null,
 )
 
-/** Envelope SSE reale: `id, created, type, data, durable, location`. */
+/** Real SSE envelope: `id, created, type, data, durable, location`. */
 @Serializable
 data class SseEnvelope(
     val id: String? = null,
@@ -26,7 +26,7 @@ data class SseEnvelope(
     val durable: DurableDto? = null,
 )
 
-/** Evento normalizzato per la UI. Mai un'eccezione per un `type` ignoto. */
+/** Event normalized for the UI. Never an exception for an unknown `type`. */
 sealed interface ServerEvent {
     val sessionId: String?
 
@@ -129,9 +129,9 @@ sealed interface ServerEvent {
         val executed: Boolean,
         val exitCode: Int?,
         val truncated: Boolean,
-        /** `metadata.status` (o `status` top-level), per riconoscere un diniego esplicito. */
+        /** `metadata.status` (or top-level `status`), to recognize an explicit denial. */
         val status: String? = null,
-        /** Messaggio d'errore del server, se presente. */
+        /** Server error message, if present. */
         val message: String? = null,
     ) : ServerEvent
 
@@ -151,7 +151,7 @@ sealed interface ServerEvent {
         val tokens: TokenUsage?,
     ) : ServerEvent
 
-    /** `session.step.failed`: il turno si chiude, le part attive diventano Interrupted. */
+    /** `session.step.failed`: the turn closes, active parts become Interrupted. */
     data class StepFailed(
         override val sessionId: String,
         val messageId: String?,
@@ -185,13 +185,13 @@ sealed interface ServerEvent {
         val inboxId: String?,
     ) : ServerEvent
 
-    /** `permission.asked`: `data` è l'intero Permission.Request. */
+    /** `permission.asked`: `data` is the entire Permission.Request. */
     data class PermissionAsked(
         override val sessionId: String,
         val approval: ApprovalUi,
     ) : ServerEvent
 
-    /** `permission.replied`: conferma di risoluzione (id richiesta facoltativo). */
+    /** `permission.replied`: resolution confirmation (request id optional). */
     data class PermissionReplied(
         override val sessionId: String?,
         val requestId: String?,
@@ -203,7 +203,7 @@ sealed interface ServerEvent {
     ) : ServerEvent
 }
 
-/** Envelope interpretato: `wireType` serve solo al log, mai al rendering. */
+/** Interpreted envelope: `wireType` is only for logging, never for rendering. */
 data class IncomingEvent(
     val id: String?,
     val created: Long?,
@@ -212,9 +212,9 @@ data class IncomingEvent(
 )
 
 /**
- * Parser tollerante dell'envelope SSE (docs/API-M2.md §2).
- * Regole: type ignoto → [ServerEvent.Unknown]; `data.sessionID` assente per un
- * evento di sessione → evento scartato (`null`); JSON malformato → `null`.
+ * Tolerant parser for the SSE envelope (docs/API-M2.md §2).
+ * Rules: unknown type → [ServerEvent.Unknown]; missing `data.sessionID` on a
+ * session event → event dropped (`null`); malformed JSON → `null`.
  */
 object EventParsing {
 
@@ -494,7 +494,7 @@ object EventParsing {
         )
     }
 
-    /** Comodità per i test: solo l'evento normalizzato. */
+    /** Test convenience: only the normalized event. */
     fun parseEvent(raw: String): ServerEvent? = parse(raw)?.event
 
     private fun modelIdOf(element: JsonElement?): String? = when (element) {
@@ -536,7 +536,7 @@ object EventParsing {
         )
     }
 
-    /** `content:[{type:"text",text}]`; un payload mancante produce una lista vuota. */
+    /** `content:[{type:"text",text}]`; a missing payload yields an empty list. */
     private fun parseContentTexts(element: JsonElement?): List<String> =
         (element as? kotlinx.serialization.json.JsonArray)
             ?.mapNotNull { (it as? JsonObject)?.string("text") }

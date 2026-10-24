@@ -8,12 +8,12 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 // ---------------------------------------------------------------------------
-// DTO grezzi dei cataloghi M3. I campi non dichiarati (agent.system,
-// agent.permissions, skill.content, model.settings) vengono ignorati dal parser:
-// `settings` può contenere apiKey e non deve mai entrare nel modello UI.
+// Raw DTOs of the M3 catalogs. Undeclared fields (agent.system,
+// agent.permissions, skill.content, model.settings) are ignored by the parser:
+// `settings` may contain apiKey and must never enter the UI model.
 // ---------------------------------------------------------------------------
 
-/** Involucro comune a `/api/agent`, `/api/skill`, `/api/mcp`, `/api/model`. */
+/** Common envelope for `/api/agent`, `/api/skill`, `/api/mcp`, `/api/model`. */
 @Serializable
 data class CatalogEnvelope<T>(
     val data: List<T> = emptyList(),
@@ -38,7 +38,7 @@ data class SkillDto(
     val path: String? = null,
 )
 
-/** `status` è normalmente un oggetto `{status:"connected"}`; accettiamo anche stringa. */
+/** `status` is normally an object `{status:"connected"}`; we also accept a string. */
 @Serializable
 data class McpDto(
     val name: String = "",
@@ -69,7 +69,7 @@ data class ProjectDto(
     val canonical: String? = null,
 )
 
-/** `GET /api/location` (nessun involucro `data`). */
+/** `GET /api/location` (no `data` envelope). */
 @Serializable
 data class LocationDto(
     val directory: String = "",
@@ -77,7 +77,7 @@ data class LocationDto(
 )
 
 // ---------------------------------------------------------------------------
-// Modelli normalizzati per la UI (i composable non vedono JSON)
+// Normalized models for the UI (composables see no JSON)
 // ---------------------------------------------------------------------------
 
 data class AgentUi(
@@ -103,8 +103,8 @@ data class McpUi(
 )
 
 /**
- * Modello per la UI. Volutamente senza `settings`: il DTO di origine può
- * contenere `settings.apiKey`, che non deve avere alcun campo in cui finire.
+ * Model for the UI. Deliberately without `settings`: the source DTO may
+ * contain `settings.apiKey`, which must have no field to land in.
  */
 @Serializable
 data class ModelUi(
@@ -123,7 +123,7 @@ data class LocationUi(
     val projectId: String? = null,
 )
 
-/** Snapshot dei cataloghi M3, con cache in memoria a TTL. */
+/** Snapshot of the M3 catalogs, with an in-memory TTL cache. */
 data class Catalog(
     val agents: List<AgentUi> = emptyList(),
     val skills: List<SkillUi> = emptyList(),
@@ -132,7 +132,7 @@ data class Catalog(
     val location: LocationUi? = null,
     val loadedAt: Long? = null,
 ) {
-    /** Agenti mostrabili nel drawer: né nascosti né subagent. */
+    /** Agents showable in the drawer: neither hidden nor subagents. */
     val agentsForDrawer: List<AgentUi>
         get() = agents.filter { !it.hidden && it.mode != "subagent" }
 
@@ -150,7 +150,7 @@ data class Catalog(
 }
 
 // ---------------------------------------------------------------------------
-// Parsing tollerante dei cataloghi
+// Tolerant parsing of the catalogs
 // ---------------------------------------------------------------------------
 
 object CatalogParsing {
@@ -180,8 +180,8 @@ object CatalogParsing {
     fun parseModels(body: String): List<ModelUi> =
         json.decodeFromString<CatalogEnvelope<ModelCatalogDto>>(body).data
             .mapNotNull(::normalizeModel)
-            // `id` è il riferimento concreto (Model.Ref.id); `modelID` è la famiglia e si ripete
-            // (es. gpt-4.1 e gpt-4.1-fast). Dedupe sulla coppia provider+id.
+            // `id` is the concrete reference (Model.Ref.id); `modelID` is the family and repeats
+            // (e.g. gpt-4.1 and gpt-4.1-fast). Dedupe on the provider+id pair.
             .distinctBy { it.providerID + "/" + it.id }
 
     fun parseLocation(body: String): LocationUi? =
@@ -189,7 +189,7 @@ object CatalogParsing {
             .getOrNull()
             ?.let(::normalizeLocation)
 
-    /** `GET /api/session?parentID=…`: stessa forma di `/api/session`. */
+    /** `GET /api/session?parentID=…`: same shape as `/api/session`. */
     fun parseChildren(body: String): List<SessionUi> = ApiParsing.parseSessions(body).sessions
 
     fun normalizeAgent(dto: AgentDto): AgentUi? {
@@ -265,12 +265,13 @@ object CatalogParsing {
 }
 
 /**
- * Chiave univoca per le liste: il riferimento concreto è `id` (quello che accetta
- * `Model.Ref`), mentre `modelID` è la famiglia e può ripetersi su più voci.
+ * Unique key for the lists: the concrete reference is `id` (the one that
+ * `Model.Ref` accepts), while `modelID` is the family and may repeat across
+ * entries.
  */
 fun ModelUi.pickerKey(): String = providerID + "/" + id
 
-/** Vero se questa voce è quella salvata nella sessione (`Session.Info.model`). */
+/** True if this entry is the one saved in the session (`Session.Info.model`). */
 fun ModelUi.referencesSession(sessionModelId: String?, sessionProvider: String?): Boolean {
     if (sessionModelId.isNullOrBlank()) return false
     if (sessionModelId != id) return false

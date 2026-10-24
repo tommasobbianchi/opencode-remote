@@ -185,7 +185,7 @@ fun SessionListScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "Sessioni",
+                            text = "Sessions",
                             style = MaterialTheme.typography.headlineMedium,
                             color = oc.accent,
                         )
@@ -221,9 +221,9 @@ fun SessionListScreen(
                 )
             }
 
-            // M5 F1/F2: un solo avviso alla volta. Se lo stream non è live il
-            // motivo (anche un errore REST) sta nella riga compatta di stato;
-            // un errore mentre la SSE è viva usa il banner esistente.
+            // M5 F1/F2: one notice at a time. If the stream is not live the
+            // reason (including a REST error) is in the compact status row;
+            // an error while the SSE is alive uses the existing banner.
             if (state.error != null && streamLive) {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
@@ -256,7 +256,7 @@ fun SessionListScreen(
                     ) {
                         StreamNotice(
                             text = when {
-                                // Rete assente: si aspetta, non si riprova (niente numeri).
+                                // No network: wait, do not retry (no countdown numbers).
                                 suspended -> ReconnectPolicy.NETWORK_WAITING
                                 reconnecting != null && state.error != null ->
                                     "${state.error} · riprovo tra " +
@@ -325,7 +325,7 @@ fun SessionListScreen(
                                                     onClick = onOpenEventLog,
                                                     modifier = Modifier.heightIn(min = 48.dp),
                                                 ) {
-                                                    Text("Apri log SSE")
+                                                    Text("Open SSE log")
                                                 }
                                             }
                                         },
@@ -386,9 +386,9 @@ fun SessionListScreen(
 }
 
 /**
- * Pill dell'header: è il server corrente, ed è l'unico punto della lista da cui
- * si torna alla scelta del server. Bordo e chevron la rendono riconoscibile
- * come controllo; il tap apre il foglio con URL, versione e conseguenze.
+ * Header pill: it is the current server, and the only point of the list from
+ * which one returns to the server choice. Border and chevron make it readable
+ * as a control; the tap opens the sheet with URL, version, and consequences.
  */
 @Composable
 private fun ServerChip(
@@ -460,9 +460,9 @@ private fun ServerChip(
 }
 
 /**
- * Foglio "Server": dati della connessione e uscita verso il setup. La
- * conseguenza (credenziali salvate cancellate) è scritta prima del tap sul
- * pulsante, così il cambio server non è una perdita silenziosa.
+ * "Server" sheet: connection data and exit to the setup. The
+ * consequence (saved credentials deleted) is written before the tap on the
+ * button, so that a server change is not a silent loss.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -583,7 +583,7 @@ private fun ServerSheet(
                         modifier = Modifier.heightIn(min = 48.dp),
                         colors = ButtonDefaults.textButtonColors(contentColor = oc.mutedText),
                     ) {
-                        Text("Annulla", style = MaterialTheme.typography.labelLarge)
+                        Text("Cancel", style = MaterialTheme.typography.labelLarge)
                     }
                     Spacer(Modifier.width(8.dp))
                     Button(
@@ -603,9 +603,9 @@ private fun ServerSheet(
 }
 
 /**
- * Riga compatta di stato sotto l'header: compare anche con la lista in cache,
- * che è proprio il caso in cui serve sapere che i dati non sono aggiornati.
- * Il motivo viene da `error` (quando c'è) o dallo stato dello stream.
+ * Compact status row under the header: it also appears with the list in cache,
+ * which is exactly the case in which one must know that data is not up to date.
+ * The reason comes from `error` (when present) or from the stream state.
  */
 @Composable
 private fun StreamNotice(
@@ -646,14 +646,14 @@ private fun StreamNotice(
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                 colors = ButtonDefaults.textButtonColors(contentColor = tone),
             ) {
-                Text(text = "Riprova", style = MaterialTheme.typography.labelMedium)
+                Text(text = "Retry", style = MaterialTheme.typography.labelMedium)
             }
             if (onDismiss != null) {
                 IconButton(
                     onClick = onDismiss,
                     modifier = Modifier
                         .size(44.dp)
-                        .semantics { contentDescription = "Chiudi l'avviso" },
+                        .semantics { contentDescription = "Close notice" },
                 ) {
                     GlyphClose(size = 14.dp)
                 }

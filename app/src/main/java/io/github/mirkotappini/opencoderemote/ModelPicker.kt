@@ -62,9 +62,9 @@ import io.github.mirkotappini.opencoderemote.net.SessionUi
 import java.util.Locale
 
 /**
- * Picker del modello a schermo intero, con ricerca e gruppi per provider.
- * Funziona anche quando la sessione non ha ancora un modello (caso reale:
- * `GET /api/session/{id}` non espone `model` finché non c'è un cambio o un turno).
+ * Full-screen model picker with search and groups per provider.
+ * Works even when the session has no model yet (real case:
+ * `GET /api/session/{id}` does not expose `model` until there is a change or a turn).
  */
 @Composable
 fun ModelPickerDialog(
@@ -164,7 +164,7 @@ private fun ModelPickerContent(
                         )
                         Text(
                             text = if (current != null) {
-                                "Sessione: ${current.title}"
+                                "Session: ${current.title}"
                             } else {
                                 "No open session"
                             },
@@ -224,7 +224,7 @@ private fun ModelPickerContent(
                     models.isEmpty() -> PickerBlank(
                         title = "Nessun modello",
                         body = "The model catalog has not arrived from the server yet.",
-                        actionLabel = "Riprova",
+                        actionLabel = "Retry",
                         onAction = onRefresh,
                     )
 
@@ -303,7 +303,7 @@ private fun ModelRow(
             .fillMaxWidth()
             .background(if (selected) oc.interactive.copy(alpha = 0.07f) else androidx.compose.ui.graphics.Color.Transparent)
             .clickable(
-                onClickLabel = "Usa il modello ${model.displayName()}",
+                onClickLabel = "Use the ${model.displayName()} model",
                 role = Role.Button,
                 onClick = onClick,
             )

@@ -36,8 +36,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
- * Navigazione senza libreria: setup → (lista | chat), con il log SSE come
- * schermata secondaria e il drawer OMO disponibile da lista e chat.
+ * Navigation without a library: setup → (list | chat), with the SSE log as a
+ * secondary screen and the OMO drawer available from both list and chat.
  */
 @Composable
 fun MainScreen(viewModel: AppViewModel = viewModel()) {
@@ -46,7 +46,7 @@ fun MainScreen(viewModel: AppViewModel = viewModel()) {
         var showEventLog by rememberSaveable { mutableStateOf(false) }
 
         when {
-            // M5: la versione del server è bloccante: niente setup, niente lista.
+            // M5: the server version is blocking: no setup, no list.
             state.connection is Connection.Incompatible -> VersionMismatchScreen(
                 state = state,
                 onRetry = viewModel::retryConnect,
@@ -78,12 +78,13 @@ fun MainScreen(viewModel: AppViewModel = viewModel()) {
 }
 
 /**
- * Superficie connessa: lista o chat avvolte dal drawer laterale destro.
+ * Connected surface: list or chat wrapped by the right-side drawer.
  *
- * `ModalNavigationDrawer` in Material 3 àncora lo sheet a start; per averlo a
- * end il sottoalbero gira in layout RTL e ogni lato (drawer e contenuto) torna
- * subito in LTR. Il risultato è lo stesso drawer Material, specchiato a destra,
- * senza reimplementare gesture, scrim e predictive back.
+ * `ModalNavigationDrawer` in Material 3 anchors the sheet at start; to have it
+ * at end, the subtree runs in RTL layout and each side (drawer and content)
+ * snaps back to LTR immediately. The result is the same Material drawer,
+ * mirrored to the right, without reimplementing gestures, scrim, or predictive
+ * back.
  */
 @Composable
 private fun ConnectedSurface(
@@ -96,8 +97,8 @@ private fun ConnectedSurface(
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
     val closeDrawer: () -> Unit = { scope.launch { drawerState.close() } }
 
-    // Promemoria non modale per POST_NOTIFICATIONS (Android 13+). Il permesso
-    // di sistema si apre una sola volta, al primo connect riuscito.
+    // Non-modal reminder for POST_NOTIFICATIONS (Android 13+). The system
+    // permission is requested only once, on the first successful connect.
     val context = LocalContext.current
     var notificationPrompt by remember { mutableStateOf<NotificationPromptUi?>(null) }
     var autoLaunchNotification by remember { mutableStateOf(true) }
@@ -111,7 +112,7 @@ private fun ConnectedSurface(
             NotificationPromptUi(
                 message = "Notifications off: approvals stay here in chat. " +
                     "You can enable them from Android settings.",
-                actionLabel = "Impostazioni",
+                actionLabel = "Settings",
                 opensSettings = true,
             )
         }
@@ -146,7 +147,7 @@ private fun ConnectedSurface(
         notificationPrompt = null
     }
 
-    // TTL del catalogo (5 minuti) e task: refresh quando il pannello si apre.
+    // Catalog TTL (5 minutes) and task: refresh when the panel opens.
     LaunchedEffect(drawerState.isOpen, state.openSession?.id) {
         if (drawerState.isOpen) {
             viewModel.loadCatalog()
@@ -157,9 +158,9 @@ private fun ConnectedSurface(
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         ModalNavigationDrawer(
             drawerState = drawerState,
-            // A drawer chiuso il gesto Material sarebbe attivo su tutta la
-            // superficie: qui apre solo la striscia di bordo (sotto). Da aperto
-            // restano attivi swipe di chiusura, tap sullo scrim e back.
+            // With the drawer closed the Material gesture would be active over
+            // the whole surface: here only the edge strip (below) can open it.
+            // From open, the close swipe, scrim tap, and back stay active.
             gesturesEnabled = drawerState.targetValue == DrawerValue.Open,
             drawerContent = {
                 OmoDrawerSheet(
@@ -238,14 +239,14 @@ private fun ConnectedSurface(
 }
 
 /**
- * Swipe dal bordo destro verso sinistra per aprire il drawer.
+ * Swipe from the right edge toward the left to open the drawer.
  *
- * Solo gli ultimi 22 dp: abbastanza per il gesto, troppo poco per competere con
- * il back di sistema, che nella navigazione a gesti ha comunque la precedenza.
- * L'icona in top bar resta la via affidabile. Il rilevatore è sul contenitore
- * (non su una striscia sopra la UI) così tap e scroll dei figli non vengono
- * intercettati: si attiva solo per un trascinamento orizzontale che parte
- * dentro il bordo.
+ * Only the last 22 dp: enough for the gesture, too little to compete with the
+ * system back, which in gesture navigation has precedence anyway.
+ * The top-bar icon remains the reliable path. The detector is on the container
+ * (not on a strip over the UI) so children taps and scrolls are not
+ * intercepted: it only activates for a horizontal drag that starts
+ * inside the edge.
  */
 private fun Modifier.drawerEdgeSwipe(
     enabled: Boolean,

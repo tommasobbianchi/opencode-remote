@@ -142,7 +142,7 @@ class M2Test {
         assertFalse(merged.any { it.id == "local-1" })
         assertTrue(merged.any { it.id == "local-2" })
 
-        // Doppio resync con la stessa lista: nessuna crescita.
+        // Double resync with the same list: no growth.
         assertEquals(merged.size, reconcileMessages(server, merged).size)
     }
 

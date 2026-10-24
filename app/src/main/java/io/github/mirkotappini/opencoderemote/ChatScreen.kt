@@ -146,13 +146,13 @@ fun ChatScreen(
     var autoScrolled by remember(session?.id) { mutableStateOf(false) }
     var pendingAnchorId by remember(session?.id) { mutableStateOf<String?>(null) }
 
-    // UN solo turno live (UI-M6 §1). Se il resync ha già portato in `messages`
-    // lo stesso id, il turno live non viene disegnato due volte.
+    // A single live turn (UI-M6 §1). If resync has already brought the
+    // same id into `messages`, the live turn is not drawn twice.
     val liveTurn = state.chat.liveTurn
         ?.takeIf { turn -> state.messages.none { it.id == turn.id } }
-    // Step assistente consecutivi = una sola bolla, come nel TUI. Il
-    // raggruppamento è solo di presentazione: nessun nuovo stato nel reducer.
-    // La storia è memoizzata: ai delta live si rifonde solo il turno in coda.
+    // Consecutive assistant steps = a single bubble, as in the TUI. The
+    // grouping is presentation-only: no new state in the reducer.
+    // The history is memoized: on live deltas only the trailing turn is re-merged.
     val persistedRows = remember(state.messages) { buildChatRows(state.messages) }
     val rows = remember(persistedRows, liveTurn) {
         withLiveTurn(persistedRows, liveTurn)
@@ -160,8 +160,8 @@ fun ChatScreen(
     val totalRows = rows.size + (if (state.hasMore) 1 else 0)
     var detailRequest by remember(session?.id) { mutableStateOf<DetailRequest?>(null) }
 
-    // Auto-scroll agganciato al contenuto del turno, mai alla crescita
-    // dell'output di un tool (§4.4). Il throttle è dato da conflate + delay.
+    // Auto-scroll tied to the turn's content, never to the growth
+    // of a tool's output (§4.4). The throttle is conflate + delay.
     val scrollSnapshot = rememberUpdatedState(
         ScrollSnapshot(
             rows = totalRows,
@@ -210,7 +210,7 @@ fun ChatScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
             ChatHeader(
-                title = session?.title ?: "Sessione",
+                title = session?.title ?: "Session",
                 meta = listOfNotNull(
                     session?.agent?.takeIf { it.isNotBlank() },
                     session?.modelId?.takeIf { it.isNotBlank() },
@@ -241,8 +241,8 @@ fun ChatScreen(
             val reconnecting = state.streamState as? StreamState.Reconnecting
             val connecting = state.streamState is StreamState.Connecting
             val suspended = state.retrySuspended || reconnecting?.suspended == true
-            // Un solo avviso: se c'è già `error`, il countdown viene aggiunto
-            // al suo messaggio. Con la rete assente vince il testo dedicato.
+            // A single warning: if `error` already exists, the countdown is
+            // appended to its message. With no network the dedicated text wins.
             if ((reconnecting != null || connecting) && (state.error == null || suspended)) {
                 ReconnectBanner(
                     text = when {
@@ -368,10 +368,10 @@ fun ChatScreen(
                                     }
                                 }
 
-                                // Una riga per turno: gli step assistente
-                                // consecutivi sono già fusi in `rows`. La
-                                // chiave resta `turn:<primoId>`, quindi il
-                                // passaggio live → resync non muove l'item.
+                                // One row per turn: the consecutive assistant
+                                // steps have already been merged into `rows`. The
+                                // key stays `turn:<firstId>`, so the
+                                // live → resync transition does not move the item.
                                 items(
                                     items = rows,
                                     key = { row -> row.key },
@@ -435,8 +435,8 @@ fun ChatScreen(
             }
         }
 
-        // Un solo foglio per tutta la chat: comando/output dei tool e
-        // ragionamento lungo passano da qui (§2.5).
+        // A single sheet for the whole chat: tool command/output and
+        // long reasoning go through here (§2.5).
         detailRequest?.let { request ->
             TurnDetailSheet(
                 request = request,
@@ -695,9 +695,9 @@ private fun Composer(
                                     if (draft.isEmpty()) {
                                         Text(
                                             text = if (connected) {
-                                                "Scrivi un messaggio…"
+                                                "Write a message…"
                                             } else {
-                                                "Non connesso"
+                                                "Not connected"
                                             },
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = scheme.onSurfaceVariant,
@@ -725,8 +725,8 @@ private fun Composer(
 }
 
 /**
- * Sostituisce il composer per un task figlio: niente prompt né invio, il
- * `draft` del padre resta intatto. "Ferma" agisce su questa sessione.
+ * Replaces the composer for a child task: no prompt or send, the
+ * parent's `draft` is left untouched. "Ferma" acts on this session.
  */
 @Composable
 private fun ReadOnlyFooter(
@@ -792,7 +792,7 @@ private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
         contentColor = if (enabled) scheme.onPrimary else scheme.onSurfaceVariant,
         modifier = Modifier
             .size(48.dp)
-            .semantics { contentDescription = "Invia prompt" },
+            .semantics { contentDescription = "Send prompt" },
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             GlyphArrowRight(size = 18.dp)
@@ -825,12 +825,12 @@ private fun StopButton(onClick: () -> Unit) {
 }
 
 // ---------------------------------------------------------------------------
-// Turno assistente — UI-M6 §1/§2.
+// Assistant turn — UI-M6 §1/§2.
 //
-// Un solo entry point per il turno live e per il messaggio persistito: stessa
-// bolla, stesse part, stesse chiavi. Al resync il reducer sostituisce il turno
-// con lo stesso id, quindi l'item `turn:<id>` non salta e le part espanse
-// restano tali quando la loro `key` coincide.
+// A single entry point for the live turn and the persisted message: same
+// bubble, same parts, same keys. On resync the reducer replaces the turn
+// with the same id, so the `turn:<id>` item does not jump and the expanded
+// parts stay so when their `key` matches.
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -839,7 +839,7 @@ private fun AssistantTurn(
     bubbleMax: Dp,
     onOpenDetail: (DetailRequest) -> Unit,
 ) {
-    // Con turno concluso e nessuna part la bolla non esiste (§2.4).
+    // With the turn ended and no parts, the bubble does not exist (§2.4).
     if (turn.parts.isEmpty() && !turn.running) return
 
     val scheme = MaterialTheme.colorScheme
@@ -849,7 +849,7 @@ private fun AssistantTurn(
         it.phase == PartPhase.Streaming || it.phase == PartPhase.Running
     }
 
-    // Un solo ticker per turno, attivo solo con part in corso (§4.4).
+    // A single ticker per turn, active only when a part is in progress (§4.4).
     val now = produceState(
         initialValue = System.currentTimeMillis(),
         key1 = turn.id,
@@ -861,9 +861,9 @@ private fun AssistantTurn(
         }
     }
 
-    // Un solo cursore per turno: l'ultima part text ancora in streaming.
-    // Lampeggio a scatti 1 ↔ 0,35 su 900 ms: il glifo resta identico, quindi
-    // il testo non viene rimisurato a ogni frame (niente relayout in streaming).
+    // A single cursor per turn: the last text part still streaming.
+    // Blink in steps of 1 ↔ 0,35 over 900 ms: the glyph stays identical, so the
+    // text is not re-measured on every frame (no relayout during streaming).
     val cursorKey = parts.lastOrNull {
         it is TextPartUi && it.phase == PartPhase.Streaming
     }?.key
@@ -932,8 +932,8 @@ private fun AssistantTurn(
                                     }
                                 }
                             }
-                            // Pausa fra due part: niente tre puntini, un solo
-                            // arco con grazia di 400 ms (§2.4).
+                            // Pause between two parts: no three dots, a single
+                            // arc with a 400 ms grace (§2.4).
                             if (index == parts.lastIndex && turn.running && !anyActive) {
                                 ThinkingPlaceholder()
                             }
@@ -953,7 +953,7 @@ private fun AssistantTurn(
     }
 }
 
-/** Fallback §2.4: nessuna part attiva, ma il turno sta ancora lavorando. */
+/** Fallback §2.4: no active part, but the turn is still working. */
 @Composable
 private fun ThinkingPlaceholder() {
     val oc = OpenColors.current
@@ -984,7 +984,7 @@ private fun ThinkingPlaceholder() {
     }
 }
 
-/** §2.1 — ragionamento collassato di default, anteprima e limite righe. */
+/** §2.1 — reasoning collapsed by default, preview and line limit. */
 @Composable
 private fun ReasoningBlock(
     part: ReasoningPartUi,
@@ -1010,9 +1010,9 @@ private fun ReasoningBlock(
         minimumMs = 0L,
     )
 
-    // TUI: colore base in streaming, warningInk quando espanso, 60% se
-    // collassato e già concluso. Nel tema chiaro il 60% scenderebbe sotto AA,
-    // quindi l'inchiostro resta pieno.
+    // TUI: base colour while streaming, warningInk when expanded, 60% if
+    // collapsed and already ended. In the light theme 60% would drop below AA,
+    // so the ink stays full.
     val headerColor = when {
         streaming -> oc.text
         expanded -> oc.warningInk
@@ -1028,9 +1028,9 @@ private fun ReasoningBlock(
                 .clickable(
                     role = Role.Button,
                     onClickLabel = if (expanded) {
-                        "Nascondi ragionamento"
+                        "Hide reasoning"
                     } else {
-                        "Mostra ragionamento"
+                        "Show reasoning"
                     },
                 ) { expanded = !expanded }
                 .semantics {
@@ -1067,8 +1067,8 @@ private fun ReasoningBlock(
             )
         }
 
-        // In streaming il corpo non si apre da solo: una riga di anteprima
-        // dà il segno di vita senza far saltare la chat a ogni token.
+        // While streaming the body does not open on its own: one preview line
+        // signals life without making the chat jump on every token.
         if (!expanded && streaming && preview.isNotBlank()) {
             Text(
                 text = preview,
@@ -1110,7 +1110,7 @@ private fun ReasoningBlock(
                 if (limited.truncated) {
                     ShowAllRow(
                         label = "show all · " + lineLabel(lineCount),
-                        onClickLabel = "Mostra tutto il ragionamento",
+                        onClickLabel = "Show all reasoning",
                         onClick = {
                             onOpenDetail(
                                 DetailRequest(
@@ -1128,7 +1128,7 @@ private fun ReasoningBlock(
     }
 }
 
-/** §2.2 — card del tool, sempre aperta, senza dump JSON. */
+/** §2.2 — tool card, always open, no JSON dump. */
 @Composable
 private fun ToolCard(
     part: ToolPartUi,
@@ -1269,7 +1269,7 @@ private fun ToolCard(
                 if (output.totalLines > 0 || command.truncated) {
                     ShowAllRow(
                         label = "show all · " + lineLabel(showAllLines),
-                        onClickLabel = "Mostra tutto l'output di " +
+                        onClickLabel = "Show all output of " +
                             part.name.ifBlank { "tool" },
                         onClick = {
                             onOpenDetail(
@@ -1298,7 +1298,7 @@ private fun ToolCard(
     }
 }
 
-/** Riga "mostra tutto · N righe": target 48dp, testo interattivo (§2.2/§2.5). */
+/** "show all · N rows" row: 48dp target, interactive text (§2.2/§2.5). */
 @Composable
 private fun ShowAllRow(
     label: String,
@@ -1328,7 +1328,7 @@ private fun ShowAllRow(
 }
 
 // ---------------------------------------------------------------------------
-// Foglio di dettaglio condiviso (§2.5): comando/output del tool, ragionamento.
+// Shared detail sheet (§2.5): tool command/output, reasoning.
 // ---------------------------------------------------------------------------
 
 private data class DetailSection(val label: String, val text: String)
@@ -1345,8 +1345,8 @@ private fun TurnDetailSheet(
     val oc = OpenColors.current
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    // Il foglio non supera l'80% dello schermo; se il contenuto è corto resta
-    // corto (nessun vuoto sopra il testo).
+    // The sheet does not exceed 80% of the screen; if the content is short it
+    // stays short (no empty space above the text).
     val bodyMaxHeight = (LocalConfiguration.current.screenHeightDp * 0.8f).dp - 56.dp
     var copiedLabel by remember(request) { mutableStateOf<String?>(null) }
 
@@ -1389,7 +1389,7 @@ private fun TurnDetailSheet(
                         .heightIn(min = 48.dp)
                         .clickable(
                             role = Role.Button,
-                            onClickLabel = "Chiudi",
+                            onClickLabel = "Close",
                             onClick = onDismiss,
                         )
                         .padding(horizontal = 8.dp),
@@ -1554,22 +1554,22 @@ private fun MessageRow(
     }
 }
 
-/** Chiave di lista stabile: gli assistenti usano `turn:<id>` come il turno live. */
+/** Stable list key: assistants use `turn:<id>` just like the live turn. */
 private fun MessageUi.listItemKey(): String = when (role) {
     MessageRole.Assistant -> "turn:$id"
     else -> "message:$id"
 }
 
 // ---------------------------------------------------------------------------
-// Raggruppamento di presentazione degli step assistente.
+// Presentation grouping of the assistant steps.
 //
-// Il server emette un `assistantMessageID` per step: reasoning + tool in uno,
-// testo finale nel successivo. Nel TUI è un solo turno, quindi qui gli step
-// assistente consecutivi vengono fusi in una sola bolla. Non è stato del
-// reducer: è una proiezione della lista al momento del disegno.
+// The server emits an `assistantMessageID` per step: reasoning + tool in one,
+// final text in the next. In the TUI it is a single turn, so here consecutive
+// assistant steps are merged into one bubble. It is not the
+// reducer's state: it is a projection of the list at draw time.
 // ---------------------------------------------------------------------------
 
-/** Riga della chat: messaggio singolo (utente/meta) o turno fuso. */
+/** Chat row: single message (user/meta) or merged turn. */
 private sealed interface ChatRow {
     val key: String
 
@@ -1582,15 +1582,15 @@ private sealed interface ChatRow {
     }
 }
 
-/** Id usato come ancora per "carica precedenti": il primo messaggio della riga. */
+/** Id used as the anchor for "carica precedenti": the first message of the row. */
 private fun ChatRow.anchorId(): String = when (this) {
     is ChatRow.Single -> message.id
     is ChatRow.Turn -> turn.id
 }
 
 /**
- * La riga contiene [id]? Un turno può aver assorbito il messaggio ancora
- * precedente (step assistente consecutivi): in quel caso si ancora al turno.
+ * Does the row contain [id]? A turn may have absorbed an earlier anchor
+ * message (consecutive assistant steps): in that case we anchor to the turn.
  */
 private fun ChatRow.holdsMessage(id: String): Boolean = when (this) {
     is ChatRow.Single -> message.id == id
@@ -1599,14 +1599,14 @@ private fun ChatRow.holdsMessage(id: String): Boolean = when (this) {
 }
 
 /**
- * Fonde gli step assistente consecutivi in un solo [AssistantTurnUi], fermandosi
- * a ogni messaggio non assistente (utente o divisore). L'id del turno è quello
- * del primo step: è la chiave `turn:<primoId>` che il resync ritrova identica.
+ * Merges consecutive assistant steps into a single [AssistantTurnUi], stopping
+ * at every non-assistant message (user or divider). The turn's id is that of
+ * the first step: it is the `turn:<firstId>` key that resync finds identical.
  *
- * Le part key si ripetono fra messaggi diversi (`reasoning:0`, `text:0`, …),
- * quindi ogni part viene ri-chiavata con l'id del messaggio di origine. Il
- * risultato è stabile live → materializzato → resync, perché l'id del messaggio
- * non cambia in quel passaggio.
+ * Part keys repeat across different messages (`reasoning:0`, `text:0`, …),
+ * so every part is re-keyed with the id of its originating message. The
+ * result is stable live → materialized → resync, because the message's id
+ * does not change across that transition.
  */
 private fun buildChatRows(
     messages: List<MessageUi>,
@@ -1621,7 +1621,7 @@ private fun buildChatRows(
 
     fun flush() {
         val id = firstId
-        // Gruppo senza part e non in corso: nessuna bolla (come §2.4).
+        // Group without parts and not in progress: no bubble (as in §2.4).
         if (id != null && (merged.isNotEmpty() || lastRunning || hasActive)) {
             rows += ChatRow.Turn(
                 AssistantTurnUi(
@@ -1651,7 +1651,7 @@ private fun buildChatRows(
         if (sourceParts.any { it.phase.isLive() }) {
             hasActive = true
         }
-        // Il timestamp della bolla è quello dell'ultimo step.
+        // The bubble's timestamp is that of the last step.
         if (time != null) createdAt = time
         lastRunning = running
     }
@@ -1676,10 +1676,10 @@ private fun buildChatRows(
 }
 
 /**
- * Aggiunge il turno live in coda. Se l'ultima riga è già un turno assistente
- * (step precedenti della stessa esecuzione, o due esecuzioni senza prompt in
- * mezzo) il live viene fuso lì, così la bolla resta una e la chiave
- * `turn:<primoId>` non cambia. Altrimenti il live è un turno a sé.
+ * Appends the live turn at the tail. If the last row is already an assistant
+ * turn (earlier steps of the same run, or two runs with no prompt in
+ * between) the live turn is merged there, so the bubble stays one and the key
+ * `turn:<firstId>` does not change. Otherwise the live turn stands alone.
  */
 private fun withLiveTurn(
     rows: List<ChatRow>,
@@ -1687,7 +1687,7 @@ private fun withLiveTurn(
 ): List<ChatRow> {
     if (live == null) return rows
     if (live.parts.isEmpty() && !live.running) return rows
-    // Difesa: il live con lo stesso id di un messaggio è già rappresentato.
+    // Guard: the live turn with the same id as a message is already represented.
     if (rows.any { it is ChatRow.Turn && it.turn.id == live.id }) return rows
 
     val liveParts = rekeyParts(live.id, live.parts)
@@ -1718,11 +1718,11 @@ private fun withLiveTurn(
 private fun PartPhase.isLive(): Boolean =
     this == PartPhase.Streaming || this == PartPhase.Running
 
-/** Ordina per `order` e ri-chiava: la part key si ripete fra messaggi diversi. */
+/** Sorts by `order` and re-keys: part keys repeat across different messages. */
 private fun rekeyParts(id: String, parts: List<TurnPartUi>): List<TurnPartUi> =
     parts.sortedBy { it.order }.map { it.withDisplayKey("$id|${it.key}") }
 
-/** Re-key stabile: id del messaggio di origine + key già stabile della part. */
+/** Stable re-key: originating message's id + part's already-stable key. */
 private fun TurnPartUi.withDisplayKey(key: String): TurnPartUi = when (this) {
     is ReasoningPartUi -> copy(key = key)
     is TextPartUi -> copy(key = key)
@@ -1730,9 +1730,9 @@ private fun TurnPartUi.withDisplayKey(key: String): TurnPartUi = when (this) {
 }
 
 /**
- * Messaggio persistito → stesso tipo del turno live (§1). `running` è vero solo
- * se il resync ha portato part ancora attive: un messaggio già chiuso non mostra
- * mai il fallback "sta scrivendo…".
+ * Persisted message → same type as the live turn (§1). `running` is true only
+ * if resync brought parts that are still active: a closed message never shows
+ * the fallback "sta scrivendo…".
  */
 private fun MessageUi.asTurn(sessionRunning: Boolean): AssistantTurnUi {
     val active = parts.any {
@@ -1877,9 +1877,9 @@ private fun ChatSkeleton(bubbleMax: Dp) {
 }
 
 // ---------------------------------------------------------------------------
-// Markdown minimale per la chat: titoli, strong, corsivo, codice inline e
-// blocchi, citazioni, link. Nessuna dipendenza: si applicano solo gli stili
-// che il TUI mostra, senza introdurre un parser completo.
+// Minimal markdown for the chat: headings, strong, italic, inline code and
+// blocks, quotes, links. No dependency: only the styles the
+// TUI shows are applied, without introducing a full parser.
 // ---------------------------------------------------------------------------
 
 private sealed interface MdBlock {
@@ -1940,8 +1940,8 @@ private fun parseMarkdown(source: String): List<MdBlock> {
 }
 
 /**
- * Markdown memoizzato su (lunghezza, hash) del testo (§4.4): il cursore non fa
- * parte del testo parsato, quindi il blink non ricalcola il markdown.
+ * Markdown memoized on (length, hash) of the text (§4.4): the cursor is not
+ * part of the parsed text, so the blink does not recompute the markdown.
  */
 private object MarkdownCache {
     private const val MAX_ENTRIES = 32
@@ -1979,7 +1979,7 @@ private fun MarkdownBody(
 ) {
     val oc = OpenColors.current
     val blocks = remember(text) { MarkdownCache.blocks(text) }
-    // Letto qui: il blink invalida solo questa part text, non tutto il turno.
+    // Read here: the blink invalidates only this text part, not the whole turn.
     val alpha: Float? = cursorAlpha?.value
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         blocks.forEachIndexed { index, block ->
@@ -2072,7 +2072,7 @@ private fun MarkdownBody(
             }
         }
 
-        // Testo ancora vuoto: il cursore è comunque il segno di vita.
+        // Text still empty: the cursor is still the sign of life.
         if (blocks.isEmpty() && alpha != null) {
             Text(
                 text = "▌",
@@ -2175,8 +2175,8 @@ private fun inlineMarkdown(text: String, oc: OpenPalette): AnnotatedString =
     }
 
 // ---------------------------------------------------------------------------
-// Misure e formattazione delle part (§2, §4.2): niente misure a runtime, si
-// troncano le stringhe prima di passarle a `Text`.
+// Part measurement and formatting (§2, §4.2): no runtime measurements, the
+// strings are truncated before being passed to `Text`.
 // ---------------------------------------------------------------------------
 
 private const val REASONING_VISIBLE_LINES = 14
@@ -2191,7 +2191,7 @@ private data class LimitedText(
     val truncated: Boolean,
 )
 
-/** Prime `maxLines` righe (e al massimo 2400 caratteri) per il ragionamento. */
+/** First `maxLines` lines (and at most 2400 characters) for the reasoning. */
 private fun limitLines(text: String, maxLines: Int): LimitedText {
     if (text.isEmpty()) return LimitedText("", 0, false)
     val lines = text.lines()
@@ -2216,7 +2216,7 @@ private fun limitLines(text: String, maxLines: Int): LimitedText {
     return LimitedText(kept.joinToString("\n"), lines.size, cut)
 }
 
-/** Ultime 6 righe dell'output: il fondo è dove stanno gli errori. */
+/** Last 6 lines of the output: the tail is where the errors live. */
 private fun outputTail(output: String?): LimitedText {
     if (output.isNullOrBlank()) return LimitedText("", 0, false)
     val lines = output.trimEnd().lines()
@@ -2252,7 +2252,7 @@ private fun durationLabel(
     return formatElapsed(elapsed)
 }
 
-/** "<10 s" → "1,3 s"; "<60 s" → "12 s"; oltre → "1 min 12 s". */
+/** "<10 s" → "1,3 s"; "<60 s" → "12 s"; beyond → "1 min 12 s". */
 private fun formatElapsed(elapsedMs: Long): String {
     if (elapsedMs < 10_000L) {
         return String.format(Locale.ITALIAN, "%.1f s", elapsedMs / 1000.0)
@@ -2264,7 +2264,7 @@ private fun formatElapsed(elapsedMs: Long): String {
     return if (seconds == 0L) "$minutes min" else "$minutes min $seconds s"
 }
 
-/** La durata di un tool compare solo da 1 s in su; per "negato" non c'è. */
+/** A tool's duration is shown only from 1 s upward; for "negato" there is none. */
 private fun toolDurationLabel(part: ToolPartUi, now: Long): String? {
     if (!part.executed || part.phase == PartPhase.Denied) return null
     if (isToolTerminal(part.phase) && part.endedAt == null) return null
@@ -2293,8 +2293,8 @@ private val shellToolNames = setOf(
 )
 
 /**
- * Il data layer espone `command` con il primo campo utile (`command`, `path`,
- * `pattern`…). Il prefisso `$` spetta ai tool di shell: si ricava dal nome.
+ * The data layer exposes `command` with the first useful field (`command`, `path`,
+ * `pattern`…). The `$` prefix belongs to shell tools: it is derived from the name.
  */
 private fun isShellTool(name: String): Boolean {
     val normalized = name.lowercase(Locale.ROOT)
@@ -2308,7 +2308,7 @@ private data class ToolStatusUi(
     val talkBack: String,
 )
 
-/** §2.2 — stato tipizzato dalla fase, mai ricavato dal JSON. */
+/** §2.2 — state typed from the phase, never derived from the JSON. */
 @Composable
 private fun toolPhaseUi(part: ToolPartUi): ToolStatusUi {
     val oc = OpenColors.current
@@ -2361,8 +2361,8 @@ private fun toolPhaseUi(part: ToolPartUi): ToolStatusUi {
 }
 
 // ---------------------------------------------------------------------------
-// Auto-scroll (§4.4): la firma cambia con testo e struttura del turno, non con
-// la crescita dell'output di un tool.
+// Auto-scroll (§4.4): the signature changes with the turn's text and structure,
+// not with the growth of a tool's output.
 // ---------------------------------------------------------------------------
 
 private data class ScrollSnapshot(

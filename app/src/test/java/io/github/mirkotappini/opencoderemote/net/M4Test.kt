@@ -30,7 +30,7 @@ class M4Test {
               "save":["*"],
               "metadata":{},
               "source":{"type":"tool","messageID":"msg_1","id":"call_1"},
-              "message":"Serve leggere il file"
+              "message":"The file needs to be read"
             }]}
         """.trimIndent()
 
@@ -44,7 +44,7 @@ class M4Test {
         assertEquals(listOf("perm-probe.env"), approval.resources)
         assertEquals(listOf("*"), approval.save)
         assertEquals("tool", approval.sourceLabel)
-        assertEquals("Serve leggere il file", approval.message)
+        assertEquals("The file needs to be read", approval.message)
     }
 
     @Test
@@ -76,10 +76,10 @@ class M4Test {
 
     @Test
     fun `decisione reject con message include il motivo`() {
-        val raw = ApprovalReply.bodyJson("reject", "non serve")
+        val raw = ApprovalReply.bodyJson("reject", "not needed")
         val obj = Json.parseToJsonElement(raw).jsonObject
         assertEquals("reject", obj["decision"]?.jsonPrimitive?.content)
-        assertEquals("non serve", obj["message"]?.jsonPrimitive?.content)
+        assertEquals("not needed", obj["message"]?.jsonPrimitive?.content)
 
         // Empty message: omitted, not sent as an empty string.
         val blank = Json.parseToJsonElement(ApprovalReply.bodyJson("once", "  ")).jsonObject

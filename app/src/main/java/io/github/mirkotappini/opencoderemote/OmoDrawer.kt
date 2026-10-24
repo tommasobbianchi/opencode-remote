@@ -76,25 +76,25 @@ import kotlinx.coroutines.delay
 import java.util.Locale
 
 // ---------------------------------------------------------------------------
-// Drawer "sidebar OMO": agenti, skill, MCP. La sessione aperta e i suoi task in
-// background sono contesto (riga in testa + bottom sheet), non una seconda lista
-// di sessioni. Layer dati: UiState.catalog / children / openSession (ViewModel).
-// Qui c'è solo presentazione: nessuna chiamata di rete diretta.
+// Drawer "sidebar OMO": agents, skills, MCP. The open session and its
+// background tasks are context (top row + bottom sheet), not a second session
+// list. Data layer: UiState.catalog / children / openSession (ViewModel).
+// Presentation only here: no direct network calls.
 // ---------------------------------------------------------------------------
 
 private enum class DrawerTab(val label: String) {
-    Agents("Agenti"),
+    Agents("Agents"),
     Skills("Skill"),
     Mcp("MCP"),
 }
 
-/** Conferma effimera di un'azione (agente, modello, skill). */
+/** Ephemeral confirmation of an action (agent, model, skill). */
 private data class DrawerNotice(val text: String, val success: Boolean = true)
 
 /**
- * Contenitore del drawer sul lato end. Il `ModalNavigationDrawer` lavora in
- * layout RTL (vedi `MainScreen`), quindi lo sheet è specchiato a destra; il
- * corpo torna in LTR subito dopo, per testo, icone e allineamenti.
+ * Drawer container on the end side. The `ModalNavigationDrawer` runs in RTL
+ * layout (see `MainScreen`), so the sheet is mirrored to the right; the body
+ * snaps back to LTR immediately after, for text, icons, and alignment.
  */
 @Composable
 fun OmoDrawerSheet(
@@ -151,7 +151,7 @@ private fun OmoDrawerBody(
     val scheme = MaterialTheme.colorScheme
     val oc = OpenColors.current
 
-    // Le tab restano dove sono finché il drawer è aperto (e oltre la rotazione).
+    // Tabs stay where they are while the drawer is open (and past rotation).
     var tabName by rememberSaveable { mutableStateOf(DrawerTab.Agents.name) }
     val tab = runCatching { DrawerTab.valueOf(tabName) }.getOrDefault(DrawerTab.Agents)
 
@@ -165,13 +165,13 @@ private fun OmoDrawerBody(
     val session = state.openSession
     val canSwitch = session != null
 
-    // Il server è la verità: la conferma arriva dal valore riletto dopo lo switch.
+    // The server is the truth: the confirmation comes from the value re-read after the switch.
     LaunchedEffect(session?.agent, pendingAgent) {
         val target = pendingAgent ?: return@LaunchedEffect
         if (session?.agent == target) {
             pendingAgent = null
             val name = state.catalog.agents.firstOrNull { it.id == target }?.name ?: target
-            notice = DrawerNotice("Agente attivo · $name")
+            notice = DrawerNotice("Active agent · $name")
         }
     }
     LaunchedEffect(session?.modelId, pendingModel) {
@@ -347,7 +347,7 @@ private fun OmoDrawerBody(
                     modifier = Modifier.heightIn(min = 48.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = oc.error),
                 ) {
-                    Text("Disconnetti", style = MaterialTheme.typography.labelLarge)
+                    Text("Disconnect", style = MaterialTheme.typography.labelLarge)
                 }
             },
             dismissButton = {
@@ -356,7 +356,7 @@ private fun OmoDrawerBody(
                     modifier = Modifier.heightIn(min = 48.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = oc.mutedText),
                 ) {
-                    Text("Annulla", style = MaterialTheme.typography.labelLarge)
+                    Text("Cancel", style = MaterialTheme.typography.labelLarge)
                 }
             },
             containerColor = scheme.surfaceContainerHigh,
@@ -396,7 +396,7 @@ private fun OmoDrawerBody(
 }
 
 // ---------------------------------------------------------------------------
-// Header, tab, toolbar, footer
+// Header, tabs, toolbar, footer
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -453,7 +453,7 @@ private fun DrawerHeader(
                     onClick = onClose,
                     modifier = Modifier
                         .size(48.dp)
-                        .semantics { contentDescription = "Chiudi il pannello" },
+                        .semantics { contentDescription = "Close panel" },
                 ) {
                     GlyphClose(size = 17.dp)
                 }
@@ -505,9 +505,9 @@ private fun ConnectionPill(
     suspended: Boolean,
 ) {
     val oc = OpenColors.current
-    // Con la REST connessa il drawer mostra lo stato effettivo del canale SSE:
-    // stesse parole della lista e della chat, così non sembra "tutto ok"
-    // mentre i dati sono fermi o in riconnessione.
+    // With REST connected the drawer shows the real state of the SSE channel:
+    // the same wording as the list and the chat, so it does not look "all ok"
+    // while data is stalled or reconnecting.
     val stream = streamStatusUi(streamState, secondsLeft, suspended)
     val (color, label, pulsing) = when (connection) {
         is Connection.Connected -> Triple(
@@ -557,7 +557,7 @@ private fun TasksBadge(
             .heightIn(min = 48.dp)
             .clickable(
                 enabled = !loading,
-                onClickLabel = "Mostra i task in background",
+                onClickLabel = "Show background tasks",
                 onClick = onClick,
             )
             .semantics { contentDescription = description },
@@ -674,7 +674,7 @@ private fun DrawerToolbar(
             onClick = onRefresh,
             modifier = Modifier
                 .size(48.dp)
-                .semantics { contentDescription = "Aggiorna i dati del pannello" },
+                .semantics { contentDescription = "Update panel data" },
         ) {
             GlyphRefresh(size = 17.dp)
         }
@@ -717,7 +717,7 @@ private fun DrawerFooter(
                 contentPadding = PaddingValues(horizontal = 12.dp),
             ) {
                 Text(
-                    text = "Disconnetti",
+                    text = "Disconnect",
                     style = MaterialTheme.typography.labelMedium,
                     color = oc.error,
                 )
@@ -727,7 +727,7 @@ private fun DrawerFooter(
 }
 
 // ---------------------------------------------------------------------------
-// Tab Sessioni
+// Sessions tab
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -830,7 +830,7 @@ private fun OpenSessionCard(
     }
 }
 
-/** Stato compatto della sessione: live (pallino pulsante) oppure esito. */
+/** Compact session state: live (pulsing dot) or final outcome. */
 private data class SessionStatusSpec(
     val label: String,
     val color: Color,
@@ -855,7 +855,7 @@ private fun sessionStatusSpec(session: SessionUi): SessionStatusSpec {
 }
 
 // ---------------------------------------------------------------------------
-// Task in background: bottom sheet aperto dal badge della sessione
+// Background tasks: bottom sheet opened from the session badge
 // ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -872,8 +872,8 @@ private fun TasksSheet(
     val children = state.childrenWithActivity
     val running = children.count { it.isActive }
 
-    // I task possono essere cambiati mentre il drawer era aperto: il foglio
-    // rilegge i figli all'apertura, senza aspettare il refresh manuale.
+    // Tasks may have changed while the drawer was open: the sheet
+    // re-reads the children on open, without waiting for a manual refresh.
     LaunchedEffect(Unit) { onRefresh() }
 
     ModalBottomSheet(
@@ -920,7 +920,7 @@ private fun TasksSheet(
                         title = "Tasks not updated",
                         message = state.error,
                         onAction = onDismissError,
-                        actionLabel = "Chiudi",
+                        actionLabel = "Close",
                     )
                 }
             }
@@ -977,7 +977,7 @@ private fun tasksSummary(running: Int, total: Int): String {
     }
 }
 
-/** Chip compatto con l'agente che sta lavorando (o "predefinito"). */
+/** Compact chip with the working agent (or "predefinito"). */
 @Composable
 private fun AgentChip(label: String, muted: Boolean = false) {
     val oc = OpenColors.current
@@ -998,7 +998,7 @@ private fun AgentChip(label: String, muted: Boolean = false) {
     }
 }
 
-/** Stato di un task figlio: live in corso, oppure esito concluso. */
+/** State of a child task: live in progress, or concluded outcome. */
 private data class TaskStateSpec(
     val label: String,
     val color: Color,
@@ -1037,7 +1037,7 @@ private fun TaskRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
-                onClickLabel = "Apri il task ${session.title}",
+                onClickLabel = "Open task ${session.title}",
                 role = Role.Button,
                 onClick = onClick,
             )
@@ -1100,7 +1100,7 @@ private fun TaskRow(
 }
 
 // ---------------------------------------------------------------------------
-// Tab Agenti (con switch modello)
+// Agents tab (with model switch)
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -1118,8 +1118,8 @@ private fun AgentsTab(
     val canSwitch = session != null
     val loading = state.catalogLoading && catalog.agents.isEmpty()
     val empty = catalog.agents.isEmpty()
-    // Mappatura agente → figli attivi: l'indicatore animato mostra chi sta
-    // lavorando davvero (la delega la decide l'agente primario).
+    // Agent → active children mapping: the animated indicator shows who is
+    // actually working (the primary agent decides the delegation).
     val workingByAgent = state.childrenWithActivity
         .filter { it.isActive }
         .mapNotNull { it.agent?.takeIf { id -> id.isNotBlank() } }
@@ -1157,8 +1157,8 @@ private fun AgentsTab(
             empty && catalog.loadedAt == null -> item(key = "empty") {
                 DrawerEmpty(
                     title = "Catalog not loaded",
-                    body = "Agents, skills, MCP and models come from the server. Retry.",
-                    actionLabel = "Riprova",
+                    body = "Agents, skills, MCP, and models are provided by the server. Retry.",
+                    actionLabel = "Retry",
                     onAction = onRefreshCatalog,
                 )
             }
@@ -1175,7 +1175,7 @@ private fun AgentsTab(
             else -> {
                 item(key = "agents-header") {
                     DrawerSectionHeader(
-                        title = "Agenti",
+                        title = "Agents",
                         count = catalog.agentsForDrawer.size,
                     )
                 }
@@ -1233,9 +1233,9 @@ private fun AgentsTab(
 }
 
 /**
- * Contesto dell'agente nella tab Agenti: è la riga in testa e chiarisce chi
- * guida la sessione. La spunta verde (attivo) compare solo per un agente
- * primario; un subagent impostato da fuori resta dichiarato, senza spunta.
+ * Agent context in the Agents tab: it is the top row and clarifies who
+ * drives the session. The green check (active) appears only for a
+ * primary agent; a sub-agent set from outside stays declared, without a check.
  */
 @Composable
 private fun SessionAgentRow(state: UiState) {
@@ -1256,7 +1256,7 @@ private fun SessionAgentRow(state: UiState) {
             .padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Eyebrow(text = "Agente", color = oc.mutedText)
+        Eyebrow(text = "Agent", color = oc.mutedText)
         Spacer(Modifier.width(8.dp))
         Text(
             text = name,
@@ -1474,7 +1474,7 @@ private fun AgentRow(
 
             active -> Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.semantics { contentDescription = "Agente attivo" },
+                modifier = Modifier.semantics { contentDescription = "Active agent" },
             ) {
                 GlyphCheck(size = 14.dp, color = oc.success)
                 Text(
@@ -1494,7 +1494,7 @@ private fun agentModelLabel(agent: AgentUi): String =
     modelRefLabel(agent.modelProvider, agent.modelId) ?: "modello predefinito"
 
 // ---------------------------------------------------------------------------
-// Tab Skill
+// Skills tab
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -1531,7 +1531,7 @@ private fun SkillsTab(
                 DrawerEmpty(
                     title = "Skills not loaded",
                     body = "The skills list comes from the server. Retry.",
-                    actionLabel = "Riprova",
+                    actionLabel = "Retry",
                     onAction = onRefreshCatalog,
                 )
             }
@@ -1601,7 +1601,7 @@ private fun SkillsTab(
 }
 
 // ---------------------------------------------------------------------------
-// Tab MCP (sola lettura)
+// MCP tab (read-only)
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -1630,7 +1630,7 @@ private fun McpTab(
                 DrawerEmpty(
                     title = "MCP servers not loaded",
                     body = "MCP server status comes from the server. Retry.",
-                    actionLabel = "Riprova",
+                    actionLabel = "Retry",
                     onAction = onRefreshCatalog,
                 )
             }
@@ -1646,7 +1646,7 @@ private fun McpTab(
 
             else -> {
                 item(key = "mcp-header") {
-                    DrawerSectionHeader(title = "Server MCP", count = catalog.mcps.size)
+                    DrawerSectionHeader(title = "MCP Servers", count = catalog.mcps.size)
                 }
                 item(key = "mcp-note") {
                     Text(
@@ -1719,7 +1719,7 @@ private fun mcpStatusSpec(status: String): McpStatusSpec {
 }
 
 // ---------------------------------------------------------------------------
-// Stati condivisi: banner, hint, vuoto, skeleton
+// Shared states: banner, hint, empty, skeleton
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -1739,7 +1739,7 @@ private fun DrawerBanners(
                 title = "Catalog not updated",
                 message = catalogError,
                 onAction = onRefreshCatalog,
-                actionLabel = "Riprova",
+                actionLabel = "Retry",
             )
         }
     }
@@ -1754,7 +1754,7 @@ private fun DrawerBanners(
                 title = "Operation failed",
                 message = actionError,
                 onAction = onDismissError,
-                actionLabel = "Chiudi",
+                actionLabel = "Close",
             )
         }
     }
@@ -1863,7 +1863,7 @@ private fun InlineSkeletonRows(rows: Int, topPadding: androidx.compose.ui.unit.D
 }
 
 // ---------------------------------------------------------------------------
-// Pezzi riusabili
+// Reusable parts
 // ---------------------------------------------------------------------------
 
 @Composable

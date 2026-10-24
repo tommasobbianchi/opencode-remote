@@ -25,7 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-/** Testo e azione dell'avviso non bloccante per le notifiche. */
+/** Text and action for the non-blocking notice about notifications. */
 data class NotificationPromptUi(
     val message: String,
     val actionLabel: String,
@@ -33,9 +33,9 @@ data class NotificationPromptUi(
 )
 
 /**
- * Il permesso `POST_NOTIFICATIONS` viene chiesto una volta sola, al primo
- * `connect()` riuscito. L'esito (concesso o negato) resta su preferenze private:
- * agli avvii successivi l'app non riapre il dialogo di sistema.
+ * The `POST_NOTIFICATIONS` permission is requested only once, on the first
+ * successful `connect()`. The outcome (granted or denied) stays in private
+ * preferences: on later launches the app does not reopen the system dialog.
  */
 internal object NotificationOptInStore {
 
@@ -58,8 +58,8 @@ internal object NotificationOptInStore {
 }
 
 /**
- * Riga informativa, non modale: spiega a cosa serve il permesso e lascia
- * l'app pienamente usabile anche se viene negato.
+ * Informational row, not modal: explains what the permission is for and
+ * keeps the app fully usable even if it is denied.
  */
 @Composable
 fun NotificationNoticeBar(

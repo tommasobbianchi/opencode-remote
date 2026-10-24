@@ -166,8 +166,8 @@ fun SetupScreen(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !connecting,
                             singleLine = true,
-                            label = { Text("Utente") },
-                            supportingText = { Text("Utente del servizio OpenCode (di solito opencode)") },
+                            label = { Text("User") },
+                            supportingText = { Text("OpenCode service user (usually opencode)") },
                             shape = MaterialTheme.shapes.small,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             colors = fieldColors(),
@@ -179,7 +179,7 @@ fun SetupScreen(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !connecting,
                             singleLine = true,
-                            label = { Text("Password o token") },
+                            label = { Text("Password or token") },
                             shape = MaterialTheme.shapes.small,
                             visualTransformation = if (passwordVisible) {
                                 VisualTransformation.None
@@ -232,12 +232,12 @@ fun SetupScreen(
                                 )
                                 Spacer(Modifier.width(10.dp))
                                 Text(
-                                    text = "Connessione…",
+                                    text = "Connecting…",
                                     style = MaterialTheme.typography.titleSmall,
                                 )
                             } else {
                                 Text(
-                                    text = "Connetti",
+                                    text = "Connect",
                                     style = MaterialTheme.typography.titleSmall,
                                 )
                                 Spacer(Modifier.width(8.dp))
@@ -269,8 +269,8 @@ fun SetupScreen(
                     )
                     Spacer(Modifier.width(7.dp))
                     Text(
-                        text = "Credenziali cifrate sul dispositivo con il Keystore. " +
-                            "«Disconnetti» le cancella.",
+                        text = "Credentials encrypted on-device with the Keystore. " +
+                            "\"Disconnect\" deletes them.",
                         style = MaterialTheme.typography.labelSmall,
                         color = scheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -364,7 +364,7 @@ fun VersionMismatchScreen(
                         modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Eyebrow("Server trovato", color = oc.error)
+                        Eyebrow("Server found", color = oc.error)
                         Text(
                             text = ServerVersion.unsupportedMessage(found),
                             style = MaterialTheme.typography.titleSmall,
@@ -388,7 +388,7 @@ fun VersionMismatchScreen(
                         .heightIn(min = 54.dp),
                     shape = MaterialTheme.shapes.medium,
                 ) {
-                    Text("Riprova", style = MaterialTheme.typography.titleSmall)
+                    Text("Retry", style = MaterialTheme.typography.titleSmall)
                 }
 
                 Spacer(Modifier.height(10.dp))
@@ -400,7 +400,7 @@ fun VersionMismatchScreen(
                         .heightIn(min = 54.dp),
                     shape = MaterialTheme.shapes.medium,
                 ) {
-                    Text("Disconnetti", style = MaterialTheme.typography.titleSmall)
+                    Text("Disconnect", style = MaterialTheme.typography.titleSmall)
                 }
 
                 Spacer(Modifier.height(28.dp))

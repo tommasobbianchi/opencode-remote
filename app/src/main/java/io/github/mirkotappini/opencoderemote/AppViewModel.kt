@@ -68,7 +68,7 @@ import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 
-/** Stato della connessione REST al server OpenCode. */
+/** State of the REST connection to the OpenCode server. */
 sealed interface Connection {
     data object Disconnected : Connection
     data object Connecting : Connection
@@ -76,27 +76,27 @@ sealed interface Connection {
     data class Error(val message: String) : Connection
 
     /**
-     * M5: il server risponde ma non è la 2.x. Schermata bloccante, nessuna
-     * chiamata ulteriore oltre a un eventuale "Riprova" esplicito.
+     * M5: the server responds but is not 2.x. Blocking screen, no
+     * further call besides an explicit "Riprova".
      */
     data class Incompatible(val found: String) : Connection
 }
 
-/** Stato del canale SSE live (indipendente dal REST già connesso). */
+/** State of the live SSE channel (independent from the already-connected REST). */
 sealed interface StreamState {
     data object Idle : StreamState
     data object Live : StreamState
 
     /**
-     * Handshake SSE in corso dopo un fallimento: nessun countdown, così la UI
-     * non mostra "riprovo tra 0s" mentre il socket aspetta la risposta.
+     * SSE handshake in progress after a failure: no countdown, so the UI
+     * does not show "riprovo tra 0s" while the socket awaits the response.
      */
     data class Connecting(val attempt: Int) : StreamState
 
     /**
-     * Attesa del prossimo tentativo. [nextAttemptAt] è l'istante assoluto:
-     * il countdown si deriva da lì, mai da un contatore decrementato a mano.
-     * [suspended] = rete assente, tentativi fermi finché non torna.
+     * Waiting for the next attempt. [nextAttemptAt] is the absolute instant:
+     * the countdown is derived from it, never from a counter decremented by hand.
+     * [suspended] = network absent, attempts paused until it returns.
      */
     data class Reconnecting(
         val attempt: Int,
@@ -106,10 +106,10 @@ sealed interface StreamState {
 }
 
 /**
- * Unico stato UI.
+ * The single UI state.
  *
- * Le credenziali sono persistite cifrate (`TokenStore`, Keystore) per il
- * foreground service; qui resta solo ciò che serve a disegnare la schermata.
+ * Credentials are persisted encrypted (`TokenStore`, Keystore) for the
+ * foreground service; here only what is needed to draw the screen remains.
  */
 data class UiState(
     val url: String = "",
@@ -118,72 +118,72 @@ data class UiState(
     val connection: Connection = Connection.Disconnected,
     val sessions: List<SessionUi> = emptyList(),
     val sessionsLoading: Boolean = false,
-    /** Creazione di una nuova sessione in corso: progresso e pulsante disabilitato. */
+    /** New session creation in progress: progress and button disabled. */
     val creatingSession: Boolean = false,
     val openSession: SessionUi? = null,
     /**
-     * Pila padre → figlio: ogni frame è la sessione che si riapre con `back()`.
-     * Vuota = la sessione corrente è stata aperta dalla lista.
+     * Parent → child stack: every frame is the session reopened by `back()`.
+     * Empty = the current session was opened from the list.
      */
     val sessionStack: List<SessionFrame> = emptyList(),
-    /** La sessione aperta è un task figlio: chat in sola lettura. */
+    /** The open session is a child task: read-only chat. */
     val openReadOnly: Boolean = false,
     val messages: List<MessageUi> = emptyList(),
     val messagesLoading: Boolean = false,
     val hasMore: Boolean = false,
     val error: String? = null,
-    // M0: log SSE disponibile come schermata secondaria.
+    // M0: SSE log available as a secondary screen.
     val streaming: Boolean = false,
     val events: List<String> = emptyList(),
-    // M2: invio, streaming live e riconnessione.
+    // M2: sending, live streaming, and reconnection.
     val draft: String = "",
     val running: Boolean = false,
     val sessionOutcome: String? = null,
     val chat: ChatStream = ChatStream(),
     val streamState: StreamState = StreamState.Idle,
-    /** Secondi al prossimo tentativo, derivati da [nextAttemptAt] a ogni tick. */
+    /** Seconds to the next attempt, derived from [nextAttemptAt] on every tick. */
     val reconnectInSeconds: Int = 0,
-    /** Istante assoluto del prossimo tentativo SSE (0 = nessuno programmato). */
+    /** Absolute instant of the next SSE attempt (0 = none scheduled). */
     val nextAttemptAt: Long = 0L,
-    /** Rete assente: i tentativi sono sospesi, nessun numero nel banner. */
+    /** Network absent: attempts are suspended, no numbers in the banner. */
     val retrySuspended: Boolean = false,
-    // M3: cataloghi del drawer (agenti, skill, MCP, modelli, location).
+    // M3: drawer catalogs (agents, skills, MCP, models, location).
     val catalog: Catalog = Catalog(),
     val catalogLoading: Boolean = false,
     val catalogError: String? = null,
     val children: List<SessionUi> = emptyList(),
     val childrenLoading: Boolean = false,
-    // M4: richieste di approvazione della sola sessione aperta.
+    // M4: approval requests of the open session only.
     val approvals: List<ApprovalUi> = emptyList(),
     val approvalsLoading: Boolean = false,
     val approvalsError: String? = null,
     /**
-     * Solo presentazione: requestID pendenti per sessione, per i badge di
-     * lista e drawer. Non è una seconda fonte di verità: si allinea agli
-     * eventi e alla GET della sessione aperta, senza chiamate di rete nuove.
+     * Presentation only: pending requestIDs per session, for the badges
+     * of the list and the drawer. Not a second source of truth: it aligns
+     * with the events and the GET of the open session, with no new network calls.
      */
     val pendingApprovals: Map<String, Set<String>> = emptyMap(),
 ) {
     val isConnected: Boolean get() = connection is Connection.Connected
 
-    /** C'è almeno un padre impilato: il back torna a lui invece che alla lista. */
+    /** At least one parent stacked: back returns to it instead of the list. */
     val canGoBackToParent: Boolean get() = SessionNav.canGoBackToParent(sessionStack)
 
     val liveMessage: LiveMessage? get() = chat.live
 
-    /** Badge: richieste pendenti note per una sessione. */
+    /** Badge: known pending requests for one session. */
     fun approvalCount(sessionId: String?): Int =
         sessionId?.let { pendingApprovals[it]?.size } ?: 0
 
-    /** Badge del drawer: richieste pendenti su tutte le sessioni note. */
+    /** Drawer badge: pending requests across all known sessions. */
     val approvalCountTotal: Int get() = pendingApprovals.values.sumOf { it.size }
 
     /**
-     * Helper di presentazione: i task figli con l'attività osservata sulle
-     * sessioni. `GET /api/session?parentID=` non porta uno stato live, mentre
-     * gli eventi SSE aggiornano le righe di `sessions` (i figli compaiono anche
-     * nella lista top-level): qui le due viste vengono ricongiunte per il badge
-     * dei task e il pallino "attiva" delle righe.
+     * Presentation helper: child tasks with the activity observed on the
+     * sessions. `GET /api/session?parentID=` carries no live state, while
+     * the SSE events update the `sessions` rows (children appear also
+     * in the top-level list): here the two views are re-joined for the badge
+     * of the tasks and the "attiva" dot of the rows.
      */
     val childrenWithActivity: List<SessionUi>
         get() = children.map { child ->
@@ -191,11 +191,11 @@ data class UiState(
             if (running == child.isActive) child else child.copy(isActive = running)
         }
 
-    /** Figli in esecuzione, per il badge del drawer. */
+    /** Children in execution, for the drawer badge. */
     val runningChildren: Int get() = childrenWithActivity.count { it.isActive }
 }
 
-/** Esiti delle cinque chiamate parallele del catalogo M3. */
+/** Results of the five parallel calls of the M3 catalog. */
 private data class CatalogFetch(
     val agents: Result<List<AgentUi>>,
     val skills: Result<List<SkillUi>>,
@@ -204,7 +204,7 @@ private data class CatalogFetch(
     val location: Result<LocationUi?>,
 )
 
-// --- M4: badge per sessione (mappa di sola presentazione) --------------------
+// --- M4: per-session badges (presentation-only map) --------------------
 
 private fun Map<String, Set<String>>.withSessionApprovals(
     sessionId: String,
@@ -227,9 +227,9 @@ private fun Map<String, Set<String>>.withoutApproval(
 }
 
 /**
- * Antepone [session] alla lista senza duplicati: stesso schema dell'apertura
- * da notifica (`openSessionRow`). Funzione pura per i test JVM, perché il
- * ViewModel non è istanziabile senza Android.
+ * Prefers [session] over the list without duplicates: same schema as the
+ * open-from-notification (`openSessionRow`). A pure function for the JVM tests, since the
+ * ViewModel cannot be instantiated without Android.
  */
 internal fun prependSession(sessions: List<SessionUi>, session: SessionUi): List<SessionUi> =
     if (sessions.any { it.id == session.id }) sessions else listOf(session) + sessions
@@ -242,14 +242,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val tokenStore = TokenStore(application)
 
-    /** Credenziali cifrate: al primo avvio si riconnette senza chiedere nulla. */
+    /** Encrypted credentials: on the first launch it reconnects without asking anything. */
     private val processObserver = object : DefaultLifecycleObserver {
         override fun onStart(owner: LifecycleOwner) {
             onProcessForeground()
         }
     }
 
-    /** Client per REST; timeout normali. */
+    /** Client for REST; ordinary timeouts. */
     private val restClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -257,7 +257,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         .retryOnConnectionFailure(true)
         .build()
 
-    /** Client per SSE: nessun read timeout (lo stream resta aperto). */
+    /** Client for SSE: no read timeout (the stream stays open). */
     private val sseClient = restClient.newBuilder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
@@ -267,31 +267,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private var streamJob: Job? = null
     private var streamGeneration = 0
 
-    /** Cursore per caricare messaggi più vecchi della sessione aperta. */
+    /** Cursor to load older messages of the open session. */
     private var olderCursor: String? = null
 
-    /** Dedupe degli eventi SSE per `event.id` (bounded). */
+    /** Dedupes SSE events by `event.id` (bounded). */
     private val seenEventIds = LinkedHashSet<String>()
 
     private var optimisticSeq = 0
 
-    /** M5: ultimo segnale ricevuto sulla SSE (apertura o evento). */
+    /** M5: last signal received on the SSE (open or event). */
     @Volatile
     private var lastSseActivityAt = 0L
 
     /**
-     * M5 F1: ultimo motivo per cui una REST ha dichiarato il server
-     * irraggiungibile. Quando la SSE torna a dare segni di vita l'errore
-     * viene rimosso solo se è ancora quello (non un errore di un'azione).
+     * M5 F1: last reason a REST call declared the server
+     * unreachable. When the SSE gives signs of life again, the error
+     * is removed only if it is still that one (not an error of an action).
      */
     @Volatile
     private var lastOfflineReason: String? = null
 
-    /** M5.1: rete assente — i tentativi SSE restano fermi finché non torna. */
+    /** M5.1: network absent — SSE attempts stay paused until it returns. */
     @Volatile
     private var networkAbsent = false
 
-    /** M5.1: stato puro del retry, condiviso con il ciclo SSE. */
+    /** M5.1: pure state of the retry, shared with the SSE cycle. */
     @Volatile
     private var retryState = RetryState()
 
@@ -299,7 +299,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         as? ConnectivityManager
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
-    /** Sessione da aprire dopo il tap su una notifica, attesa la connessione. */
+    /** Session to open after a tap on a notification, once the connection is up. */
     private var pendingSessionId: String? = null
 
     init {
@@ -320,8 +320,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 it.copy(url = saved.baseUrl, user = saved.user, password = saved.password)
             }
             if (tokenStore.isAuthRejected()) {
-                // 401 già visto: il token resta per precompilare il setup, ma
-                // nessun retry automatico finché l'utente non rifà il pairing.
+                // 401 already seen: the token stays to prefill the setup, but
+                // no automatic retry until the user does the pairing again.
                 _state.update {
                     it.copy(
                         connection = Connection.Error(ConnectionErrors.CREDENTIALS_REJECTED),
@@ -339,13 +339,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- M5.1: rete reale (ConnectivityManager) -----------------------------
+    // --- M5.1: real network (ConnectivityManager) -----------------------------
 
     /**
-     * Registra il callback sul default network. In modalità aereo il socket
-     * SSE può restare appeso per minuti: questo callback è la sorgente
-     * immediata con cui passiamo a "rete assente" e sospendiamo i tentativi.
-     * Il foreground service ha già il proprio watcher SSE: qui non si duplica.
+     * Registers the callback on the default network. In airplane mode the
+     * SSE socket can stay hung for minutes: this callback is the immediate
+     * source by which we switch to "rete assente" and suspend the attempts.
+     * The foreground service already has its own SSE watcher: do not duplicate it here.
      */
     private fun registerNetworkCallback() {
         val manager = connectivity ?: return
@@ -389,13 +389,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    /** Rete persa: chiusura immediata del socket appeso e retry sospeso. */
+    /** Network lost: immediate close of the hung socket and suspended retry. */
     private fun onNetworkLost() {
         viewModelScope.launch {
             if (!_state.value.isConnected || networkAbsent) return@launch
             networkAbsent = true
-            // Il collect della SSE non vedrebbe la perdita finché il socket
-            // resta muto (watchdog 30 s): si chiude subito.
+            // The SSE collect would not see the loss until the socket
+            // stays silent (30 s watchdog): close it right away.
             streamGeneration += 1
             streamJob?.cancel()
             streamJob = null
@@ -404,8 +404,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Rete tornata: azzera il backoff e riparte con una sola riconnessione.
-     * Le callback duplicate non producono un secondo restart.
+     * Network restored: the backoff is reset and one reconnection restarts.
+     * Duplicate callbacks do not produce a second restart.
      */
     private fun onNetworkAvailable() {
         viewModelScope.launch {
@@ -424,7 +424,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             if (!_state.value.isConnected) return@launch
-            // Un solo giro: il job precedente è stato chiuso alla perdita.
+            // Only one round: the previous job was closed at the loss.
             stopStreamInternal()
             startStreamInternal()
             if (_state.value.openSession != null) {
@@ -445,14 +445,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearError() = _state.update { it.copy(error = null) }
 
-    /** Connessione + `GET /api/info` + `GET /api/session`, poi stream e lista. */
+    /** Connection + `GET /api/info` + `GET /api/session`, then stream and list. */
     fun connect(url: String, user: String, password: String) {
         connectInternal(url, user, password, persist = true)
     }
 
     /**
-     * [persist] salva le credenziali cifrate dopo un `connect()` esplicito e
-     * riuscito. All'avvio l'auto-connect usa `persist = false`.
+     * [persist] stores the encrypted credentials after an explicit and
+     * successful `connect()`. At startup the auto-connect uses `persist = false`.
      */
     private fun connectInternal(
         url: String,
@@ -472,15 +472,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (!base.startsWith("https://", ignoreCase = true)) {
-            setConnectionError("URL non valido: è consentito solo https://")
+            setConnectionError("Invalid URL: only https:// is allowed")
             return
         }
         if (user.isBlank()) {
-            setConnectionError("Utente mancante")
+            setConnectionError("Missing user")
             return
         }
         if (password.isEmpty()) {
-            setConnectionError("Password/token mancante")
+            setConnectionError("Missing password/token")
             return
         }
 
@@ -502,8 +502,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess { info ->
                     when (val verdict = ServerVersion.check(info.version)) {
                         is VersionCheck.Unsupported -> {
-                            // Versione bloccante: niente lista, niente stream,
-                            // niente servizio. Solo la schermata di mismatch.
+                            // Blocking version: no list, no stream,
+                            // no service. Only the mismatch screen.
                             api = null
                             stream = null
                             stopStreamInternal()
@@ -518,7 +518,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         }
 
                         else -> {
-                            // Supported oppure Unknown (versione grezza mostrata).
+                            // Supported or Unknown (raw version displayed).
                             if (persist) {
                                 tokenStore.save(StoredCredentials(base, user, password))
                             }
@@ -564,7 +564,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** "Riprova" dalla schermata di versione incompatibile (richiesta esplicita). */
+    /** "Riprova" from the incompatible-version screen (explicit request). */
     fun retryConnect() {
         val current = _state.value
         connectInternal(
@@ -631,9 +631,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Crea una sessione con i default del server e la apre subito in chat,
-     * anteponendola alla lista come l'apertura da notifica. In caso di errore
-     * la lista resta invariata e il messaggio passa da `error`.
+     * Creates a session with the server defaults and opens it right away in chat,
+     * preferring it over the list like the open from notification. On error
+     * the list stays unchanged and the message goes through `error`.
      */
     fun createSession() {
         val client = api
@@ -660,9 +660,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * "Riprova" dalla lista: rilegge subito la lista e, se la SSE era ferma,
-     * la riavvia (un socket appeso non produce eventi né failure). In
-     * riconnessione il job esistente resta: il backoff non viene forzato.
+     * "Riprova" from the list: re-reads the list immediately and, if the SSE was stalled,
+     * restarts it (a hung socket produces neither events nor failures). In
+     * reconnection the existing job stays: the backoff is not forced.
      */
     fun retryConnection() {
         val client = api
@@ -676,16 +676,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 if (streamJob?.isActive == true) stopStreamInternal()
                 startStreamInternal()
             }
-            // In attesa del backoff o con la rete assente il job esistente
-            // resta: niente restart forzato.
+            // Waiting for the backoff or with the network absent, the existing job
+            // stays: no forced restart.
             else -> Unit
         }
     }
 
     /**
-     * Apre una sessione. Dalla lista riparte con la pila vuota; se una sessione
-     * è già aperta, quella corrente viene impilata e la nuova è un task figlio
-     * in sola lettura. Stesso id = refresh: niente duplicati in pila.
+     * Opens a session. From the list it restarts with an empty stack; if a session
+     * is already open, the current one is stacked and the new one is a child task
+     * in read-only. Same id = refresh: no duplicates in the stack.
      */
     fun openSession(id: String) {
         val client = api
@@ -715,8 +715,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Riapre il padre impilato (rileggendo i messaggi dal server) oppure torna
-     * alla lista se non c'è un padre.
+     * Reopens the stacked parent (re-reading the messages from the server), or
+     * returns to the list if there is no parent.
      */
     fun back() {
         val popped = SessionNav.pop(_state.value.sessionStack)
@@ -738,7 +738,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    /** Apre [session] con [stack]; [readOnly] abilita la vista senza composer. */
+    /** Opens [session] with [stack]; [readOnly] enables the view without composer. */
     private fun openSessionInternal(
         client: OpenCodeApi,
         session: SessionUi,
@@ -800,9 +800,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * La sessione aperta non esiste più sul server. Se è la sessione padre
-     * (aperta dalla lista) si torna alla lista con "sessione non più
-     * disponibile"; per una figlia resta il ritorno automatico al padre.
+     * The open session no longer exists on the server. If it is the parent session
+     * (opened from the list) it returns to the list with "session no longer
+     * available"; for a child session the automatic return to the parent
+     * remains.
      */
     private fun sessionGone(id: String) {
         if (_state.value.openSession?.id != id) return
@@ -830,11 +831,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Usa la riga più recente della lista quando c'è, altrimenti il fallback. */
+    /** Uses the most recent row of the list when available, otherwise the fallback. */
     private fun resolvedSession(id: String, fallback: SessionUi): SessionUi =
         _state.value.sessions.firstOrNull { it.id == id } ?: fallback
 
-    /** Carica la pagina precedente e la antepone (usa `cursor.previous`). */
+    /** Loads the previous page and prepends it (uses `cursor.previous`). */
     fun loadOlder() {
         val client = api ?: return
         val session = _state.value.openSession ?: return
@@ -870,7 +871,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         return@onFailure
                     }
                     if (error is ApiException && error.code == 400) {
-                        // Cursore scaduto: messaggio dedicato e riallineamento.
+                        // Cursor expired: dedicated message and realignment.
                         _state.update {
                             it.copy(
                                 messagesLoading = false,
@@ -909,9 +910,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- M4: approvazioni ---------------------------------------------------
+    // --- M4: approvals ---------------------------------------------------
 
-    /** Allineamento con `GET …/permission` per la sessione aperta. */
+    /** Alignment with `GET …/permission` for the open session. */
     fun refreshApprovals() {
         val client = api ?: return
         val sessionId = _state.value.openSession?.id ?: return
@@ -950,16 +951,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Risposta a una richiesta della sessione aperta. Su successo la richiesta
-     * sparisce dallo stato; se è scaduta si mostra il messaggio dedicato e si
-     * rifà la GET (contratto API-M4).
+     * Response to a request of the open session. On success the request
+     * disappears from the state; if it is expired, the dedicated message is
+     * shown and the GET is redone (API-M4 contract).
      */
     fun replyApproval(id: String, decision: String, message: String? = null) {
         val client = api ?: return
         val sessionId = _state.value.openSession?.id ?: return
         if (decision != "once" && decision != "always" && decision != "reject") return
-        // Un nuovo invio azzera l'errore precedente: la UI può mostrare lo
-        // spinner dell'azione e ripartire anche dopo un errore uguale.
+        // A new send clears the previous error: the UI can show the
+        // spinner of the action and start over even after the same error.
         _state.update { it.copy(approvalsError = null) }
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -998,22 +999,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Ritorno in foreground: riallinea le approvazioni della sessione aperta. */
+    /** Back in foreground: realigns the approvals of the open session. */
     fun onAppForeground() {
         onProcessForeground()
     }
 
     /**
-     * M5 (Doze/foreground): se la SSE non ha dato segni di vita da 30 s o il
-     * job non è attivo, si forza una riconnessione e si riallinea la sessione
-     * aperta. `startStreamInternal` ha già il guard sul job: mai due stream.
-     * Con la rete assente non si forza nulla: restano i tentativi sospesi.
+     * M5 (Doze/foreground): if the SSE has not given signs of life for 30 s or the
+     * job is not active, a reconnection is forced and the open
+     * session is realigned. `startStreamInternal` already has the guard on the job: never two streams.
+     * With the network absent nothing is forced: the attempts stay suspended.
      */
     private fun onProcessForeground() {
         if (!_state.value.isConnected) return
         if (networkAbsent) {
-            // Se il callback è andato perso, il foreground è il punto di
-            // recupero: la rete c'è di nuovo → riparti subito.
+            // If the callback was lost, the foreground is the recovery
+            // point: the network is back again → resume right away.
             if (connectivity?.let { hasInternet(it) } == true) {
                 onNetworkAvailable()
             } else {
@@ -1046,7 +1047,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val context = getApplication<Application>()
             context.startForegroundService(Intent(context, ApprovalService::class.java))
         } catch (_: Exception) {
-            // Se il sistema nega l'avvio (es. limiti background) la UI resta ok.
+            // If the system denies the start (e.g. background limits) the UI stays fine.
         }
     }
 
@@ -1055,7 +1056,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val context = getApplication<Application>()
             context.stopService(Intent(context, ApprovalService::class.java))
         } catch (_: Exception) {
-            // Nessun servizio da fermare.
+            // No service to stop.
         }
     }
 
@@ -1066,12 +1067,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         else -> describeConnectionError(error)
     }
 
-    // --- M3: cataloghi e azioni di sessione ---------------------------------
+    // --- M3: catalogs and session actions ---------------------------------
 
     /**
-     * Carica in parallelo agenti/skill/MCP/modelli/location.
-     * Rispetta il TTL di 5 minuti salvo [force]. Se una chiamata fallisce il
-     * catalogo precedente resta in piedi e l'errore finisce in `catalogError`.
+     * Loads agents/skills/MCP/models/location in parallel.
+     * Respects the 5-minute TTL unless [force]. If a call fails, the
+     * previous catalog stays standing and the error ends up in `catalogError`.
      */
     fun loadCatalog(force: Boolean = false) {
         val client = api
@@ -1135,7 +1136,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Cambia agente sulla sessione aperta; poi rilegge la sessione dal server. */
+    /** Changes the agent on the open session; then re-reads the session from the server. */
     fun switchAgent(agentId: String) {
         val client = api
         val session = _state.value.openSession
@@ -1157,7 +1158,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Cambia modello sulla sessione aperta; poi rilegge la sessione dal server. */
+    /** Changes the model on the open session; then re-reads the session from the server. */
     fun switchModel(providerId: String, modelId: String, variant: String?) {
         val client = api
         val session = _state.value.openSession
@@ -1187,7 +1188,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Attiva una skill nella sessione aperta senza assumere effetti locali. */
+    /** Activates a skill on the open session without assuming local effects. */
     fun activateSkill(skillId: String) {
         val client = api
         if (client == null) {
@@ -1208,11 +1209,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Helper di presentazione (nessuna chiamata di rete): apre una sessione che
-     * il drawer conosce come riga — per esempio un task in background — ma che
-     * può non essere ancora nella lista principale. Se manca, la aggiunge in
-     * cima così titolo e meta restano corretti; `refreshSessions` riallinea poi
-     * la lista con il server.
+     * Presentation helper (no network call): opens a session that
+     * the drawer knows as a row — for example a background task — but which
+     * may not be in the main list yet. If it is missing, it is added at the
+     * top so title and meta stay correct; `refreshSessions` realigns
+     * the list with the server afterwards.
      */
     fun openSessionRow(session: SessionUi) {
         _state.update { current ->
@@ -1221,7 +1222,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         openSession(session.id)
     }
 
-    /** Figli della sessione aperta (task in background). */
+    /** Children of the open session (background tasks). */
     fun refreshChildren() {
         val client = api
         if (client == null) {
@@ -1252,8 +1253,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Applica la sessione restituita da `GET /api/session/{id}` alla riga in
-     * lista e a quella aperta, preservando lo stato `isActive` locale.
+     * Applies the session returned by `GET /api/session/{id}` to the row
+     * in the list and to the open one, preserving the local `isActive` state.
      */
     private fun applyServerSession(updated: SessionUi) {
         _state.update { current ->
@@ -1280,9 +1281,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * M5 F1 / M5.1: una REST fallita per rete/timeout prova che il server non
-     * è raggiungibile adesso. Solo "rete assente" sospende i tentativi: gli
-     * altri errori lasciano il backoff SSE intatto.
+     * M5 F1 / M5.1: a REST failed for network/timeout proves the server is
+     * not reachable right now. Only "rete assente" suspends the attempts:
+     * the other errors leave the SSE backoff intact.
      */
     private fun markOffline(reason: String) {
         lastOfflineReason = reason
@@ -1306,8 +1307,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     error = reason,
                 )
 
-                // Una riconnessione in corso è già "non live": si conserva il
-                // countdown del backoff, senza forzarne uno nuovo.
+                // A reconnection in progress is already "not live": the
+                // backoff countdown is kept, without forcing a new one.
                 current.streamState is StreamState.Reconnecting ->
                     current.copy(streaming = false, error = reason)
 
@@ -1325,9 +1326,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * M5 F1: la SSE ha ripreso a parlare (open o evento): il server è
-     * raggiungibile, quindi un eventuale errore di raggiungibilità è stantio
-     * e va rimosso. Gli errori di una singola azione restano.
+     * M5 F1: the SSE spoke again (open or event): the server is
+     * reachable, so any reachability error is stale
+     * and must be removed. The errors of a single action remain.
      */
     private fun markLive() {
         val stale = lastOfflineReason
@@ -1346,7 +1347,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Errore REST non-401: offline se è di rete, altrimenti messaggio normale. */
+    /** Non-401 REST error: offline if it is a network one, otherwise a regular message. */
     private fun reportFailure(error: Throwable) {
         val reason = describeConnectionError(error)
         if (isReachabilityFailure(error)) markOffline(reason) else {
@@ -1355,9 +1356,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Rete assente, DNS, timeout, TLS o socket chiuso: condizioni in cui il
-     * server non è raggiungibile. Gli errori HTTP (ApiException) non lo sono:
-     * il server ha risposto, quindi la SSE resta com'è.
+     * Network absent, DNS, timeout, TLS, or closed socket: conditions in which the
+     * server is not reachable. HTTP errors (ApiException) are not:
+     * the server has responded, so the SSE stays as it is.
      */
     private fun isReachabilityFailure(error: Throwable): Boolean = when (error) {
         is SSLException,
@@ -1371,9 +1372,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         else -> false
     }
 
-    // --- M2: invio, interruzione --------------------------------------------
+    // --- M2: sending, interruption --------------------------------------------
 
-    /** Invio ottimistico: la bolla utente appare subito e resta "in coda". */
+    /** Optimistic sending: the user bubble appears immediately and stays "in coda". */
     fun sendPrompt() {
         val client = api
         val session = _state.value.openSession
@@ -1429,7 +1430,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                     if (error is ApiException && error.code == 401) {
-                        // Nessun reinvio automatico del prompt: si evita il duplicato.
+                        // No automatic re-send of the prompt: this avoids the duplicate.
                         onUnauthorized()
                     } else {
                         reportFailure(error)
@@ -1455,9 +1456,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- stream SSE e riconnessione -----------------------------------------
+    // --- SSE stream and reconnection -----------------------------------------
 
-    /** Avvia (o riavvia) il ciclo SSE con riconnessione automatica. */
+    /** Starts (or restarts) the SSE cycle with automatic reconnection. */
     fun startStream() {
         val api = api
         if (api == null) {
@@ -1481,7 +1482,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         streamJob = viewModelScope.launch {
             var attempt = 0
             while (isActive && generation == streamGeneration) {
-                // Rete assente: nessun tentativo e nessun backoff finché non torna.
+                // Network absent: no attempt and no backoff until it returns.
                 if (networkAbsent || retryState.suspended) {
                     showSuspended()
                     while (networkAbsent && isActive && generation == streamGeneration) {
@@ -1495,7 +1496,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 var failureCode: Int? = null
                 var failureReason: String? = null
 
-                // Handshake in corso: niente countdown (mai "riprovo tra 0s").
+                // Handshake in progress: no countdown (never "riprovo tra 0s").
                 retryState = RetryTransitions.attempting(attempt)
                 _state.update {
                     it.copy(
@@ -1519,8 +1520,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
                         is SseEvent.Message -> {
                             lastSseActivityAt = System.currentTimeMillis()
-                            // Un evento prova che la SSE è viva anche se il
-                            // socket era stato dato per morto da una REST.
+                            // An event proves the SSE is alive even if the
+                            // socket was given for dead by a REST call.
                             if (_state.value.streamState !is StreamState.Live) markLive()
                             handleRawEvent(event.data)
                         }
@@ -1537,8 +1538,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 if (!isActive || generation != streamGeneration) break
 
                 if (failureCode == 401) {
-                    // Politica globale: stop stream (la generazione è già
-                    // incrementata), stop servizio, token conservato, no retry.
+                    // Global policy: stop stream (the generation is already
+                    // incremented), stop the service, token kept, no retry.
                     onUnauthorized()
                     break
                 }
@@ -1546,8 +1547,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 failureReason?.let { appendLog("sse", it) }
                 _state.update { it.copy(streaming = false) }
 
-                // La rete è caduta durante il tentativo: il callback ha già
-                // impostato lo stato sospeso, si torna in cima senza backoff.
+                // The network dropped during the attempt: the callback has already
+                // set the suspended state, go back to the top without backoff.
                 if (networkAbsent || retryState.suspended) continue
 
                 attempt += 1
@@ -1569,8 +1570,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     if (left <= 0L) break
                     delay(minOf(left, 500L))
                     val tick = System.currentTimeMillis()
-                    // Mai pubblicare "riprovo tra 0s": si passa subito al
-                    // tentativo (stato Connecting) senza un frame a zero.
+                    // Never publish "riprovo tra 0s": go straight to the
+                    // attempt (Connecting state) without a zero frame.
                     if (nextAttemptAt - tick <= 0L) break
                     val seconds = ReconnectPolicy.secondsUntil(nextAttemptAt, tick)
                     _state.update { current ->
@@ -1595,7 +1596,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Stato visibile con la rete assente: tentativi fermi, nessun numero. */
+    /** Visible state with the network absent: attempts halted, no numbers. */
     private fun showSuspended() {
         _state.update {
             it.copy(
@@ -1644,7 +1645,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        // Solo il tipo: mai payload, prompt o header nel log.
+        // Only the type: never payload, prompt, or headers in the log.
         appendLog("event", incoming.wireType)
         applyEvent(incoming.event)
     }
@@ -1675,8 +1676,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             else -> Unit
         }
 
-        // M4: `permission.asked` è la fonte primaria per lo stato della chat.
-        // Il badge per sessione si aggiorna anche per le sessioni non aperte.
+        // M4: `permission.asked` is the primary source for the chat state.
+        // The per-session badge is updated also for sessions that are not open.
         if (event is ServerEvent.PermissionAsked) {
             _state.update { current ->
                 val ids = current.pendingApprovals[event.sessionId].orEmpty() +
@@ -1715,7 +1716,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        // La GET resta come allineamento quando inizia un turno/step.
+        // The GET remains as an alignment when a turn/step begins.
         if ((event is ServerEvent.ExecutionStarted || event is ServerEvent.StepStarted) &&
             openId != null && event.sessionId == openId
         ) {
@@ -1724,10 +1725,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         if (openId == null || event.sessionId != openId) return
 
-        // TODO(performance §4.4): pubblicare lo snapshot del turno al massimo
-        // ogni 80–120 ms, con gli eventi terminali immediati. Oggi ogni delta
-        // pubblica subito: il reducer accumula, la UI riceverà il throttle
-        // quando la lane UI introdurrà `revision`/auto-scroll.
+        // TODO(performance §4.4): publish the turn snapshot at most
+        // every 80–120 ms, with the terminal events immediate. Today every delta
+        // publishes right away: the reducer accumulates, the UI will get the throttle
+        // when the UI lane introduces `revision`/auto-scroll.
         _state.update { current ->
             val reduced = ChatReducer.reduce(
                 OpenChatState(
@@ -1757,7 +1758,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
-        // I messaggi sono la verità: dopo la fine del turno rileggi la sessione.
+        // The messages are the truth: after the end of the turn, re-read the session.
         if (event is ServerEvent.ExecutionFinished) {
             resyncOpenSession()
             refreshApprovals()
@@ -1811,8 +1812,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Unisce la pagina server (verità) con eventuali pagine più vecchie già
-     * caricate e con i pending ottimistici non ancora confermati.
+     * Merges the server page (truth) with any older pages already
+     * loaded and with the optimistic pending not yet confirmed.
      */
     private fun resyncMessages(
         server: List<MessageUi>,
@@ -1869,9 +1870,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * M5: politica globale del 401. Stream fermato (generazione incrementata
-     * in [stopStreamInternal]), servizio e notifiche fermati, token **non**
-     * cancellato (serve al setup precompilato) e nessun retry automatico.
+     * M5: global policy of 401. Stream stopped (generation incremented
+     * in [stopStreamInternal]), service and notifications stopped, token **not**
+     * deleted (it serves the prefilled setup) and no automatic retry.
      */
     private fun onUnauthorized() {
         val policy = AuthPolicy.onUnauthorized
@@ -1898,7 +1899,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Messaggi chiari per l'utente; mai header, mai credenziali. */
+    /** Clear messages for the user; never headers, never credentials. */
     private fun describeConnectionError(
         error: Throwable,
         context: ErrorContext = ErrorContext.Generic,
@@ -1932,7 +1933,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private const val MAX_EVENTS = 200
         private const val MAX_SEEN_EVENT_IDS = 500
 
-        /** Oltre questo silenzio sulla SSE, al foreground si forza il reconnect. */
+        /** Beyond this silence on the SSE, in foreground the reconnect is forced. */
         private const val SSE_STALE_MS = SseWatchdog.TIMEOUT_MS
     }
 }

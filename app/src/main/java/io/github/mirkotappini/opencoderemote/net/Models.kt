@@ -18,7 +18,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 
 // ---------------------------------------------------------------------------
-// DTO grezzi (rispecchiano il contratto API, tutti i campi opzionali)
+// Raw DTOs (mirror the API contract, all fields optional)
 // ---------------------------------------------------------------------------
 
 @Serializable
@@ -30,7 +30,7 @@ data class TimeDto(
     val archived: Long? = null,
     val start: Long? = null,
     val end: Long? = null,
-    /** Parti REST: `reasoning`/`text` usano `completed`, i tool anche `ran`. */
+    /** REST parts: `reasoning`/`text` use `completed`, tools also `ran`. */
     val completed: Long? = null,
     val ran: Long? = null,
     val streamed: Long? = null,
@@ -98,7 +98,7 @@ data class SessionsEnvelope(
     val cursor: CursorDto? = null,
 )
 
-/** `GET /api/session/{id}` risponde con l'involucro `{data: Session.Info}`. */
+/** `GET /api/session/{id}` responds with the envelope `{data: Session.Info}`. */
 @Serializable
 data class SessionEnvelope(
     val data: SessionDto? = null,
@@ -110,7 +110,7 @@ data class MessagesEnvelope(
     val cursor: CursorDto? = null,
 )
 
-/** `GET /api/session/active` restituisce `{"data":{}}` quando non c'è sessione. */
+/** `GET /api/session/active` returns `{"data":{}}` when there is no session. */
 @Serializable
 data class ActiveData(
     val id: String? = null,
@@ -123,7 +123,7 @@ data class ActiveEnvelope(
 )
 
 // ---------------------------------------------------------------------------
-// Part polimorfiche: discriminator `type`, fallback generico per gli ignoti
+// Polymorphic parts: `type` discriminator, generic fallback for unknowns
 // ---------------------------------------------------------------------------
 
 @Serializable(with = PartDtoSerializer::class)
@@ -154,7 +154,7 @@ sealed interface PartDto {
         val time: TimeDto? = null,
     ) : PartDto
 
-    /** Qualunque `type` non previsto: non fa fallire il parsing. */
+    /** Any unexpected `type`: does not make parsing fail. */
     data class Unknown(val type: String = "") : PartDto
 }
 
@@ -185,13 +185,13 @@ object PartDtoSerializer : KSerializer<PartDto> {
     }
 
     override fun serialize(encoder: Encoder, value: PartDto) {
-        // M1 è sola lettura: non serializziamo mai part verso il server.
+        // M1 is read-only: we never serialize parts back to the server.
         encoder.encodeString(value::class.simpleName ?: "unknown")
     }
 }
 
 // ---------------------------------------------------------------------------
-// Modello normalizzato per la UI (i composable non vedono JSON)
+// Normalized model for the UI (composables see no JSON)
 // ---------------------------------------------------------------------------
 
 enum class Role { User, Assistant, Meta }
@@ -201,7 +201,7 @@ data class ToolChip(
     val state: String?,
 )
 
-/** Contatori di token normalizzati per la lista sessioni. */
+/** Normalized token counters for the session list. */
 data class TokenUsage(
     val input: Long? = null,
     val output: Long? = null,
@@ -235,9 +235,9 @@ data class MessageUi(
     val createdAt: Long? = null,
     val finish: String? = null,
     val metaLabel: String? = null,
-    /** Messaggio utente ottimistico non ancora confermato dalla sessione. */
+    /** Optimistic user message not yet confirmed by the session. */
     val pending: Boolean = false,
-    /** Part ordinate per `order`; è la fonte di verità del renderer del turno. */
+    /** Parts ordered by `order`; this is the source of truth of the turn renderer. */
     val parts: List<TurnPartUi> = emptyList(),
 )
 
@@ -247,7 +247,7 @@ data class SessionsPage(
     val next: String? = null,
 )
 
-/** `messages` è in ordine cronologico (più vecchio → più recente). */
+/** `messages` are in chronological order (oldest → newest). */
 data class MessagesPage(
     val messages: List<MessageUi>,
     val previous: String? = null,
@@ -255,7 +255,7 @@ data class MessagesPage(
 )
 
 // ---------------------------------------------------------------------------
-// Parsing tollerante
+// Tolerant parsing
 // ---------------------------------------------------------------------------
 
 object ApiParsing {
@@ -294,7 +294,7 @@ object ApiParsing {
             ?: envelope.data?.sessionID?.takeIf { it.isNotBlank() }
     }
 
-    /** `GET /api/session/{id}`; `null` se l'involucro non contiene una sessione. */
+    /** `GET /api/session/{id}`; `null` if the envelope does not contain a session. */
     fun parseSession(body: String): SessionUi? {
         val envelope = json.decodeFromString<SessionEnvelope>(body)
         return envelope.data?.let(::normalizeSession)
@@ -403,7 +403,7 @@ object ApiParsing {
                 )
             }
 
-            // idle/status e ogni type ignoto: divisore, mai un crash.
+            // idle/status and any unknown type: treat as a divider, never crash.
             else -> MessageUi(
                 id = dto.id,
                 role = Role.Meta,
@@ -414,7 +414,7 @@ object ApiParsing {
         }
     }
 
-    /** Conserva l'indice originale: `order` al resync è l'indice in `content[]`. */
+    /** Keeps the original index: `order` at resync is the index in `content[]`. */
     private fun parsePartsIndexed(content: JsonElement?): List<Pair<Int, PartDto>> {
         val array = content as? JsonArray ?: return emptyList()
         return array.mapIndexedNotNull { index, element ->
@@ -463,8 +463,8 @@ object ApiParsing {
             truncated = metadata?.bool("truncated")
                 ?: stateObj?.bool("truncated")
                 ?: false,
-            // Campo UI-facing: `executed=false` solo per un diniego esplicito.
-            // La fase non deriva mai da questo valore.
+            // UI-facing field: `executed=false` only for an explicit denial.
+            // The phase never derives from this value.
             executed = phase != PartPhase.Denied,
             startedAt = stateTime?.long("start") ?: time?.start ?: time?.ran ?: time?.created,
             endedAt = stateTime?.long("end") ?: time?.end ?: time?.completed,
@@ -488,8 +488,9 @@ object ApiParsing {
     }
 
     /**
-     * Compatibilità col vecchio chip: usa il JSON derivato dai campi strutturati.
-     * Solo per state non riconosciuti si ricade sul vecchio summarize.
+     * Compatibility with the old chip: uses the JSON derived from the
+     * structured fields. Only for unrecognized states does it fall back to
+     * the old summarize.
      */
     private fun legacyToolState(part: ToolPartUi, raw: JsonElement?): String? {
         val obj = raw as? JsonObject
@@ -517,7 +518,7 @@ object ApiParsing {
     private fun JsonObject.bool(key: String): Boolean? =
         (this[key] as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull()
 
-    /** Stato del tool come JSON compatto e troncato per il chip espandibile. */
+    /** Tool state as compact, truncated JSON for the expandable chip. */
     fun summarize(state: JsonElement?): String? {
         if (state == null || state is JsonNull) return null
         val raw = state.toString()

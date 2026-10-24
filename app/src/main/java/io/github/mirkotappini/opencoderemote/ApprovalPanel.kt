@@ -48,14 +48,15 @@ import io.github.mirkotappini.opencoderemote.net.ApprovalUi
 import kotlin.math.abs
 
 /**
- * Pannello delle approvazioni in chat.
+ * In-chat approvals panel.
  *
- * Non è un dialog: vive sopra il composer e lascia leggibile la conversazione.
- * Con più richieste la prima è espansa, le altre restano in una pila compatta;
- * si cambia richiesta con swipe orizzontale, con le frecce o toccando una riga.
+ * Not a dialog: it lives above the composer and keeps the conversation readable.
+ * With multiple requests the first is expanded, the others stay in a compact
+ * pile; the request changes with a horizontal swipe, the arrows, or a touch on
+ * a row.
  *
- * "Consenti sempre" non è mai il default: apre una conferma che spiega che la
- * regola vale per sempre sul server e mostra esattamente cosa verrà salvato.
+ * "Consenti sempre" is never the default: it opens a confirmation that explains
+ * the rule lasts forever on the server and shows exactly what will be saved.
  */
 @Composable
 fun ApprovalPanel(
@@ -177,7 +178,7 @@ fun ApprovalPanel(
     }
 }
 
-/** Avviso non allarmistico per una richiesta già risolta altrove (404). */
+/** Non-alarming notice for a request already resolved elsewhere (404). */
 @Composable
 fun ApprovalExpiredNotice(
     onDismiss: () -> Unit,
@@ -208,7 +209,7 @@ fun ApprovalExpiredNotice(
                 modifier = Modifier.heightIn(min = 48.dp),
                 contentPadding = PaddingValues(horizontal = 10.dp),
             ) {
-                Text("Chiudi", style = MaterialTheme.typography.labelMedium, color = oc.interactive)
+                Text("Close", style = MaterialTheme.typography.labelMedium, color = oc.interactive)
             }
         }
     }
@@ -250,7 +251,7 @@ private fun ApprovalPanelHeader(
                 border = BorderStroke(1.dp, oc.warningInk.copy(alpha = 0.24f)),
                 modifier = Modifier.semantics {
                     contentDescription =
-                        "Richiesta ${selectedIndex + 1} di $count"
+                        "Request ${selectedIndex + 1} of $count"
                 },
             ) {
                 Text(
@@ -266,7 +267,7 @@ private fun ApprovalPanelHeader(
                 enabled = canGoBack && !busy,
                 modifier = Modifier
                     .size(48.dp)
-                    .semantics { contentDescription = "Richiesta precedente" },
+                    .semantics { contentDescription = "Previous request" },
             ) {
                 GlyphChevron(direction = ChevronDirection.Left, size = 16.dp)
             }
@@ -275,7 +276,7 @@ private fun ApprovalPanelHeader(
                 enabled = canGoForward && !busy,
                 modifier = Modifier
                     .size(48.dp)
-                    .semantics { contentDescription = "Richiesta successiva" },
+                    .semantics { contentDescription = "Next request" },
             ) {
                 GlyphChevron(direction = ChevronDirection.Right, size = 16.dp)
             }
@@ -346,7 +347,7 @@ private fun ExpandedApprovalCard(
             }
             .semantics {
                 contentDescription = buildString {
-                    append("Richiesta ${index + 1} di $total: ")
+                    append("Request ${index + 1} of $total: ")
                     append(approval.action)
                     firstResource?.let { append(" $it") }
                 }
@@ -685,7 +686,7 @@ private fun AlwaysConfirmationDialog(
                 modifier = Modifier.heightIn(min = 48.dp),
                 colors = ButtonDefaults.textButtonColors(contentColor = oc.mutedText),
             ) {
-                Text("Annulla", style = MaterialTheme.typography.labelLarge)
+                Text("Cancel", style = MaterialTheme.typography.labelLarge)
             }
         },
         containerColor = scheme.surfaceContainerHigh,

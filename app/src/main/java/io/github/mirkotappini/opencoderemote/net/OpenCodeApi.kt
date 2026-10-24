@@ -12,7 +12,7 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 
-/** Sottoinsieme di `GET /api/info` (M0: solo version + pid). */
+/** Subset of `GET /api/info` (M0: only version + pid). */
 @Serializable
 data class ApiInfo(
     val version: String = "?",
@@ -61,8 +61,8 @@ private data class SkillBody(
 )
 
 /**
- * Operazioni di sessione usate da `SessionCommands`. Interfaccia ristretta per
- * poter verificare l'ordine POST → GET senza rete nei test JVM.
+ * Session operations used by `SessionCommands`. A narrow interface so the
+ * POST → GET order can be verified without network in the JVM tests.
  */
 interface SessionCommandApi {
     fun switchAgent(sessionId: String, agentId: String)
@@ -72,7 +72,7 @@ interface SessionCommandApi {
     fun session(sessionId: String): SessionUi
 }
 
-/** Logica pura degli switch: dopo il 204 rilegge la sessione dal server. */
+/** Pure logic of the switches: after the 204 it re-reads the session from the server. */
 object SessionCommands {
 
     fun switchAgent(api: SessionCommandApi, sessionId: String, agentId: String): SessionUi {
@@ -92,17 +92,17 @@ object SessionCommands {
     }
 }
 
-/** Errore HTTP con codice, senza corpo (il corpo può contenere dati sensibili). */
+/** HTTP error with code, no body (the body may contain sensitive data). */
 class ApiException(
     val code: Int,
     val path: String,
 ) : IOException("HTTP $code su $path")
 
 /**
- * Client REST per M1.
+ * REST client for M1.
  *
- * L'header Authorization viene costruito qui e vive solo in memoria: non viene
- * mai loggato, serializzato o scritto su disco.
+ * The Authorization header is built here and lives only in memory: it is never
+ * logged, serialized, or written to disk.
  */
 class OpenCodeApi(
     private val client: OkHttpClient,
@@ -115,7 +115,7 @@ class OpenCodeApi(
     @Suppress("unused")
     private val authorization: String = Credentials.basic(user, password, Charsets.UTF_8)
 
-    /** Header pronto per le richieste (mai loggato). */
+    /** Header ready for the requests (never logged). */
     internal fun authHeader(): String = authorization
 
     private val json = Json {
@@ -147,7 +147,7 @@ class OpenCodeApi(
         return ApiParsing.parseSessions(get(url))
     }
 
-    /** `GET /api/session/{id}/message?order=desc` — pagina in ordine cronologico. */
+    /** `GET /api/session/{id}/message?order=desc` — page in chronological order. */
     @Throws(IOException::class)
     fun messages(
         sessionId: String,
@@ -164,7 +164,7 @@ class OpenCodeApi(
         return ApiParsing.parseMessages(get(builder.build()))
     }
 
-    /** `GET /api/session/{id}/permission` — richieste pendenti (può essere vuota). */
+    /** `GET /api/session/{id}/permission` — pending requests (may be empty). */
     @Throws(IOException::class)
     fun permissions(sessionId: String): List<ApprovalUi> {
         val url = url("/api/session")
@@ -177,7 +177,7 @@ class OpenCodeApi(
 
     /**
      * `POST /api/session/{id}/permission/{requestID}/reply` → 204.
-     * Un 404 con `_tag: PermissionNotFoundError` diventa [ApprovalExpiredException].
+     * A 404 with `_tag: PermissionNotFoundError` becomes [ApprovalExpiredException].
      */
     @Throws(IOException::class)
     fun replyPermission(
@@ -206,15 +206,15 @@ class OpenCodeApi(
 
         client.newCall(request).execute().use { response ->
             if (response.isSuccessful) return
-            // Il corpo serve solo per discriminare il 404; non viene esposto.
+            // The body is only used to discriminate the 404; it is not exposed.
             val payload = response.body?.string()
             throw ApprovalErrors.fromHttpFailure(response.code, payload, url.encodedPath)
         }
     }
 
     /**
-     * `POST /api/session` con corpo `{}`: il server applica i default (titolo,
-     * agente, modello). Risponde con l'involucro `{data: Session.Info}`.
+     * `POST /api/session` with body `{}`: the server applies the defaults
+     * (title, agent, model). Responds with the envelope `{data: Session.Info}`.
      */
     @Throws(IOException::class)
     fun createSession(): SessionUi {
@@ -222,13 +222,13 @@ class OpenCodeApi(
         return ApiParsing.parseSession(payload) ?: throw IOException("session not created")
     }
 
-    /** `GET /api/session/active`; `data` vuoto (`{}`) = nessuna sessione attiva. */
+    /** `GET /api/session/active`; empty `data` (`{}`) = no active session. */
     @Throws(IOException::class)
     fun activeSession(): String? {
         return ApiParsing.parseActiveSession(get(url("/api/session/active")))
     }
 
-    /** `GET /api/session/{id}` — stato autorevole dopo uno switch. */
+    /** `GET /api/session/{id}` — authoritative state after a switch. */
     @Throws(IOException::class)
     override fun session(sessionId: String): SessionUi {
         val value = ApiParsing.parseSession(
@@ -237,7 +237,7 @@ class OpenCodeApi(
         return value ?: throw IOException("session not found")
     }
 
-    /** `GET /api/session?parentID=…` — sessioni figlie (task in background). */
+    /** `GET /api/session?parentID=…` — child sessions (background tasks). */
     @Throws(IOException::class)
     fun children(sessionId: String, limit: Int = 50): List<SessionUi> {
         val url = url("/api/session")
@@ -249,23 +249,23 @@ class OpenCodeApi(
         return ApiParsing.parseSessions(get(url)).sessions
     }
 
-    /** `GET /api/agent` — solo i campi mostrabili; `system`/`permissions` ignorati. */
+    /** `GET /api/agent` — only the showable fields; `system`/`permissions` ignored. */
     @Throws(IOException::class)
     fun agents(): List<AgentUi> = CatalogParsing.parseAgents(get(url("/api/agent")))
 
-    /** `GET /api/skill` — `content` ignorato in parsing. */
+    /** `GET /api/skill` — `content` ignored in parsing. */
     @Throws(IOException::class)
     fun skills(): List<SkillUi> = CatalogParsing.parseSkills(get(url("/api/skill")))
 
-    /** `GET /api/mcp` — stato normalizzato a stringa. */
+    /** `GET /api/mcp` — state normalized to a string. */
     @Throws(IOException::class)
     fun mcps(): List<McpUi> = CatalogParsing.parseMcps(get(url("/api/mcp")))
 
-    /** `GET /api/model` — `settings` (apiKey) non viene mai parsato. */
+    /** `GET /api/model` — `settings` (apiKey) is never parsed. */
     @Throws(IOException::class)
     fun models(): List<ModelUi> = CatalogParsing.parseModels(get(url("/api/model")))
 
-    /** `GET /api/location` — risposta senza involucro `data`. */
+    /** `GET /api/location` — response without a `data` envelope. */
     @Throws(IOException::class)
     fun location(): LocationUi? = CatalogParsing.parseLocation(get(url("/api/location")))
 
@@ -326,8 +326,8 @@ class OpenCodeApi(
     }
 
     /**
-     * `POST /api/session/{id}/prompt` — l'ack 200 non è l'output: il testo arriva
-     * solo dalla SSE. Restituisce l'id del messaggio utente confermato, se presente.
+     * `POST /api/session/{id}/prompt` — the 200 ack is not the output: the text
+     * arrives only via SSE. Returns the confirmed user message id, if present.
      */
     @Throws(IOException::class)
     fun prompt(sessionId: String, text: String, delivery: String = "steer"): String? {
@@ -346,7 +346,7 @@ class OpenCodeApi(
         }.getOrNull()
     }
 
-    /** `POST /api/session/{id}/interrupt` — l'esito arriva come evento SSE. */
+    /** `POST /api/session/{id}/interrupt` — the outcome arrives as an SSE event. */
     @Throws(IOException::class)
     fun interrupt(sessionId: String) {
         val url = url("/api/session")
