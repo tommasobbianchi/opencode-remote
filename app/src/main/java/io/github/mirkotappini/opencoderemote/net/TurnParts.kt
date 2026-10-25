@@ -9,18 +9,21 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 /**
- * Fase di una part di un turno assistente.
+ * Phase of a part of an assistant turn.
  *
- * `Done` = text/reasoning conclusi; `Ok`/`Failed`/`Denied` = esiti di un tool.
+ * `Done` = text/reasoning finished; `Ok`/`Failed`/`Denied` = tool outcomes.
  */
 enum class PartPhase { Streaming, Running, Done, Ok, Failed, Denied, Interrupted }
 
-/** Una part del turno live o persistito. `order` è l'unico ordinamento visivo. */
+/** Part of the live or persisted turn. `order` is the only visual ordering. */
 sealed interface TurnPartUi {
-    /** Stabile e indipendente da testo/stato: "reasoning:0", "text:1", "tool:call_abc". */
+    /**
+     * Stable and independent of text/state: "reasoning:0", "text:1",
+     * "tool:call_abc".
+     */
     val key: String
 
-    /** Cursore monotono per messaggio; al resync è l'indice in `content[]`. */
+    /** Monotonic cursor for the message; on resync it is the index in `content[]`. */
     val order: Int
 
     val phase: PartPhase
@@ -53,9 +56,9 @@ data class ToolPartUi(
     val exitCode: Int? = null,
     val truncated: Boolean = false,
     /**
-     * Flag UI-facing: false solo per un diniego esplicito. In 2.1.4 il campo
-     * `executed` del server è false anche per tool completati, quindi non deve
-     * mai determinare la fase né essere interpretato come "permesso di eseguire".
+     * Set UI-facing: false only for an explicit denial. In 2.1.4 the server's
+     * `executed` field is false even for completed tools, so it must never
+     * determine the phase or be interpreted as "permission to execute".
      */
     val executed: Boolean = true,
     val startedAt: Long? = null,
@@ -63,19 +66,19 @@ data class ToolPartUi(
 ) : TurnPartUi
 
 data class AssistantTurnUi(
-    /** assistantMessageID: stessa chiave di lista live → resync. */
+    /** assistantMessageID: same live list key → resync. */
     val id: String,
-    /** Sempre ordinate per [TurnPartUi.order]. */
+    /** Always sorted by [TurnPartUi.order]. */
     val parts: List<TurnPartUi> = emptyList(),
     val createdAt: Long? = null,
     val finish: String? = null,
     val running: Boolean = false,
-    /** Bump a ogni modifica; usato per auto-scroll/throttle. */
+    /** Bump on every change; used for auto-scroll/throttle. */
     val revision: Long = 0,
 )
 
 // ---------------------------------------------------------------------------
-// Helper condivisi da reducer e mapping REST
+// Shared helpers for reducer and REST mapping
 // ---------------------------------------------------------------------------
 
 internal fun PartPhase.isTerminal(): Boolean =
@@ -100,7 +103,7 @@ internal fun PartPhase.toWireStatus(): String = when (this) {
     PartPhase.Interrupted -> "interrupted"
 }
 
-/** Compatibilità con il vecchio `ToolChip.state`: JSON derivato, mai il dump grezzo. */
+/** Compatibility with the old `ToolChip.state`: derived JSON, never the raw dump. */
 internal fun ToolPartUi.toToolChipState(): String = buildJsonObject {
     put("status", phase.toWireStatus())
     command?.takeIf { it.isNotBlank() }?.let { put("command", it) }
@@ -109,7 +112,7 @@ internal fun ToolPartUi.toToolChipState(): String = buildJsonObject {
     if (truncated) put("truncated", true)
 }.toString()
 
-/** Converte il turno live nel vecchio modello testuale (ChatScreen invariata). */
+/** Convert the live turn into the old textual model (ChatScreen unchanged). */
 internal fun AssistantTurnUi.toLiveMessage(): LiveMessage {
     val textParts = parts
         .filterIsInstance<TextPartUi>()
@@ -125,7 +128,7 @@ internal fun AssistantTurnUi.toLiveMessage(): LiveMessage {
     return LiveMessage(id, textParts)
 }
 
-/** Materializza un turno live in un messaggio persistito, con i campi derivati. */
+/** Materialize a live turn into a persisted message, with the derived fields. */
 internal fun AssistantTurnUi.toMessageUi(): MessageUi {
     val ordered = parts.sortedBy { it.order }
     val text = ordered
@@ -158,8 +161,8 @@ internal fun AssistantTurnUi.toMessageUi(): MessageUi {
 }
 
 /**
- * Estrazione tollerante del comando/soggetto dal JSON di input di un tool.
- * Non lancia mai: un JSON parziale semplicemente non produce un comando.
+ * Tolerant extraction of the command/subject from a tool's input JSON. Never
+ * throws: a partial JSON simply does not produce a command.
  */
 object ToolInputParsing {
 
@@ -181,7 +184,7 @@ object ToolInputParsing {
         "description",
     )
 
-    /** `element` può essere lo `state` completo (con `input`) o direttamente l'input. */
+    /** `element` can be the full `state` (with `input`) or the input directly. */
     fun commandFromJson(element: JsonElement?): String? {
         val obj = element as? JsonObject ?: return null
         for (key in subjectKeys) {
@@ -193,8 +196,8 @@ object ToolInputParsing {
     }
 
     /**
-     * Prova il parse completo; se il buffer è ancora un JSON parziale,
-     * recupera una coppia `"chiave": "valore già chiusa"` con una regex.
+     * Try the full parse; if the buffer is still partial JSON, recover a
+     * `"key": "already closed value"` pair with a regex.
      */
     fun commandFromPartial(raw: String): String? {
         if (raw.isBlank()) return null

@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Regole pure: mime, soglie, passi di compressione e peso leggibile. */
+/** Pure rules: mime, thresholds, compression steps, and readable weight. */
 class AttachmentRulesTest {
 
     @Test
@@ -22,7 +22,7 @@ class AttachmentRulesTest {
         assertEquals("pdf", AttachmentRules.extensionFor("application/pdf"))
         assertEquals("json", AttachmentRules.extensionFor("application/json"))
         assertEquals("txt", AttachmentRules.extensionFor("text/plain"))
-        // Mime ignoto: si prova l'estensione del nome, poi il fallback.
+        // Unknown MIME: try the file extension, then fall back.
         assertEquals("log", AttachmentRules.extensionFor("application/x-ignoto", "server.log"))
         assertEquals("bin", AttachmentRules.extensionFor("application/x-ignoto", null))
     }
@@ -59,7 +59,7 @@ class AttachmentRulesTest {
             "prova.pdf",
             AttachmentRules.fileNameFor("application/pdf", "../../prova.pdf"),
         )
-        // Gli spazi sono legittimi in un nome file: non vengono sostituiti.
+        // Spaces are legitimate in a file name: they are not replaced.
         assertEquals(
             "senza estensione.pdf",
             AttachmentRules.fileNameFor("application/pdf", "senza estensione"),

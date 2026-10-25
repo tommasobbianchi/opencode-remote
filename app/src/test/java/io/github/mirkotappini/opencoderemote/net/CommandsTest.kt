@@ -6,8 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Test JVM dei comandi slash (M9): parsing di `GET /api/command` e scelta
- * `/comando argomenti` → nome + resto del testo.
+ * JVM tests for slash commands (M9): parsing of `GET /api/command` and selection of
+ * `/command arguments` → name + rest of the text.
  */
 class CommandsTest {
 
@@ -34,7 +34,7 @@ class CommandsTest {
         assertEquals(listOf("init", "review", "deepwork", "reflect", "implement"), commands.map { it.name })
         assertEquals("Inizializza il progetto", commands.first().description)
         assertEquals(null, commands.first { it.name == "deepwork" }.description)
-        // Descrizione vuota normalizzata a null.
+        // Empty description normalized to null.
         assertEquals(null, commands.first { it.name == "reflect" }.description)
     }
 

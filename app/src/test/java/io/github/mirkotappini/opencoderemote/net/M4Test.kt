@@ -17,7 +17,7 @@ import org.junit.Test
  */
 class M4Test {
 
-    // 1. Parsing reale (con `source.type = "tool"`) e lista vuota -------------
+    // 1. Parsing real (with `source.type = "tool"`) and empty list -------------
 
     @Test
     fun `permission request reale con source tool`() {
@@ -147,7 +147,7 @@ class M4Test {
         )
     }
 
-    // 6. Throttle puro e backoff ----------------------------------------------
+    // 6. Pure throttle and backoff ----------------------------------------------
 
     @Test
     fun `throttle watcher per session`() {
@@ -174,7 +174,7 @@ class M4Test {
         assertTrue(Backoff.delayMs(10, Random(7)) <= 30_000L)
     }
 
-    // 7. Eventi SSE verificati ------------------------------------------------
+    // 7. Verified SSE events ------------------------------------------------
 
     @Test
     fun `permission asked carries the whole request`() {

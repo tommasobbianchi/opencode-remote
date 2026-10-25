@@ -27,13 +27,13 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Foreground service (`dataSync`) che tiene una SSE indipendente dal ViewModel.
+ * Foreground service (`dataSync`) that maintains an SSE independent from the
+ * ViewModel.
  *
- * Fonte primaria: `permission.asked` (porta l'intero Permission.Request) e
- * `permission.replied` per annullare. La `GET …/permission` viene usata solo
- * come allineamento all'apertura/riconnessione e dopo la fine di un turno,
- * con throttle per sessione. Le richieste di ogni sessione vengono notificate,
- * non solo quelle della sessione aperta nell'app.
+ * Primary source: `permission.asked` (carries the full Permission.Request) and
+ * `permission.replied` to cancel. The `GET …/permission` is used only for alignment
+ * on open/reconnect and after a turn ends, with per-session throttling. Requests
+ * from every session are notified, not just those of the session open in the app.
  */
 class ApprovalService : Service() {
 
@@ -42,7 +42,7 @@ class ApprovalService : Service() {
     private lateinit var notifier: ApprovalNotifier
     private val authRejected = AtomicBoolean(false)
 
-    /** Sessioni viste almeno una volta: da riallineare a ogni riconnessione. */
+    /** Sessions viewed at least once: to be realigned on every reconnection. */
     private val knownSessions = LinkedHashSet<String>()
 
     override fun onCreate() {
@@ -61,7 +61,8 @@ class ApprovalService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        // M5: se il pairing è già stato rifiutato non si riavvia in loop.
+        // M5: if the pairing has already been rejected, it does not restart in a
+        // loop.
         if (TokenStore(this).isAuthRejected()) {
             stopAndCancelNotifications()
             return START_NOT_STICKY
@@ -74,7 +75,7 @@ class ApprovalService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
-        // Il servizio che muore non deve lasciare notifiche orfane.
+        // A dying service must not leave orphaned notifications.
         ApprovalNotifier.cancelAll(this)
         NotificationManagerCompat.from(this).cancel(SERVICE_NOTIFICATION_ID)
         super.onDestroy()
@@ -86,8 +87,8 @@ class ApprovalService : Service() {
     }
 
     /**
-     * M5: il token è stato rifiutato (SSE o REST). Non si cancella il token,
-     * ma si ferma il servizio e si rimuovono le notifiche: niente retry loop.
+     * M5: the token was rejected (SSE or REST). Do not clear the token, but stop
+     * the service and remove notifications: no retry loop.
      */
     private fun handleUnauthorized() {
         if (!authRejected.compareAndSet(false, true)) return
@@ -142,7 +143,7 @@ class ApprovalService : Service() {
 
                 if (!isActive) break
                 if (failure?.httpCode == 401) {
-                    // Token non più valido: inutile restare in foreground.
+                    // Token no longer valid: no point staying in the foreground.
                     handleUnauthorized()
                     break
                 }
@@ -185,7 +186,7 @@ class ApprovalService : Service() {
             }
 
             else -> {
-                // Difensivo: qualunque type con "permission" forza un allineamento.
+                // Defensive: any type with "permission" forces alignment.
                 val sessionId = event.sessionId
                 if (sessionId != null && incoming.wireType.contains("permission", true)) {
                     throttle.reset(sessionId)
@@ -195,14 +196,14 @@ class ApprovalService : Service() {
         }
     }
 
-    /** All'apertura/riconnessione: sessione attiva + tutte quelle già viste. */
+    /** On open/reconnect: active session + all previously seen ones. */
     private fun realignAll(api: OpenCodeApi) {
         val active = runCatching { api.activeSession() }
             .onFailure { onRestFailure(it) }
             .getOrNull()
         if (active != null) knownSessions += active
 
-        // Copia: refreshSession non modifica l'insieme, ma restiamo espliciti.
+        // Copy: refreshSession does not modify the set, but let's be explicit.
         knownSessions.toList().forEach { refreshSession(api, it) }
     }
 

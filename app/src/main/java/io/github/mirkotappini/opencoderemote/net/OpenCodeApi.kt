@@ -12,7 +12,7 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 
-/** Sottoinsieme di `GET /api/info` (M0: solo version + pid). */
+/** Subset of `GET /api/info` (M0: only version + pid). */
 @Serializable
 data class ApiInfo(
     val version: String = "?",
@@ -20,10 +20,9 @@ data class ApiInfo(
 )
 
 /**
- * Corpo del prompt. Il DTO è `internal` per i test JVM; con
- * `encodeDefaults = false` e `explicitNulls = false` un campo nullo o al
- * default non viene serializzato, così un prompt senza allegati resta
- * identico a prima.
+ * Prompt body. The DTO is `internal` for JVM tests; with `encodeDefaults = false`
+ * and `explicitNulls = false`, a null or default field is not serialized, so a
+ * prompt without attachments remains identical to before.
  */
 @Serializable
 internal data class PromptBody(
@@ -68,8 +67,8 @@ private data class SkillBody(
 )
 
 /**
- * Corpo di `POST /api/session/{id}/command`. `text` è il resto della riga
- * dopo il nome (`""` se non ci sono argomenti); `files` resta assente se vuoto.
+ * Body of `POST /api/session/{id}/command`. `text` is the rest of the line after
+ * the name (`""` if there are no arguments); `files` is omitted if empty.
  */
 @Serializable
 internal data class CommandBody(
@@ -79,8 +78,8 @@ internal data class CommandBody(
 )
 
 /**
- * Operazioni di sessione usate da `SessionCommands`. Interfaccia ristretta per
- * poter verificare l'ordine POST → GET senza rete nei test JVM.
+ * Session operations used by `SessionCommands`. Restricted interface to verify the
+ * POST → GET order without network in JVM tests.
  */
 interface SessionCommandApi {
     fun switchAgent(sessionId: String, agentId: String)
@@ -90,7 +89,7 @@ interface SessionCommandApi {
     fun session(sessionId: String): SessionUi
 }
 
-/** Logica pura degli switch: dopo il 204 rilegge la sessione dal server. */
+/** Pure switch logic: after 204, re-reads the session from the server. */
 object SessionCommands {
 
     fun switchAgent(api: SessionCommandApi, sessionId: String, agentId: String): SessionUi {
@@ -110,17 +109,17 @@ object SessionCommands {
     }
 }
 
-/** Errore HTTP con codice, senza corpo (il corpo può contenere dati sensibili). */
+/** HTTP error with code, no body (the body may contain sensitive data). */
 class ApiException(
     val code: Int,
     val path: String,
 ) : IOException("HTTP $code on $path")
 
 /**
- * Client REST per M1.
+ * REST client for M1.
  *
- * L'header Authorization viene costruito qui e vive solo in memoria: non viene
- * mai loggato, serializzato o scritto su disco.
+ * The Authorization header is built here and exists only in memory: it is never
+ * logged, serialized, or written to disk.
  */
 class OpenCodeApi(
     private val client: OkHttpClient,
@@ -133,7 +132,7 @@ class OpenCodeApi(
     @Suppress("unused")
     private val authorization: String = Credentials.basic(user, password, Charsets.UTF_8)
 
-    /** Header pronto per le richieste (mai loggato). */
+    /** Header ready for requests (never logged in). */
     internal fun authHeader(): String = authorization
 
     private val json = Json {
@@ -165,7 +164,7 @@ class OpenCodeApi(
         return ApiParsing.parseSessions(get(url))
     }
 
-    /** `GET /api/session/{id}/message?order=desc` — pagina in ordine cronologico. */
+    /** `GET /api/session/{id}/message?order=desc` — page in chronological order. */
     @Throws(IOException::class)
     fun messages(
         sessionId: String,
@@ -182,7 +181,7 @@ class OpenCodeApi(
         return ApiParsing.parseMessages(get(builder.build()))
     }
 
-    /** `GET /api/session/{id}/permission` — richieste pendenti (può essere vuota). */
+    /** `GET /api/session/{id}/permission` — pending requests (may be empty). */
     @Throws(IOException::class)
     fun permissions(sessionId: String): List<ApprovalUi> {
         val url = url("/api/session")
@@ -224,15 +223,15 @@ class OpenCodeApi(
 
         client.newCall(request).execute().use { response ->
             if (response.isSuccessful) return
-            // Il corpo serve solo per discriminare il 404; non viene esposto.
+            // The body is only used to distinguish the 404; it is not exposed.
             val payload = response.body?.string()
             throw ApprovalErrors.fromHttpFailure(response.code, payload, url.encodedPath)
         }
     }
 
     /**
-     * `POST /api/session` con corpo `{}`: il server applica i default (titolo,
-     * agente, modello). Risponde con l'involucro `{data: Session.Info}`.
+     * `POST /api/session` with body `{}`: the server applies defaults (title,
+     * agent, model). Responds with the envelope `{data: Session.Info}`.
      */
     @Throws(IOException::class)
     fun createSession(): SessionUi {
@@ -240,13 +239,13 @@ class OpenCodeApi(
         return ApiParsing.parseSession(payload) ?: throw IOException("session not created")
     }
 
-    /** `GET /api/session/active`; `data` vuoto (`{}`) = nessuna sessione attiva. */
+    /** `GET /api/session/active`; empty `data` (`{}`) = no active session. */
     @Throws(IOException::class)
     fun activeSession(): String? {
         return ApiParsing.parseActiveSession(get(url("/api/session/active")))
     }
 
-    /** `GET /api/session/{id}` — stato autorevole dopo uno switch. */
+    /** `GET /api/session/{id}` — authoritative state after a switch. */
     @Throws(IOException::class)
     override fun session(sessionId: String): SessionUi {
         val value = ApiParsing.parseSession(
@@ -255,7 +254,7 @@ class OpenCodeApi(
         return value ?: throw IOException("session not found")
     }
 
-    /** `GET /api/session?parentID=…` — sessioni figlie (task in background). */
+    /** `GET /api/session?parentID=…` — child sessions (background tasks). */
     @Throws(IOException::class)
     fun children(sessionId: String, limit: Int = 50): List<SessionUi> {
         val url = url("/api/session")
@@ -267,21 +266,21 @@ class OpenCodeApi(
         return ApiParsing.parseSessions(get(url)).sessions
     }
 
-    /** `GET /api/agent` — solo i campi mostrabili; `system`/`permissions` ignorati. */
+    /** `GET /api/agent` — only displayable fields; `system`/`permissions` ignored. */
     @Throws(IOException::class)
     fun agents(): List<AgentUi> = CatalogParsing.parseAgents(get(url("/api/agent")))
 
-    /** `GET /api/skill` — `content` ignorato in parsing. */
+    /** `GET /api/skill` — `content` ignored during parsing. */
     @Throws(IOException::class)
     fun skills(): List<SkillUi> = CatalogParsing.parseSkills(get(url("/api/skill")))
 
-    /** `GET /api/command` — catalogo dei comandi slash letti dal server. */
+    /** `GET /api/command` — catalog of slash commands read from the server. */
     @Throws(IOException::class)
     fun commands(): List<CommandUi> = CommandParsing.parseCommands(get(url("/api/command")))
 
     /**
-     * `POST /api/session/{id}/command` — il server espande il comando.
-     * [text] è il resto della riga dopo il nome, anche vuoto.
+     * `POST /api/session/{id}/command` — the server expands the command. [text] is
+     * the rest of the line after the name, even if empty.
      */
     @Throws(IOException::class)
     fun runCommand(
@@ -307,14 +306,14 @@ class OpenCodeApi(
     }
 
     /**
-     * `GET /api/form` — domande pendenti. `Form.Info` può non contenere i
-     * campi: in quel caso si legge il `Form.Detail` della singola domanda.
-     * Con [sessionId] restituisce solo le domande di quella sessione.
+     * `GET /api/form` — pending questions. `Form.Info` may not contain the fields:
+     * in that case, read the `Form.Detail` of the single question. With
+     * [sessionId], returns only the questions of that session.
      */
     @Throws(IOException::class)
     fun forms(sessionId: String? = null): List<FormUi> {
         val infos = FormParsing.parseInfos(get(url("/api/form")))
-            // Con una sessione richiesta si leggono solo le sue domande.
+            // With a requested session, only its questions are read.
             .filter { sessionId == null || it.sessionID.isBlank() || it.sessionID == sessionId }
         val forms = infos.mapNotNull { info ->
             val inline = if (!info.fields.isNullOrEmpty()) {
@@ -328,10 +327,10 @@ class OpenCodeApi(
             if (sid.isNullOrBlank()) return@mapNotNull null
             try {
                 val detail = form(sid, id) ?: return@mapNotNull null
-                // Il dettaglio può non ripetere la sessione: la conosciamo dalla voce.
+                // The detail may not repeat the session: we know it from the entry.
                 if (detail.sessionId.isBlank()) detail.copy(sessionId = sid) else detail
             } catch (e: ApiException) {
-                // Una domanda sparita non deve far fallire il resync.
+                // A missing question must not cause the resync to fail.
                 if (e.code == 401) throw e
                 null
             }
@@ -339,7 +338,7 @@ class OpenCodeApi(
         return if (sessionId == null) forms else forms.filter { it.sessionId == sessionId }
     }
 
-    /** `GET /api/session/{id}/form/{formID}` — `null` se non è un form valido. */
+    /** `GET /api/session/{id}/form/{formID}` — `null` if not a valid form. */
     @Throws(IOException::class)
     fun form(sessionId: String, formId: String): FormUi? {
         val url = url("/api/session")
@@ -364,7 +363,7 @@ class OpenCodeApi(
         post(url, FormReply.bodyJson(answer).toRequestBody(JSON))
     }
 
-    /** `DELETE /api/session/{id}/form/{formID}` → 204 (annulla la domanda). */
+    /** `DELETE /api/session/{id}/form/{formID}` → 204 (cancels the request). */
     @Throws(IOException::class)
     fun cancelForm(sessionId: String, formId: String) {
         val url = url("/api/session")
@@ -376,15 +375,15 @@ class OpenCodeApi(
         delete(url)
     }
 
-    /** `GET /api/mcp` — stato normalizzato a stringa. */
+    /** `GET /api/mcp` — status normalized to string. */
     @Throws(IOException::class)
     fun mcps(): List<McpUi> = CatalogParsing.parseMcps(get(url("/api/mcp")))
 
-    /** `GET /api/model` — `settings` (apiKey) non viene mai parsato. */
+    /** `GET /api/model` — `settings` (apiKey) is never parsed. */
     @Throws(IOException::class)
     fun models(): List<ModelUi> = CatalogParsing.parseModels(get(url("/api/model")))
 
-    /** `GET /api/location` — risposta senza involucro `data`. */
+    /** `GET /api/location` — response without `data` wrapper. */
     @Throws(IOException::class)
     fun location(): LocationUi? = CatalogParsing.parseLocation(get(url("/api/location")))
 
@@ -445,10 +444,10 @@ class OpenCodeApi(
     }
 
     /**
-     * `POST /api/session/{id}/prompt` — l'ack 200 non è l'output: il testo arriva
-     * solo dalla SSE. Restituisce l'id del messaggio utente confermato, se presente.
+     * `POST /api/session/{id}/prompt` — the 200 ack is not the output: the text
+     * arrives only via SSE. Returns the confirmed user message id, if present.
      *
-     * [files] viaggia inline nel corpo; senza allegati il campo resta assente.
+     * [files] travels inline in the body; without attachments the field is absent.
      */
     @Throws(IOException::class)
     fun prompt(
@@ -476,7 +475,7 @@ class OpenCodeApi(
         }.getOrNull()
     }
 
-    /** `POST /api/session/{id}/interrupt` — l'esito arriva come evento SSE. */
+    /** `POST /api/session/{id}/interrupt` — the outcome arrives as an SSE event. */
     @Throws(IOException::class)
     fun interrupt(sessionId: String) {
         val url = url("/api/session")
@@ -537,7 +536,7 @@ class OpenCodeApi(
             .build()
 
         client.newCall(request).execute().use { response ->
-            // Il corpo serve solo per non lasciare il socket appeso.
+            // The body is only there to prevent the socket from hanging.
             response.body?.string()
             if (!response.isSuccessful) {
                 throw ApiException(response.code, url.encodedPath)

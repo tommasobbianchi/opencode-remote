@@ -9,10 +9,13 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Serializzazione del corpo prompt con `files` e compatibilità senza allegati. */
+/**
+ * Serialization of the prompt body with `files` and compatibility without
+ * attachments.
+ */
 class PromptFilesTest {
 
-    // Stessa configurazione del client: i nulli e i default non vengono scritti.
+    // Same client configuration: nulls and defaults are not written.
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true

@@ -5,7 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Parsing degli allegati nei messaggi salvati (inline e per uri). */
+/** Parsing of attachments in saved messages (inline and by URI). */
 class MessageFilesTest {
 
     @Test
@@ -39,7 +39,8 @@ class MessageFilesTest {
         assertNull(byUri.dataBase64)
         assertEquals("file:///tmp/doc.pdf", byUri.uri)
 
-        // File senza data né uri: resta valido, la UI mostrerà solo il nome.
+        // File without date or uri: remains valid, the UI will only display the
+        // name.
         val bare = message.files[2]
         assertEquals("text/plain", bare.mime)
         assertNull(bare.dataBase64)

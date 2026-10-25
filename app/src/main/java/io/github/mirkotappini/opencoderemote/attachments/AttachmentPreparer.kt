@@ -15,30 +15,29 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import kotlin.math.roundToInt
 
-/** Esito tipizzato della preparazione: il chiamante non vede eccezioni. */
+/** Typed result of the preparation: the caller does not see exceptions. */
 sealed interface AttachmentResult {
     data class Ok(
         val file: PromptFile,
         val ui: AttachmentUi,
     ) : AttachmentResult
 
-    /** Oltre il tetto in ingresso (50 MB). */
+    /** Above the incoming ceiling (50 MB). */
     data object TooLarge : AttachmentResult
 
-    /** URI non leggibile o contenuto non decodificabile. */
+    /** Unreadable URI or undecodable content. */
     data object NotReadable : AttachmentResult
 
-    /** Leggibile ma ancora oltre il tetto inline: `isImage` sceglie il messaggio. */
+    /** Readable but still over the inline limit: `isImage` selects the message. */
     data class TooLargeAfterCompression(val isImage: Boolean) : AttachmentResult
 }
 
 /**
- * Prepara un allegato per l'invio inline.
+ * Prepare an attachment for inline sending.
  *
- * Legge dal `ContentResolver` (tetto 50 MB), per le immagini decodifica a
- * campioni, ridimensiona e comprime in JPEG; per gli altri file applica il
- * tetto di 4 MB sui byte letti. Nessuna scrittura su disco e nessun log del
- * contenuto.
+ * Reads from the `ContentResolver` (50 MB cap); for images, decodes at samples,
+ * resizes, and compresses to JPEG; for other files, applies a 4 MB cap on the bytes
+ * read. No disk writes and no content logging.
  */
 class AttachmentPreparer(private val context: Context) {
 
@@ -52,8 +51,9 @@ class AttachmentPreparer(private val context: Context) {
         val looksImage = AttachmentRules.isImageMime(info.mime) ||
             AttachmentRules.isImageMime(AttachmentRules.mimeForName(info.name))
         if (looksImage && info.size == null) {
-            // Senza SIZE dichiarata il tetto va comunque rispettato: per le
-            // immagini si decodifica a campioni e non si leggerebbero i byte.
+            // Even without a declared SIZE, the limit must still be respected: for
+            // images, decoding happens at the sample level, so the bytes are not
+            // read.
             val measured = measureSize(uri) ?: return AttachmentResult.NotReadable
             if (measured > AttachmentRules.MAX_INPUT_BYTES) {
                 return AttachmentResult.TooLarge
@@ -66,7 +66,7 @@ class AttachmentPreparer(private val context: Context) {
         }
     }
 
-    // --- file non immagine ---------------------------------------------------
+    // --- non-image file ---------------------------------------------------
 
     private fun prepareFile(uri: Uri, info: SourceInfo): AttachmentResult {
         val bytes = try {
@@ -113,8 +113,8 @@ class AttachmentPreparer(private val context: Context) {
             false
         }
         if (!opened) return AttachmentResult.NotReadable
-        // Formato che BitmapFactory non decodifica (es. SVG): si prova l'invio
-        // del contenuto originale, sempre col cap inline.
+        // Format that BitmapFactory cannot decode (e.g., SVG): attempt to send the
+        // original content, always with inline cap.
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return prepareFile(uri, info)
 
         val decoded = decodeSampled(uri, bounds) ?: return prepareFile(uri, info)
@@ -122,8 +122,8 @@ class AttachmentPreparer(private val context: Context) {
         val name = jpegName(info.name)
 
         try {
-            // Primo tentativo 1600 px/80, poi 1280 px/70: la sorgente decodificata
-            // resta la stessa, si ricomprime solo più piccola.
+            // First attempt 1600 px/80, then 1280 px/70: the decoded source remains
+            // the same, it is only recompressed to a smaller size.
             for (attempt in AttachmentRules.RESIZE_STEPS.indices) {
                 val step = AttachmentRules.resizeStep(attempt) ?: break
                 val scaled = scaleToMaxSide(decoded, step.maxSidePx)
@@ -157,13 +157,13 @@ class AttachmentPreparer(private val context: Context) {
         }
     }
 
-    /** Decodifica con `inSampleSize`: mai un bitmap più grande del necessario. */
+    /** Decode with `inSampleSize`: never a bitmap larger than necessary. */
     private fun decodeSampled(uri: Uri, bounds: BitmapFactory.Options): Bitmap? {
         val longest = maxOf(bounds.outWidth, bounds.outHeight)
         val target = AttachmentRules.RESIZE_STEPS.first().maxSidePx
         var sample = 1
-        // Si ferma al primo campione che resta almeno il doppio del target:
-        // il ridimensionamento finale conserva i dettagli senza sprecare RAM.
+        // Stops at the first sample that is at least twice the target: the final
+        // resize preserves details without wasting RAM.
         while (longest / (sample * 2) >= target) sample *= 2
         val options = BitmapFactory.Options().apply { inSampleSize = sample }
         return try {
@@ -202,15 +202,15 @@ class AttachmentPreparer(private val context: Context) {
         }
     }
 
-    /** Nome coerente col JPEG prodotto, anche se in ingresso era un PNG/HEIC. */
+    /** Name consistent with the generated JPEG, even if the input was a PNG/HEIC. */
     private fun jpegName(originalName: String?): String {
         val named = AttachmentRules.fileNameFor(JPEG_MIME, originalName)
         return named.substringBeforeLast('.', named) + ".jpg"
     }
 
     /**
-     * Rotazione dichiarata dal resolver (MediaStore); se il provider non la
-     * espone si legge l'EXIF dal flusso. Niente dipendenze aggiuntive.
+     * Rotation declared by the resolver (MediaStore); if the provider does not
+     * expose it, read EXIF from the stream. No additional dependencies.
      */
     @Suppress("DEPRECATION")
     private fun rotationDegrees(uri: Uri): Int {
@@ -298,8 +298,8 @@ class AttachmentPreparer(private val context: Context) {
         }
         val mime = runCatching { resolver.getType(uri) }.getOrNull()
         if (size == null) {
-            // Alcuni provider non espongono SIZE nella query: la lunghezza
-            // del descrittore evita una lettura completa solo per contare.
+            // Some providers do not expose SIZE in the query: the descriptor length
+            // avoids a full read just to count.
             size = runCatching {
                 resolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
                     descriptor.length.takeIf { it >= 0L }
@@ -314,8 +314,8 @@ class AttachmentPreparer(private val context: Context) {
     }
 
     /**
-     * Conta i byte con il tetto in ingresso. Restituisce `MAX_INPUT_BYTES + 1`
-     * appena lo supera: nessun dato viene trattenuto.
+     * Counts bytes with an input cap. Returns `MAX_INPUT_BYTES + 1` as soon as it
+     * is exceeded: no data is retained.
      */
     private fun measureSize(uri: Uri): Long? {
         val stream = try {

@@ -74,16 +74,16 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 // ---------------------------------------------------------------------------
-// Palette — token reali del tema builtin "opencode" (variante dark) del binario
-// OpenCode 2.1.4. Non è una reinterpretazione: i valori sotto sono quelli del
-// TUI, riportati 1:1. Il tema scuro è il default del prodotto; il chiaro è
-// derivato con gli stessi gradini di superficie e resta leggibile ad AA.
+// Palette — real tokens of the builtin "opencode" theme (dark variant) from the
+// OpenCode 2.1.4 binary. This is not a reinterpretation: the values below are those
+// of the TUI, reported 1:1. The dark theme is the product default; the light theme
+// is derived using the same surface steps and remains readable at AA.
 // ---------------------------------------------------------------------------
 
 /**
- * Token semantici che Material 3 non copre: feedback, accento, interattivo,
- * diff e syntax. Sono esposti a parte perché i composable li usano con il
- * significato che hanno nel TUI, non come semplici "colori in più".
+ * Semantic tokens that Material 3 does not cover: feedback, accent, interactive,
+ * diff, and syntax. They are exposed separately because composables use them with
+ * their TUI-specific meaning, not as mere "extra colors".
  */
 @Immutable
 data class OpenPalette(
@@ -177,10 +177,10 @@ private val DarkPalette = OpenPalette(
 )
 
 /**
- * Chiaro derivato: stessa scala di superfici del dark (background → raised →
- * high → max) ma in discesa dal bianco. I toni-feedback sono scuriti quanto
- * basta per restare AA su fondo bianco; `warning` e `muted` restano quelli
- * richiesti come token, l'inchiostro leggibile è `warningInk` / `mutedText`.
+ * Clear derivative: same surface scale as dark (background → raised → high → max)
+ * but descending from white. Feedback tones are darkened just enough to remain AA
+ * on a white background; `warning` and `muted` stay as the required tokens, while
+ * the readable ink is `warningInk` / `mutedText`.
  */
 private val LightPalette = OpenPalette(
     dark = false,
@@ -225,7 +225,7 @@ private val LightPalette = OpenPalette(
 
 private val LocalOpenPalette = staticCompositionLocalOf { DarkPalette }
 
-/** Token del tema OpenCode: usa questo negli schermi, non i colori a mano. */
+/** OpenCode theme token: use this in screens, not manual colors. */
 object OpenColors {
     val current: OpenPalette
         @Composable get() = LocalOpenPalette.current
@@ -310,8 +310,8 @@ private val LightColors = lightColorScheme(
 )
 
 // ---------------------------------------------------------------------------
-// Tipografia — Space Grotesk per i titoli, IBM Plex Sans per il testo,
-// JetBrains Mono per dati tecnici, log e output dei tool.
+// Typography — Space Grotesk for headings, IBM Plex Sans for body text, JetBrains
+// Mono for technical data, logs, and tool output.
 // ---------------------------------------------------------------------------
 
 val DisplayFamily = FontFamily(
@@ -440,7 +440,7 @@ private val AppTypography = Typography(
     ),
 )
 
-/** Stile monospace coerente per log, tool e dati numerici. */
+/** Consistent monospace style for logs, tools, and numeric data. */
 fun monoStyle(
     fontSize: TextUnit = 12.sp,
     lineHeight: TextUnit = 17.sp,
@@ -481,7 +481,7 @@ object Layout {
     val logMaxWidth = 960.dp
 }
 
-/** Tema dell'app. Scuro di default: è il contesto d'uso principale. */
+/** App theme. Dark by default: it is the primary use case. */
 @Composable
 fun AppTheme(
     darkTheme: Boolean = true,
@@ -514,7 +514,7 @@ fun AppTheme(
 }
 
 // ---------------------------------------------------------------------------
-// Glifi disegnati a mano: tratto coerente, nessuna dipendenza da icone extra.
+// Hand-drawn glyphs: consistent stroke, no dependency on extra icons.
 // ---------------------------------------------------------------------------
 
 enum class ChevronDirection(val degrees: Float) {
@@ -567,7 +567,7 @@ fun GlyphArrowRight(
     }
 }
 
-/** Quadrato "stop": interrompe l'esecuzione in corso. */
+/** "Stop" square: interrupts the current execution. */
 @Composable
 fun GlyphStop(
     modifier: Modifier = Modifier,
@@ -636,7 +636,7 @@ fun GlyphMore(
     }
 }
 
-/** Pannello laterale: rettangolo con la colonna di destra segnata. */
+/** Side panel: rectangle with the right column marked. */
 @Composable
 fun GlyphSidebar(
     modifier: Modifier = Modifier,
@@ -871,10 +871,10 @@ fun StatusDot(
 }
 
 /**
- * Indicatore di lavoro: un arco che ruota lentamente (1,2 s, lineare).
- * Se gli animatori di sistema sono disattivati ("rimuovi animazioni" o
- * animator scale a 0) resta un pallino pieno, senza movimento. È decorativo:
- * il testo accanto porta lo stato, la descrizione resta per TalkBack.
+ * Work indicator: a slowly rotating arc (1.2 s, linear). If system animators are
+ * disabled ("remove animations" or animator scale set to 0), it remains a solid dot
+ * with no motion. It is decorative: the adjacent text conveys the state, and the
+ * description is retained for TalkBack.
  */
 @Composable
 fun WorkingIndicator(
@@ -954,9 +954,9 @@ fun StatusPill(
 }
 
 /**
- * Badge delle approvazioni in attesa. Usa `warning` (ambra), mai `error`:
- * una richiesta da approvare non è un guasto. La descrizione per TalkBack
- * chiarisce sempre il numero, anche quando in riga si mostra solo la cifra.
+ * Pending approvals badge. Use `warning` (amber), never `error`: a pending approval
+ * is not a failure. The TalkBack description always states the count, even when the
+ * row shows only the number.
  */
 @Composable
 fun ApprovalBadge(
@@ -1141,7 +1141,7 @@ fun SkeletonBar(
     )
 }
 
-/** Alpha pulsante lenta e regolare: il loading non "balla". */
+/** Slow, steady pulsing alpha: the loading does not "bounce". */
 @Composable
 fun rememberSkeletonAlpha(): Float {
     val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "skeleton")
@@ -1157,7 +1157,7 @@ fun rememberSkeletonAlpha(): Float {
     return alpha
 }
 
-/** Sfondo del setup: due aloni d'accento e una griglia di punti appena percettibile. */
+/** Setup background: two accent glows and a barely perceptible dot grid. */
 @Composable
 fun TechnicalBackdrop(modifier: Modifier = Modifier) {
     val oc = OpenColors.current

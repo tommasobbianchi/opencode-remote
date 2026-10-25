@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Genera le icone adattive dell'app da un render PNG quadrato.
+"""Generate the app's adaptive icons from a square PNG render.
 
-Uso: python3 make_icon.py source.png outdir
+Usage: python3 make_icon.py source.png outdir
 
-L'icona adattiva usa il **marchio intero** (glifo + eventuale wordmark) senza la
-piastra: l'alpha viene dalla luminanza, quindi il fondo nero del render sparisce
-e resta solo il neon sul colore di fondo dell'icona. Il launcher adattivo non
-deve contenere testo *tagliato*: qui il testo fa parte del marchio e resta
-dentro la safe zone (66% della tela).
-Produce:
-  out/ic_launcher_foreground_<dens>.png  (108/162/216/324/432 px, con alpha)
-  out/ic_launcher_<dens>.png             (legacy, angoli arrotondati, 48..192)
-  out/ic_launcher_round_<dens>.png       (legacy rotondo)
-  out/ic_launcher_monochrome_<dens>.png  (silhouette bianca del marchio)
+The adaptive icon uses the **whole mark** (glyph plus wordmark, if any) without
+the plate: the alpha comes from the luminance, so the render's black background
+disappears and only the neon is left on the icon's background colour. An adaptive
+launcher icon must not contain *clipped* text: here the text is part of the mark
+and stays inside the safe zone (66% of the canvas).
+Produces:
+  out/ic_launcher_foreground_<dens>.png  (108/162/216/324/432 px, with alpha)
+  out/ic_launcher_<dens>.png             (legacy, rounded corners, 48..192)
+  out/ic_launcher_round_<dens>.png       (legacy, round)
+  out/ic_launcher_monochrome_<dens>.png  (white silhouette of the mark)
   out/preview.png
-  out/background.txt                     (hex del colore di sfondo)
+  out/background.txt                     (hex of the background colour)
 """
 import os
 import sys
@@ -25,13 +25,13 @@ LEGACY = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
 
 
 def plate_box(im, thr=8):
-    """Bbox del contenuto (la 'piastra' arrotondata) escludendo il nero esterno."""
+    """Bbox of the content (the rounded 'plate'), excluding the black around it."""
     mask = im.convert("L").point(lambda v: 255 if v > thr else 0)
     return mask.getbbox()
 
 
 def ring_color(im, box, inset_ratio=0.02, band_ratio=0.06):
-    """Colore medio di una cornice interna alla piastra: il fondo su cui poggia il render."""
+    """Mean colour of a frame inside the plate: the background the render sits on."""
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     inset = int(min(w, h) * inset_ratio)
@@ -53,11 +53,11 @@ def ring_color(im, box, inset_ratio=0.02, band_ratio=0.06):
 
 
 def dark_background(im, inset_ratio=0.0, band_ratio=0.04, quantile=0.30):
-    """Colore del fondo della piastra: media dei pixel **scuri** della cornice.
+    """Plate background colour: the mean of the frame's **dark** pixels.
 
-    La media semplice si faceva trascinare dal glow del render (fondo marrone
-    invece che nero). Qui si guarda il quantile basso di luminanza: il fondo
-    resta quello vero del render, l'alone colorato non entra nel colore.
+    A plain mean was dragged around by the render's glow (a brown background
+    instead of black). This looks at the low luminance quantile instead: the
+    background stays the render's real one and the coloured halo stays out of it.
     """
     x0, y0, x1, y1 = 0, 0, im.size[0], im.size[1]
     w, h = x1 - x0, y1 - y0
@@ -82,7 +82,7 @@ def dark_background(im, inset_ratio=0.0, band_ratio=0.04, quantile=0.30):
 
 
 def radial_alpha(size, feather=0.14, radius_ratio=0.5):
-    """Maschera circolare con bordo sfumato (evita spigoli visibili sulla maschera del launcher)."""
+    """Circular mask with a feathered edge (no visible corners under the launcher mask)."""
     mask = Image.new("L", (size, size), 0)
     d = ImageDraw.Draw(mask)
     margin = int(size * feather)
@@ -106,7 +106,7 @@ def circle_mask(size):
 
 
 def luma_alpha(im, floor=14, span=80):
-    """Alpha dalla luminanza: il fondo scuro diventa trasparente, il neon resta."""
+    """Alpha from the luminance: the dark background turns transparent, the neon stays."""
     g = im.convert("L")
     a = g.point(lambda v: 0 if v <= floor else min(255, int((v - floor) * 255 / span)))
     return a.filter(ImageFilter.GaussianBlur(max(1, im.size[0] // 240)))
@@ -117,7 +117,7 @@ def main(src, out):
     im = Image.open(src).convert("RGB")
     plate = plate_box(im)
     bg = ring_color(im, plate)
-    # Il glifo sta dentro la piastra: bbox misurato sulla luminanza, escludendo il bordo.
+    # The glyph sits inside the plate: bbox measured on the luminance, edge excluded.
     px0, py0, px1, py1 = plate
     inset = int(min(px1 - px0, py1 - py0) * 0.10)
     inner = im.crop((px0 + inset, py0 + inset, px1 - inset, py1 - inset))
@@ -132,12 +132,12 @@ def main(src, out):
     with open(os.path.join(out, "background.txt"), "w") as fh:
         fh.write("#%02X%02X%02X\n" % bg)
 
-    # --- foreground adattivo: marchio intero (glifo + wordmark), alpha dal neon.
-    # La piastra nera del render sparisce con l'alpha: sotto c'è il colore di
-    # fondo dell'icona, quindi non si vede nessun riquadro annidato.
+    # --- adaptive foreground: the whole mark (glyph + wordmark), alpha from the neon.
+    # The render's black plate disappears with the alpha: underneath is the icon's
+    # background colour, so no nested square shows.
     for dens, scale in DENSITIES.items():
         canvas = int(108 * scale)          # 108dp
-        art_size = int(canvas * 0.66)      # dentro la safe zone della maschera
+        art_size = int(canvas * 0.66)      # inside the mask's safe zone
         layer = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
         piece = art.resize((art_size, art_size), Image.LANCZOS).convert("RGBA")
         piece.putalpha(luma_alpha(piece))
@@ -145,7 +145,7 @@ def main(src, out):
         layer.alpha_composite(piece, (off, off))
         layer.save(os.path.join(out, f"ic_launcher_foreground_{dens}.png"))
 
-    # --- legacy (pre-Android 8): piastra intera, angoli arrotondati / cerchio
+    # --- legacy (pre-Android 8): whole plate, rounded corners / circle
     for dens, px in LEGACY.items():
         plate_img = im.crop(plate)
         sq = plate_img.resize((px, px), Image.LANCZOS).convert("RGBA")
@@ -158,18 +158,18 @@ def main(src, out):
         rd_canvas.putalpha(circle_mask(px))
         rd_canvas.save(os.path.join(out, f"ic_launcher_round_{dens}.png"))
 
-        # monochrome per icone tematizzate: silhouette del marchio (alpha dalla
-        # luminanza), non un testo nel font: il marchio ora È il lettering.
+        # monochrome, for themed icons: the mark's silhouette (alpha from the
+        # luminance), not text in the font -- the mark IS the lettering now.
         mono = Image.new("RGBA", (px, px), (0, 0, 0, 0))
         mark_px = int(px * 0.66)
         shape = art.resize((mark_px, mark_px), Image.LANCZOS).convert("RGBA")
-        # Bianco pieno: il sistema applica il suo tint, qui serve solo la forma.
+        # Solid white: the system applies its own tint, only the shape matters here.
         silhouette = Image.new("RGBA", shape.size, (255, 255, 255, 0))
         silhouette.putalpha(luma_alpha(shape))
         mono.alpha_composite(silhouette, ((px - mark_px) // 2, (px - mark_px) // 2))
         mono.save(os.path.join(out, f"ic_launcher_monochrome_{dens}.png"))
 
-    # --- anteprima: cerchio adattivo, squircle, legacy, monochrome, su due fondi
+    # --- preview: adaptive circle, squircle, legacy, monochrome, on two backgrounds
     S = 432
     def adaptive():
         bgc = Image.new("RGBA", (S, S), bg + (255,))
@@ -200,7 +200,7 @@ def main(src, out):
     preview = Image.new("RGBA", (W, H), (18, 18, 18, 255))
     for i, t in enumerate(tiles):
         preview.alpha_composite(t, (pad + i * (S + pad), pad))
-    # seconda riga: su fondo chiaro
+    # second row: on a light background
     preview.paste((242, 244, 246, 255), (0, S + 2 * pad, W, H))
     for i, t in enumerate(tiles):
         preview.alpha_composite(t, (pad + i * (S + pad), S + 2 * pad))

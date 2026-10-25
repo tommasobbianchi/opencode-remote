@@ -75,34 +75,34 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 // ---------------------------------------------------------------------------
-// M8 — allegati nel prompt.
+// M8 — attachments in the prompt.
 //
-// Nessuna libreria di immagini: la miniatura arriva dal ContentResolver (URI
-// locale scelto dall'utente) o dai byte base64 già presenti nel messaggio, con
-// `ImageDecoder` e una LruCache in memoria per chiave stabile
-// (`messageId|indice` per le bolle, `pick:<uri>` per il composer).
+// No image library: the thumbnail comes from ContentResolver (local URI selected by
+// the user) or from base64 bytes already present in the message, using
+// `ImageDecoder` and an in-memory LruCache keyed by a stable key (`messageId|index`
+// for bubbles, `pick:<uri>` for the composer).
 //
-// Questa parte è solo presentazione: chi prepara, comprime e invia il file è
-// `attachments/*` + `AppViewModel` (lane dati). Qui si legge il contratto
-// `AttachmentUi` / `MessageFileUi` e non si riscrive nulla.
+// This part is presentation only: preparing, compressing, and sending the file is
+// handled by `attachments/*` + `AppViewModel` (data lane). Here we read the
+// `AttachmentUi` / `MessageFileUi` contract and do not rewrite anything.
 // ---------------------------------------------------------------------------
 
-/** Miniatura in bolla/riga: 220 dp a 3x ≈ 660 px, 720 copre anche i tablet. */
+/** Bubble/row thumbnail: 220 dp at 3x ≈ 660 px, 720 also covers tablets. */
 private const val THUMB_MAX_PX = 720
 
-/** Visore a schermo intero: si decodifica una volta, senza cache. */
+/** Fullscreen viewer: decodes once, no cache. */
 private const val FULL_MAX_PX = 2048
 
 private val BUBBLE_IMAGE_MAX = 220.dp
 private const val BUBBLE_IMAGE_MIN = 96f
 
 // ---------------------------------------------------------------------------
-// Glifi: stesso tratto dei glifi di `Theme.kt` (Canvas, 1.5–1.8 dp, cap tondo).
-// Stanno qui perché sono usati solo dagli allegati; se un domani servono
-// altrove, si spostano in `Theme.kt` senza cambiarne il disegno.
+// Glyphs: same stroke as the glyphs in `Theme.kt` (Canvas, 1.5–1.8 dp, round cap).
+// They live here because they are only used by attachments; if they are needed
+// elsewhere later, move them to `Theme.kt` without changing the design.
 // ---------------------------------------------------------------------------
 
-/** Graffetta: il glifo del pulsante "Attach a file". */
+/** Paperclip: the glyph for the "Attach a file" button. */
 @Composable
 internal fun GlyphPaperclip(
     modifier: Modifier = Modifier,
@@ -113,10 +113,10 @@ internal fun GlyphPaperclip(
     val tint = color ?: LocalContentColor.current
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
-        // Geometria dell'icona in uno spazio 24×24, poi scalata al lato utile.
-        // Le tre curve sono archi esatti (raggi 6, 4 e 2): con un solo Bezier
-        // quadratico per curva le "U" della graffetta si schiacciano e sembrano
-        // spigoli.
+        // Icon geometry in a 24×24 space, then scaled to the usable side. The three
+        // curves are exact arcs (radii 6, 4, and 2): using a single quadratic
+        // Bezier per curve flattens the "U" shapes of the paperclip, making them
+        // look angular.
         val unit = s * 0.88f / 24f
         val origin = s * 0.06f
         fun px(value: Float) = origin + value * unit
@@ -157,7 +157,7 @@ internal fun GlyphPaperclip(
     }
 }
 
-/** Documento con angolo piegato: file non immagine. */
+/** Document with folded corner: file, not image. */
 @Composable
 internal fun GlyphDocument(
     modifier: Modifier = Modifier,
@@ -202,7 +202,7 @@ internal fun GlyphDocument(
     }
 }
 
-/** Cornice con montagna e sole: "gallery". */
+/** Frame with mountain and sun: "gallery". */
 @Composable
 internal fun GlyphGallery(
     modifier: Modifier = Modifier,
@@ -238,7 +238,7 @@ internal fun GlyphGallery(
     }
 }
 
-/** Corpo con obiettivo: "camera". */
+/** Body with objective: "camera". */
 @Composable
 internal fun GlyphCamera(
     modifier: Modifier = Modifier,
@@ -275,7 +275,7 @@ internal fun GlyphCamera(
 }
 
 // ---------------------------------------------------------------------------
-// Peso leggibile: "840 kB", "1.2 MB" (punto decimale inglese, unità decimali).
+// Readable weight: "840 kB", "1.2 MB" (English decimal point, decimal units).
 // ---------------------------------------------------------------------------
 
 internal fun fileSizeLabel(bytes: Long): String {
@@ -296,10 +296,10 @@ private fun decimalLabel(value: Double): String =
     }
 
 // ---------------------------------------------------------------------------
-// Sorgenti delle miniature e cache in memoria.
+// Thumbnail sources and in-memory cache.
 // ---------------------------------------------------------------------------
 
-/** Da dove arriva l'anteprima: byte base64 del messaggio o URI locale. */
+/** Where the preview comes from: base64 bytes of the message or a local URI. */
 internal sealed interface ImageSource {
     data class Inline(val base64: String) : ImageSource
     data class Local(val uri: String) : ImageSource
@@ -320,8 +320,8 @@ private object ThumbCache {
 }
 
 /**
- * Miniatura memoizzata per [key] (più il lato massimo): la decodifica gira su
- * IO, la cache evita di rifarla a ogni ricomposizione o scroll.
+ * Memoized thumbnail for [key] (plus max side): decoding runs on IO, the cache
+ * avoids re-decoding on every recomposition or scroll.
  */
 @Composable
 internal fun rememberAttachmentImage(
@@ -367,9 +367,9 @@ private fun decodeImage(context: Context, source: ImageSource, maxPx: Int): Imag
     }.getOrNull()
 
 /**
- * Decodifica ridimensionando il lato lungo a [maxPx]: `setTargetSampleSize`
- * lavora sull'intestazione, quindi non si allocano mai bitmap a piena
- * risoluzione (un JPEG da 30 MB resta leggero).
+ * Decode by resizing the long side to [maxPx]: `setTargetSampleSize` works on the
+ * header, so full-resolution bitmaps are never allocated (a 30 MB JPEG stays
+ * lightweight).
  */
 private fun decodeBitmap(
     source: () -> ImageDecoder.Source,
@@ -389,7 +389,7 @@ private fun base64Bytes(raw: String): ByteArray? = runCatching {
     if (payload.isEmpty()) null else Base64.decode(payload, Base64.DEFAULT)
 }.getOrNull()
 
-/** Byte approssimati dal base64: è il peso che il server ha ricevuto. */
+/** Approximate bytes from base64: this is the weight the server received. */
 private fun base64ByteCount(raw: String): Long {
     val payload = raw.substringAfter("base64,", raw).filterNot { it.isWhitespace() }
     if (payload.isEmpty()) return 0L
@@ -397,7 +397,10 @@ private fun base64ByteCount(raw: String): Long {
     return (payload.length.toLong() * 3L / 4L - padding).coerceAtLeast(0L)
 }
 
-/** Peso di un URI locale (messaggio ottimistico): la query può mancare, mai crash. */
+/**
+ * Weight of a local URI (optimistic message): the query may be missing, never
+ * crash.
+ */
 @Composable
 private fun rememberLocalSize(uri: String?): Long? {
     val context = LocalContext.current
@@ -421,10 +424,10 @@ private fun querySize(resolver: ContentResolver, uri: String): Long? = runCatchi
 }.getOrNull()
 
 // ---------------------------------------------------------------------------
-// Miniatura quadrata (composer e chip) e visore a schermo intero.
+// Square thumbnail (composer and chip) and full-screen viewer.
 // ---------------------------------------------------------------------------
 
-/** 40 dp di miniatura: immagine decodificata, oppure glifo del tipo. */
+/** 40 dp thumbnail: decoded image, or type glyph. */
 @Composable
 internal fun FileThumb(
     cacheKey: String,
@@ -460,7 +463,7 @@ internal data class ImageViewerRequest(
     val name: String,
 )
 
-/** Immagine a schermo intero: fondo `background`, "close" e tap per uscire. */
+/** Full-screen image: `background` backdrop, "close" and tap to exit. */
 @Composable
 internal fun ImageViewer(
     request: ImageViewerRequest,
@@ -474,8 +477,8 @@ internal fun ImageViewer(
         maxPx = FULL_MAX_PX,
         cache = false,
     )
-    // Stesso schema del picker dei modelli: Dialog a piena finestra con la
-    // superficie dell'app, così il fondo è `background` anche sopra la chat.
+    // Same layout as the model picker: full-screen dialog with the app surface, so
+    // the background is `background` even over the chat.
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -543,13 +546,13 @@ internal fun ImageViewer(
 }
 
 // ---------------------------------------------------------------------------
-// Riga allegato del composer.
+// Composer attachment row.
 // ---------------------------------------------------------------------------
 
 /**
- * Sopra il campo: miniatura + nome + peso e la X, oppure lo stato di
- * preparazione, oppure l'errore chiudibile con un tap. Il foglio non c'entra:
- * qui si vede solo quello che il ViewModel espone.
+ * Above the field: thumbnail + name + weight and the X, or the preparation state,
+ * or the dismissible error. The sheet is irrelevant: here we only see what the
+ * ViewModel exposes.
  */
 @Composable
 internal fun AttachmentRow(
@@ -698,7 +701,7 @@ private fun AttachmentErrorRow(
 }
 
 // ---------------------------------------------------------------------------
-// Foglio di scelta: galleria, fotocamera, file. Stesso foglio di `TurnDetail`.
+// Selection sheet: gallery, camera, file. Same sheet as `TurnDetail`.
 // ---------------------------------------------------------------------------
 
 internal enum class AttachTarget { Gallery, Camera, Document }
@@ -810,7 +813,7 @@ private fun SheetDivider() {
 }
 
 // ---------------------------------------------------------------------------
-// Allegati dentro la bolla dell'utente.
+// Attachments inside the user's bubble.
 // ---------------------------------------------------------------------------
 
 private data class AttachmentView(
@@ -823,10 +826,10 @@ private data class AttachmentView(
 )
 
 /**
- * Una bolla può portare più file (il contratto è una lista). L'immagine si
- * vede solo se il contenuto è disponibile: base64 del server, oppure URI
- * locale per il messaggio ottimistico ancora in coda. Con il solo `uri` del
- * server c'è il chip, senza anteprima.
+ * A bubble can carry multiple files (the contract is a list). The image is only
+ * visible if the content is available: server base64, or a local URI for an
+ * optimistic message still in the queue. With only the server `uri`, there is a
+ * chip, no preview.
  */
 @Composable
 internal fun MessageAttachments(
@@ -839,9 +842,9 @@ internal fun MessageAttachments(
     val views = remember(files, pending) {
         files.mapIndexed { index, file -> attachmentView(messageId, index, file, pending) }
     }
-    // Senza `fillMaxWidth`: la bolla deve restare larga quanto l'immagine, non
-    // quanto il massimo consentito. `maxWidth` qui è comunque il limite della
-    // bolla, quindi la miniatura non può sforare.
+    // Without `fillMaxWidth`: the bubble must stay as wide as the image, not the
+    // maximum allowed. `maxWidth` here is still the bubble's limit, so the
+    // thumbnail cannot overflow.
     BoxWithConstraints {
         val maxSide = minOf(BUBBLE_IMAGE_MAX, maxWidth)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -948,7 +951,7 @@ private fun AttachmentImage(
     }
 }
 
-/** Riquadro max 220×220 dp, proporzioni dell'immagine, mai sotto i 96 dp. */
+/** Max 220×220 dp frame, image aspect ratio, never below 96 dp. */
 private fun previewSize(bitmap: ImageBitmap?, maxSide: Dp): DpSize {
     val ratio = bitmap?.let { it.width.toFloat() / it.height.toFloat() } ?: 1.4f
     val max = maxSide.value

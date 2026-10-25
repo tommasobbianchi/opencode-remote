@@ -74,21 +74,21 @@ import io.github.mirkotappini.opencoderemote.net.FormValue
 import java.util.Locale
 
 // ---------------------------------------------------------------------------
-// M9 — domande del server (form) e comandi slash.
+// M9 — server questions (forms) and slash commands.
 //
-// Solo presentazione: gli stati e le chiamate stanno in `AppViewModel`, qui si
-// legge il contratto `FormUi` / `CommandUi` e si restituiscono risposte già
-// tipizzate (`FormValue`). Nessun altro stato: quello che il server sa non si
-// duplica.
+// Presentation only: state and calls live in `AppViewModel`; here we read the
+// `FormUi` / `CommandUi` contract and return typed responses (`FormValue`). No
+// other state: what the server knows is not duplicated.
 //
-// La domanda è un pannello **fisso sopra il composer** (non nella lista: non
-// deve uscire dallo schermo mentre scorri il turno). I comandi sono un foglio
-// che si apre dal draft, quindi la tastiera resta dov'è.
+// The question is a panel **fixed above the composer** (not in the list: it must
+// not scroll off-screen while scrolling the turn). Commands are a sheet that opens
+// from the draft, so the keyboard stays where it is.
 // ---------------------------------------------------------------------------
 
 /**
- * Altezza massima dei campi prima di diventare scorrevoli: così il pannello non
- * mangia la chat né il composer, anche con un form da molti campi o in orizzontale.
+ * Maximum height of fields before they become scrollable: this prevents the panel
+ * from eating into the chat or the composer, even with a multi-field form or a
+ * horizontal layout.
  */
 private fun fieldsMaxHeightDp(screenHeightDp: Int): Int =
     (screenHeightDp * 0.42f).coerceIn(140f, 380f).toInt()
@@ -99,19 +99,19 @@ private val ACTION_SHAPE = RoundedCornerShape(11.dp)
 private val CHIP_SHAPE = RoundedCornerShape(10.dp)
 
 // ---------------------------------------------------------------------------
-// Tipi di campo
+// Field types
 // ---------------------------------------------------------------------------
 
 /**
- * Controllo da disegnare per un campo [`FormFieldUi.type`]. I nomi sono quelli
- * dell'API (`string`, `boolean`, `integer`, `number`, `multiselect`, `external`);
- * un tipo che non conosciamo non rompe il pannello, resta una riga non componibile.
+ * Control to render for a [`FormFieldUi.type`] field. The names are the API ones
+ * (`string`, `boolean`, `integer`, `number`, `multiselect`, `external`); an unknown
+ * type does not break the panel, it remains a non-composable row.
  */
 internal enum class FormControl { Text, Choice, Integer, Number, Checkbox, Chips, External, Unknown }
 
 /**
- * Il tool "question" del server manda `string` **con** `options`: è una scelta
- * singola, non testo libero. Senza opzioni resta un campo di testo.
+ * The server's "question" tool sends a `string` **with** `options`: it is a single
+ * choice, not free text. Without options, it remains a text field.
  */
 internal fun controlOf(field: FormFieldUi): FormControl {
     val base = controlOf(field.type)
@@ -133,14 +133,14 @@ internal fun controlOf(type: String): FormControl = when (type.trim().lowercase(
 }
 
 // ---------------------------------------------------------------------------
-// Pannello della domanda
+// Question panel
 // ---------------------------------------------------------------------------
 
 /**
- * Pannello fissato sopra il composer. Un controllo per campo (i campi `hidden`
- * e i tipi non previsti sono già scartati a monte, in `FormParsing`), "reply"
- * spento finché i campi obbligatori non sono compilati, "cancel" sempre
- * disponibile mentre non c'è un invio in corso.
+ * Panel pinned above the composer. One control per field (`hidden` fields and
+ * unsupported types are already filtered upstream in `FormParsing`), "reply"
+ * disabled until required fields are filled, "cancel" always available while no
+ * submission is in progress.
  */
 @Composable
 internal fun QuestionPanel(
@@ -156,13 +156,14 @@ internal fun QuestionPanel(
 
     val fields = remember(form.fields) { form.fields.filter { it.key.isNotBlank() } }
     val answers = remember(form.id) { mutableStateMapOf<String, FormValue>() }
-    // Il testo grezzo serve solo a testo e numerici: un numero va conservato
-    // così com'è digitato ("1," e "-" sono stati intermedi legittimi).
+    // Raw text is only for text and numeric values: a number must be preserved
+    // exactly as typed ("1," and "-" were legitimate intermediates).
     val raw = remember(form.id) { mutableStateMapOf<String, String>() }
     var submitted by remember(form.id) { mutableStateOf(false) }
 
-    // L'invio è "in corso" finché la domanda non sparisce; se arriva un errore
-    // i pulsanti tornano attivi, così si può riprovare senza riaprire nulla.
+    // Submission is "in progress" until the question disappears; if an error
+    // occurs, the buttons become active again, allowing a retry without reopening
+    // anything.
     val busy = submitted && error == null
     val missing = fields.count { it.required && !hasAnswer(it, answers[it.key]) }
     val invalid = fields.any { valueProblem(it, answers[it.key], raw[it.key]) != null }
@@ -178,8 +179,8 @@ internal fun QuestionPanel(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            // TalkBack annuncia il pannello una volta sola; i figli restano
-            // navigabili uno per uno.
+            // TalkBack announces the panel only once; the children remain navigable
+            // one by one.
             .semantics { contentDescription = "opencode question" },
         shape = PANEL_SHAPE,
         color = scheme.surfaceContainer,
@@ -189,8 +190,8 @@ internal fun QuestionPanel(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // L'eyebrow è solo l'etichetta visiva: la descrizione del pannello
-            // la dice già a voce, non serve ripeterla.
+            // The eyebrow is just the visual label: the panel description already
+            // says it out loud, no need to repeat it.
             Eyebrow(
                 text = "question",
                 color = oc.interactive,
@@ -235,9 +236,9 @@ internal fun QuestionPanel(
                             onRawText = { text ->
                                 val control = controlOf(field)
                                 if (control == FormControl.Integer || control == FormControl.Number) {
-                                    // Un input non numerico viene scartato: il campo
-                                    // resta com'era invece di mostrare testo che poi
-                                    // non si può inviare.
+                                    // Non-numeric input is discarded: the field
+                                    // remains as it was instead of showing text
+                                    // that cannot be submitted.
                                     if (sanitizeNumberInput(text, control == FormControl.Integer)) {
                                         raw[field.key] = text
                                         val parsed = numericValueOf(text)
@@ -440,8 +441,8 @@ private fun FormFieldBlock(
 }
 
 /**
- * Titolo del campo + "obbligatorio": una sola stringa così TalkBack lo legge
- * in un colpo invece di due nodi separati.
+ * Field title + "required": a single string so TalkBack reads it in one go instead
+ * of two separate nodes.
  */
 @Composable
 private fun FieldLabel(field: FormFieldUi, mono: Boolean) {
@@ -464,7 +465,7 @@ private fun FieldLabel(field: FormFieldUi, mono: Boolean) {
     )
 }
 
-/** Campo del composer riusato per testo e numerici: stessa pillola del prompt. */
+/** Composer field reused for text and numeric: same pill as the prompt. */
 @Composable
 private fun AnswerTextField(
     text: String,
@@ -528,7 +529,7 @@ private fun AnswerTextField(
     }
 }
 
-/** `boolean` è un interruttore: spento è una risposta valida, non un campo vuoto. */
+/** `boolean` is a switch: off is a valid answer, not an empty field. */
 @Composable
 private fun CheckboxAnswer(
     checked: Boolean,
@@ -574,7 +575,7 @@ private fun CheckboxAnswer(
     }
 }
 
-/** `multiselect`: chip su più righe, ognuna un interruttore con area da 48 dp. */
+/** `multiselect`: chips on multiple lines, each a toggle with a 48 dp area. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MultiAnswer(
@@ -590,7 +591,7 @@ private fun MultiAnswer(
     onChange = onToggle,
 )
 
-/** Scelta singola (`string` con `options`): stessa forma dei chip, ruolo radio. */
+/** Single choice (`string` with `options`): same shape as chips, radio role. */
 @Composable
 private fun ChoiceAnswer(
     options: List<FormOptionUi>,
@@ -607,9 +608,9 @@ private fun ChoiceAnswer(
 
 
 /**
- * Chip di scelta, condivisi fra multiselect e scelta singola. Area 48 dp,
- * `Role.Checkbox` o `Role.RadioButton` a seconda del caso: TalkBack annuncia
- * il comportamento giusto.
+ * Choice chip, shared between multiselect and single-select. 48 dp area,
+ * `Role.Checkbox` or `Role.RadioButton` depending on the case: TalkBack announces
+ * the correct behavior.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -680,7 +681,7 @@ private fun ChoiceChips(
 }
 
 
-/** `external`: si compila sul server, da qui si può solo leggere il link. */
+/** `external`: compiled on the server, only the link can be read from here. */
 @Composable
 private fun ExternalAnswer(url: String?) {
     val oc = OpenColors.current
@@ -756,13 +757,13 @@ private fun FormSpinner(color: Color) {
 }
 
 // ---------------------------------------------------------------------------
-// Palette dei comandi
+// Command palette
 // ---------------------------------------------------------------------------
 
 /**
- * Testo dopo "/" quando il draft è un comando in scrittura: `null` se non lo è.
- * Basta un carattere di spazio per uscire dalla palette (il comando è scelto e
- * si stanno scrivendo gli argomenti).
+ * Text after "/" when the draft is a write command: `null` if it is not. A single
+ * space character exits the palette (the command is selected and arguments are
+ * being typed).
  */
 internal fun commandQueryOf(draft: String): String? {
     if (!draft.startsWith("/")) return null
@@ -772,8 +773,8 @@ internal fun commandQueryOf(draft: String): String? {
 }
 
 /**
- * Foglio dei comandi del server: righe da 56 dp, nome in mono, descrizione
- * `mutedText`. Il filtro è sul testo dopo "/", senza distinzione di maiuscole.
+ * Server command sheet: 56 dp rows, name in mono, description in `mutedText`. The
+ * filter is on the text after "/", case-insensitive.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -806,8 +807,8 @@ internal fun CommandPalette(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // Con la tastiera aperta il foglio deve restare leggibile:
-                // il draft resta il filtro, quindi si continua a scrivere.
+                // With the keyboard open, the sheet must remain readable: the draft
+                // stays the filter, so you keep typing.
                 .imePadding()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
@@ -873,8 +874,8 @@ internal fun CommandPalette(
 
                 filtered.isEmpty() -> Text(
                     text = when {
-                        // Un guasto di rete non deve sembrare "nessun comando":
-                        // il catalogo è vuoto perché la lettura non è riuscita.
+                        // A network failure must not look like "no command": the
+                        // catalog is empty because the read failed.
                         error != null -> error
                         query.isBlank() -> "no commands"
                         else -> "no commands for \"$query\""
@@ -940,13 +941,13 @@ private fun CommandRow(
 }
 
 // ---------------------------------------------------------------------------
-// Regole di compilazione (pure, così restano leggibili e verificabili)
+// Compilation rules (pure, so they remain readable and verifiable)
 // ---------------------------------------------------------------------------
 
 /**
- * Il campo obbligatorio ha una risposta? `boolean` e `external` non bloccano
- * mai: un interruttore spento è una risposta, e un campo esterno si compila sul
- * server — bloccare qui lascerebbe il pannello impossibile da chiudere.
+ * Does the required field have a response? `boolean` and `external` never block: a
+ * switched-off toggle is a response, and an external field compiles on the server —
+ * blocking here would make the panel impossible to close.
  */
 internal fun hasAnswer(field: FormFieldUi, value: FormValue?): Boolean =
     when (controlOf(field)) {
@@ -960,9 +961,9 @@ internal fun hasAnswer(field: FormFieldUi, value: FormValue?): Boolean =
     }
 
 /**
- * Errore breve sotto il campo, solo per i numerici: testo non interpretabile o
- * fuori dall'intervallo `minimum`/`maximum`. Vuoto (o solo "-") non è un
- * errore, è un campo ancora da compilare.
+ * Short error under the field, only for numerics: unparseable text or out of
+ * `minimum`/`maximum` range. Empty (or just "-") is not an error, it is a field
+ * still to be filled in.
  */
 internal fun valueProblem(field: FormFieldUi, value: FormValue?, raw: String?): String? {
     val control = controlOf(field)
@@ -979,21 +980,21 @@ internal fun valueProblem(field: FormFieldUi, value: FormValue?, raw: String?): 
     return null
 }
 
-/** Un valore da inviare, oppure `null` se è vuoto (niente chiavi inutili). */
+/** A value to send, or `null` if empty (no useless keys). */
 internal fun replyValue(value: FormValue): FormValue? = when (value) {
     is FormValue.Text -> value.takeIf { it.value.isNotBlank() }
     is FormValue.Multi -> value.takeIf { it.values.isNotEmpty() }
     else -> value
 }
 
-/** Il numero si invia solo se lo si è capito: "" e "-" non sono valori. */
+/** The number is only sent if it is understood: "" and "-" are not values. */
 internal fun numericValueOf(text: String): Double? =
     text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { !it.isNaN() && !it.isInfinite() }
 
 /**
- * Filtro sull'input numerico: cifre, un segno meno iniziale, al massimo un
- * separatore decimale. Impedisce stati che poi non si possono inviare (per
- * `integer` il separatore non è ammesso).
+ * Filter on numeric input: digits, an optional leading minus sign, at most one
+ * decimal separator. Prevents states that cannot be submitted (for `integer`, the
+ * decimal separator is not allowed).
  */
 internal fun sanitizeNumberInput(text: String, integer: Boolean): Boolean {
     if (text.isEmpty()) return true
@@ -1020,8 +1021,9 @@ private fun numberLabel(value: Double): String =
     if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
 
 /**
- * Un 404 dal server significa che la domanda non è più in attesa: il pannello
- * sparisce al resync, intanto si dice cosa è successo senza mostrare il codice.
+ * A 404 from the server means the question is no longer pending: the panel
+ * disappears on resync, and in the meantime it reports what happened without
+ * showing the code.
  */
 internal fun formErrorLabel(message: String): String {
     val expired = listOf("404", "scadut", "non trovat", "not found", "expired")

@@ -48,14 +48,14 @@ import io.github.mirkotappini.opencoderemote.net.ApprovalUi
 import kotlin.math.abs
 
 /**
- * Pannello delle approvazioni in chat.
+ * Approval panel in chat.
  *
- * Non è un dialog: vive sopra il composer e lascia leggibile la conversazione.
- * Con più richieste la prima è espansa, le altre restano in una pila compatta;
- * si cambia richiesta con swipe orizzontale, con le frecce o toccando una riga.
+ * Not a dialog: it sits above the composer and keeps the conversation readable.
+ * With multiple requests, the first is expanded, the others remain in a compact
+ * stack; switch requests via horizontal swipe, arrows, or tapping a row.
  *
- * "Consenti sempre" non è mai il default: apre una conferma che spiega che la
- * regola vale per sempre sul server e mostra esattamente cosa verrà salvato.
+ * "Always allow" is never the default: it opens a confirmation explaining that the
+ * rule persists on the server and shows exactly what will be saved.
  */
 @Composable
 fun ApprovalPanel(
@@ -177,7 +177,7 @@ fun ApprovalPanel(
     }
 }
 
-/** Avviso non allarmistico per una richiesta già risolta altrove (404). */
+/** Non-alarming notice for a request already resolved elsewhere (404). */
 @Composable
 fun ApprovalExpiredNotice(
     onDismiss: () -> Unit,

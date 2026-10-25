@@ -7,8 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * §4.4: la UI riceve al massimo uno snapshot ogni finestra, gli eventi di
- * fase/fine turno passano subito e l'ultimo valore accumulato non si perde.
+ * §4.4: the UI receives at most one snapshot per window, phase/end-of-turn events
+ * pass through immediately, and the last accumulated value is not lost.
  */
 class PublishGateTest {
 
@@ -92,12 +92,12 @@ class PublishGateTest {
     fun `un secondo di delta a 60 Hz produce circa dieci pubblicazioni`() {
         val gate = PublishGate<Int>(interval)
         var published = 0
-        // 1 secondo di delta ogni 16 ms (≈60 Hz): 63 frame.
+        // 1 second of delta every 16 ms (≈60 Hz): 63 frames.
         for (frame in 0..62) {
             val now = 1_000L + frame * 16L
             if (gate.offer(frame, immediate = false, now = now)) published += 1
         }
-        // Una ogni ~7 frame (100 ms / 16 ms), non una per frame.
+        // One every ~7 frames (100 ms / 16 ms), not one per frame.
         assertTrue("attese ~10 pubblicazioni, trovate $published", published in 9..11)
     }
 

@@ -221,9 +221,9 @@ fun SessionListScreen(
                 )
             }
 
-            // M5 F1/F2: un solo avviso alla volta. Se lo stream non è live il
-            // motivo (anche un errore REST) sta nella riga compatta di stato;
-            // un errore mentre la SSE è viva usa il banner esistente.
+            // M5 F1/F2: one warning at a time. If the stream is not live, the
+            // reason (including a REST error) is in the compact status line; an
+            // error while the SSE is active uses the existing banner.
             if (state.error != null && streamLive) {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
@@ -256,7 +256,7 @@ fun SessionListScreen(
                     ) {
                         StreamNotice(
                             text = when {
-                                // Rete assente: si aspetta, non si riprova (niente numeri).
+                                // Network absent: wait, do not retry (no numbers).
                                 suspended -> ReconnectPolicy.NETWORK_WAITING
                                 reconnecting != null && state.error != null ->
                                     "${state.error} · retrying in " +
@@ -386,9 +386,9 @@ fun SessionListScreen(
 }
 
 /**
- * Pill dell'header: è il server corrente, ed è l'unico punto della lista da cui
- * si torna alla scelta del server. Bordo e chevron la rendono riconoscibile
- * come controllo; il tap apre il foglio con URL, versione e conseguenze.
+ * Header pill: this is the current server, and it is the only item in the list that
+ * returns to the server selection. The border and chevron make it recognizable as a
+ * control; tapping it opens the sheet with the URL, version, and consequences.
  */
 @Composable
 private fun ServerChip(
@@ -460,9 +460,9 @@ private fun ServerChip(
 }
 
 /**
- * Foglio "Server": dati della connessione e uscita verso il setup. La
- * conseguenza (credenziali salvate cancellate) è scritta prima del tap sul
- * pulsante, così il cambio server non è una perdita silenziosa.
+ * "Server" sheet: connection data and exit to setup. The consequence (saved
+ * credentials deleted) is written before tapping the button, so switching servers
+ * is not a silent loss.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -603,9 +603,9 @@ private fun ServerSheet(
 }
 
 /**
- * Riga compatta di stato sotto l'header: compare anche con la lista in cache,
- * che è proprio il caso in cui serve sapere che i dati non sono aggiornati.
- * Il motivo viene da `error` (quando c'è) o dallo stato dello stream.
+ * Compact status line under the header: appears even with the cached list, which is
+ * exactly the case where you need to know the data is stale. The reason comes from
+ * `error` (when present) or the stream state.
  */
 @Composable
 private fun StreamNotice(

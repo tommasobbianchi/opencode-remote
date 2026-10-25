@@ -170,20 +170,20 @@ fun splitEventLine(line: String): EventLineParts {
 }
 
 /**
- * Il draft contiene qualcosa che vale la pena inviare?
+ * Does the draft contain anything worth sending?
  *
- * Serve almeno una lettera o una cifra: spazi, punteggiatura e simboli da soli
- * (per esempio "/" o "…") non sbloccano il pulsante di invio. Con un allegato
- * l'invio resta possibile anche a testo vuoto (lo decide il chiamante).
+ * At least one letter or digit is required: spaces, punctuation, and symbols alone
+ * (for example "/" or "…") do not enable the send button. With an attachment,
+ * sending remains possible even with empty text (the caller decides).
  */
 internal fun hasSendableText(text: String): Boolean = text.any { it.isLetterOrDigit() }
 
 /**
- * Il campo accetta questa modifica?
+ * Does the field accept this change?
  *
- * Su un campo vuoto si rifiuta ciò che resta fatto solo di spazi: il tasto
- * invio (o una spaziatura) non deve far crescere la pillola senza scrivere
- * nulla. Con del testo dentro passa tutto, compreso il ritorno a capo.
+ * On an empty field, it rejects input consisting only of whitespace: pressing Enter
+ * (or a space) must not grow the pill without writing anything. With text present,
+ * everything passes, including the newline.
  */
 internal fun acceptDraftChange(current: String, next: String): Boolean =
     !(next.isBlank() && current.isBlank())

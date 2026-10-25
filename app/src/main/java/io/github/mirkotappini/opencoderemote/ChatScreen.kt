@@ -168,23 +168,23 @@ fun ChatScreen(
     var pendingAnchorId by remember(session?.id) { mutableStateOf<String?>(null) }
 
     /**
-     * Follow "sticky" (§4.4): la lista resta agganciata al fondo finché
-     * l'utente non trascina verso l'alto; tornare in fondo la riaggancia.
+     * Follow "sticky" (§4.4): the list stays pinned to the bottom until the user
+     * drags upward; returning to the bottom re-pins it.
      *
-     * Prima si decideva "sono in fondo?" *dopo* la crescita del contenuto: con
-     * una o più righe aggiunte mentre il contenuto si assesta il confronto
-     * falliva e l'auto-scroll restava spento per il resto del turno. Ora la
-     * decisione dipende solo dai gesti dell'utente.
+     * Previously, the "am I at the bottom?" check ran *after* content growth: if
+     * one or more lines were added while content was settling, the comparison
+     * failed and auto-scroll stayed off for the rest of the turn. Now the decision
+     * depends only on user gestures.
      */
     var followBottom by remember(session?.id) { mutableStateOf(true) }
 
-    // UN solo turno live (UI-M6 §1). Se il resync ha già portato in `messages`
-    // lo stesso id, il turno live non viene disegnato due volte.
+    // A single live turn (UI-M6 §1). If the resync has already brought the same id
+    // into `messages`, the live turn is not drawn twice.
     val liveTurn = state.chat.liveTurn
         ?.takeIf { turn -> state.messages.none { it.id == turn.id } }
-    // Step assistente consecutivi = una sola bolla, come nel TUI. Il
-    // raggruppamento è solo di presentazione: nessun nuovo stato nel reducer.
-    // La storia è memoizzata: ai delta live si rifonde solo il turno in coda.
+    // Consecutive assistant steps = a single bubble, as in the TUI. Grouping is
+    // presentation-only: no new state in the reducer. History is memoized: for live
+    // deltas, only the queued turn is re-rendered.
     val persistedRows = remember(state.messages) { buildChatRows(state.messages) }
     val rows = remember(persistedRows, liveTurn) {
         withLiveTurn(persistedRows, liveTurn)
@@ -192,26 +192,26 @@ fun ChatScreen(
     val totalRows = rows.size + (if (state.hasMore) 1 else 0)
     var detailRequest by remember(session?.id) { mutableStateOf<DetailRequest?>(null) }
 
-    // M8 — allegati. Photo Picker e OpenDocument non richiedono permessi; la
-    // fotocamera scrive su un URI FileProvider in cacheDir, quindi l'app non
-    // chiede nulla a runtime e non tiene copie dei file.
+    // M8 — attachments. Photo Picker and OpenDocument do not require permissions;
+    // the camera writes to a FileProvider URI in cacheDir, so the app requests
+    // nothing at runtime and does not keep copies of the files.
     val context = LocalContext.current
     var attachSheetOpen by remember(session?.id) { mutableStateOf(false) }
-    // URI della foto in corso: sopravvive alla ricreazione dell'activity mentre
-    // l'app fotocamera è in primo piano.
+    // URI of the photo in progress: survives activity recreation while the camera
+    // app is in the foreground.
     var cameraTarget by rememberSaveable { mutableStateOf<Uri?>(null) }
     var viewerRequest by remember(session?.id) { mutableStateOf<ImageViewerRequest?>(null) }
 
-    // M9 — la domanda pendente si disegna sopra il composer, non nella lista:
-    // così resta visibile anche se il turno è lungo. Con una domanda aperta il
-    // composer è spento ("Ferma" resta), perché il turno è già in attesa.
+    // M9 — the pending question is drawn above the composer, not in the list: so it
+    // stays visible even if the turn is long. With an open question the composer is
+    // disabled ("Stop" remains), because the turn is already waiting.
     val pendingForm = state.forms.firstOrNull()
 
-    // M9 — palette dei comandi. Vive finché il draft è un comando in scrittura
-    // (inizia con "/" e non ha ancora spazi). "annulla" la sopprime finché il
-    // testo non cambia: prima si confrontava il testo del draft, ma la lambda
-    // del foglio poteva essere quella di una composizione precedente e il
-    // confronto falliva (la tendina tornava su).
+    // M9 — command palette. Lives as long as the draft is a command being typed
+    // (starts with "/" and has no spaces yet). "cancel" suppresses it until the
+    // text changes: previously the draft text was compared, but the sheet's lambda
+    // could belong to a previous composition, causing the comparison to fail (the
+    // dropdown would reappear).
     var paletteSuppressed by remember(session?.id) { mutableStateOf(false) }
     val commandQuery = commandQueryOf(state.draft)
     val paletteOpen = commandQuery != null &&
@@ -219,12 +219,12 @@ fun ChatScreen(
         pendingForm == null &&
         !state.openReadOnly
 
-    // Ricominciare a scrivere riapre la palette.
+    // Resuming input reopens the palette.
     LaunchedEffect(state.draft) { paletteSuppressed = false }
 
     LaunchedEffect(paletteOpen) {
-        // TTL e "solo se serve" sono del ViewModel: qui si chiede l'elenco
-        // ogni volta che la palette compare.
+        // TTL and "only if needed" belong to the ViewModel: here the list is
+        // requested every time the palette appears.
         if (paletteOpen) onLoadCommands(false)
     }
 
@@ -261,10 +261,10 @@ fun ChatScreen(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> if (uri != null) onAttachFile(uri) }
 
-    // Auto-scroll agganciato al contenuto del turno, mai alla crescita
-    // dell'output di un tool (§4.4). Il throttle è dato da conflate + delay.
-    // La firma viene dalla riga in coda (che contiene già il turno live):
-    // testo e ragionamento contano, l'output dei tool no.
+    // Auto-scroll is anchored to the turn content, never to the growth of a tool's
+    // output (§4.4). The throttle is provided by conflate + delay. The signature
+    // comes from the tail line (which already contains the live turn): text and
+    // reasoning count, tool output does not.
     val scrollSnapshot = rememberUpdatedState(
         ScrollSnapshot(
             rows = totalRows,
@@ -283,13 +283,13 @@ fun ChatScreen(
             }
     }
 
-    // Il trascinamento dell'utente sgancia il follow...
+    // User drag releases the follow...
     LaunchedEffect(listState) {
         listState.interactionSource.interactions.collect { interaction ->
             if (interaction is DragInteraction.Start) followBottom = false
         }
     }
-    // ...e la lista che si ferma in fondo lo riaggancia.
+    // ...and the list that stops at the bottom re-anchors it.
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }
             .distinctUntilChanged()
@@ -298,23 +298,23 @@ fun ChatScreen(
             }
     }
 
-    // Tastiera: aprendosi, l'IME riduce il viewport (il Column è padding
-    // `safeDrawing`, che include l'IME) e la coda della chat finirebbe sotto la
-    // tastiera. Se stiamo seguendo il fondo si riallinea a layout assestato; se
-    // l'utente è salito a leggere, non si muove nulla e alla chiusura resta
-    // com'era.
+    // Keyboard: as it opens, the IME shrinks the viewport (the Column is padded
+    // with `safeDrawing`, which includes the IME) and the chat tail would end up
+    // under the keyboard. If we are following the bottom, it realigns once the
+    // layout settles; if the user has scrolled up to read, nothing moves and it
+    // stays as it was when the keyboard closes.
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
     LaunchedEffect(imeBottom) {
         if (!followBottom) return@LaunchedEffect
-        // Niente attesa: l'IME entra a passi animati e ogni passo riallinea la
-        // lista, così la coda resta incollata all'animazione invece di star
-        // ferma e saltare alla fine (era il "gradino" all'apertura).
+        // No wait: the IME enters with animated steps, and each step realigns the
+        // list, so the tail stays glued to the animation instead of sitting still
+        // and jumping to the end (this was the "step" on open).
         listState.scrollToBottom()
     }
 
-    // Ritorno in primo piano: mentre l'app era in standby possono essere
-    // arrivati messaggi e gli scroll fatti a vista spenta non si applicano.
-    // Se stiamo seguendo il fondo, ci si riporta dove la chat è davvero.
+    // Bring to foreground: while the app was in standby, messages may have arrived
+    // and scrolls performed with the view off are not applied. If we are following
+    // the bottom, jump to where the chat actually is.
     var resumeTicks by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumeTicks += 1 }
     LaunchedEffect(resumeTicks) {
@@ -375,8 +375,9 @@ fun ChatScreen(
             val reconnecting = state.streamState as? StreamState.Reconnecting
             val connecting = state.streamState is StreamState.Connecting
             val suspended = state.retrySuspended || reconnecting?.suspended == true
-            // Un solo avviso: se c'è già `error`, il countdown viene aggiunto
-            // al suo messaggio. Con la rete assente vince il testo dedicato.
+            // One caveat: if `error` is already present, the countdown is appended
+            // to its message. If the network is absent, the dedicated text takes
+            // precedence.
             if ((reconnecting != null || connecting) && (state.error == null || suspended)) {
                 ReconnectBanner(
                     text = when {
@@ -502,10 +503,10 @@ fun ChatScreen(
                                     }
                                 }
 
-                                // Una riga per turno: gli step assistente
-                                // consecutivi sono già fusi in `rows`. La
-                                // chiave resta `turn:<primoId>`, quindi il
-                                // passaggio live → resync non muove l'item.
+                                // One row per turn: consecutive assistant steps are
+                                // already merged into `rows`. The key remains
+                                // `turn:<primoId>`, so the live → resync transition
+                                // does not move the item.
                                 items(
                                     items = rows,
                                     key = { row -> row.key },
@@ -530,9 +531,9 @@ fun ChatScreen(
                         }
                     }
 
-                    // Subagente appena attivato: overlay in alto a destra,
-                    // dentro il contenuto della chat (non sposta nulla e resta
-                    // sotto a fogli e palette, che vivono più in alto).
+                    // Subagent just activated: overlay in the top right, inside the
+                    // chat content (doesn't shift anything and stays below sheets
+                    // and palettes, which sit higher up).
                     SubagentFlashOverlay(
                         flash = state.subagentFlash,
                         modifier = Modifier
@@ -591,8 +592,8 @@ fun ChatScreen(
             }
         }
 
-        // Un solo foglio per tutta la chat: comando/output dei tool e
-        // ragionamento lungo passano da qui (§2.5).
+        // A single sheet for the entire chat: tool commands/outputs and long
+        // reasoning pass through here (§2.5).
         detailRequest?.let { request ->
             TurnDetailSheet(
                 request = request,
@@ -600,8 +601,8 @@ fun ChatScreen(
             )
         }
 
-        // Foglio degli allegati: si chiude prima di lanciare la lancetta, così
-        // il picker di sistema non compare sopra il foglio.
+        // Attachments sheet: close it before launching the picker, so the system
+        // picker does not appear on top of the sheet.
         if (attachSheetOpen) {
             AttachSheet(
                 onDismiss = { attachSheetOpen = false },
@@ -628,8 +629,8 @@ fun ChatScreen(
             )
         }
 
-        // Immagine a schermo intero: una sola finestra per tutta la chat, così
-        // non sparisce se la bolla esce dal viewport.
+        // Full-screen image: a single window for the entire chat, so it doesn't
+        // disappear when the bubble leaves the viewport.
         viewerRequest?.let { request ->
             ImageViewer(
                 request = request,
@@ -637,8 +638,8 @@ fun ChatScreen(
             )
         }
 
-        // Palette dei comandi: si apre dal draft e si chiude scegliendo (il
-        // draft diventa "/nome "), oppure con "annulla".
+        // Command palette: opens from the draft and closes by selecting (the draft
+        // becomes "/name ") or by pressing "cancel".
         if (paletteOpen) {
             CommandPalette(
                 commands = state.commands,
@@ -861,8 +862,8 @@ private fun Composer(
 ) {
     val scheme = MaterialTheme.colorScheme
     val oc = OpenColors.current
-    // Con una domanda in attesa il composer si spegne: il turno è fermo in
-    // attesa di una risposta e un prompt in coda confonderebbe. "Ferma" resta.
+    // With a pending question, the composer turns off: the turn is stalled awaiting
+    // a response, and a queued prompt would cause confusion. "Ferma" remains.
     val writable = connected && !formPending
     Surface(color = scheme.surfaceContainerLow) {
         Column(
@@ -884,12 +885,12 @@ private fun Composer(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                 ) {
-                    // La domanda del server sta qui, incollata sopra la riga
-                    // allegato: stessa colonna, stesso respiro, e non scorre
-                    // via con la chat.
+                    // The server's question is here, pasted above the line
+                    // attachment: same column, same breathing room, and it doesn't
+                    // scroll away with the chat.
                     formPanel?.invoke()
-                    // Riga allegato (o stato/errore): sopra il campo, dentro la
-                    // stessa colonna così non balla rispetto al composer.
+                    // Attachment row (or status/error): above the field, within the
+                    // same column so it doesn't shift relative to the composer.
                     AttachmentRow(
                         attachment = attachment,
                         preparing = attachmentPreparing,
@@ -912,8 +913,8 @@ private fun Composer(
                                 if (connected) oc.border else oc.border.copy(alpha = 0.5f),
                             ),
                         ) {
-                            // Graffetta dentro la pillola, in fondo a destra: il
-                            // testo ha il suo spazio e non ci finisce mai sotto.
+                            // Paperclip inside the pill, bottom right: the text has
+                            // its own space and never ends up underneath it.
                             Row(
                                 modifier = Modifier.padding(
                                     start = 14.dp,
@@ -925,8 +926,8 @@ private fun Composer(
                             ) {
                                 BasicTextField(
                                     value = draft,
-                                    // Invio a campo vuoto: si ignora, invece di
-                                    // inserire un a capo che gonfia la pillola.
+                                    // Submit to empty field: ignore instead of
+                                    // inserting a newline that bloats the pill.
                                     onValueChange = { next ->
                                         if (acceptDraftChange(draft, next)) {
                                             onDraftChange(next)
@@ -979,8 +980,9 @@ private fun Composer(
                             StopButton(onClick = onInterrupt)
                         } else {
                             SendButton(
-                                // Il prompt parte anche con il solo allegato;
-                                // senza allegato serve almeno una lettera o una cifra.
+                                // The prompt also starts with just the attachment;
+                                // without an attachment, at least one letter or
+                                // digit is required.
                                 enabled = writable &&
                                     (hasSendableText(draft) || attachment != null),
                                 onClick = onSend,
@@ -994,10 +996,10 @@ private fun Composer(
 }
 
 /**
- * Graffetta del composer: sta **dentro** la pillola del campo, in fondo a
- * destra. Area di tocco 40 dp (il campo non cresce: 40 dp è anche l'altezza
- * minima della riga di testo), `mutedText`, spenta se non c'è connessione o
- * mentre un allegato è in preparazione (M8 §4.1).
+ * Composer paperclip: sits **inside** the field pill, bottom right. Touch area 40
+ * dp (the field does not grow: 40 dp is also the minimum height of the text line),
+ * `mutedText`, disabled if there is no connection or while an attachment is being
+ * prepared (M8 §4.1).
  */
 @Composable
 private fun AttachButton(
@@ -1025,8 +1027,8 @@ private fun AttachButton(
 }
 
 /**
- * Sostituisce il composer per un task figlio: niente prompt né invio, il
- * `draft` del padre resta intatto. "Ferma" agisce su questa sessione.
+ * Replaces the composer for a child task: no prompt or send, the parent's `draft`
+ * remains intact. "Stop" acts on this session.
  */
 @Composable
 private fun ReadOnlyFooter(
@@ -1125,12 +1127,12 @@ private fun StopButton(onClick: () -> Unit) {
 }
 
 // ---------------------------------------------------------------------------
-// Turno assistente — UI-M6 §1/§2.
+// Assistant turn — UI-M6 §1/§2.
 //
-// Un solo entry point per il turno live e per il messaggio persistito: stessa
-// bolla, stesse part, stesse chiavi. Al resync il reducer sostituisce il turno
-// con lo stesso id, quindi l'item `turn:<id>` non salta e le part espanse
-// restano tali quando la loro `key` coincide.
+// A single entry point for the live turn and the persisted message: same bubble,
+// same parts, same keys. On resync, the reducer replaces the turn with the same id,
+// so the `turn:<id>` item does not jump and expanded parts remain expanded when
+// their `key` matches.
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -1139,7 +1141,7 @@ private fun AssistantTurn(
     bubbleMax: Dp,
     onOpenDetail: (DetailRequest) -> Unit,
 ) {
-    // Con turno concluso e nessuna part la bolla non esiste (§2.4).
+    // With the turn concluded and no part, the bubble does not exist (§2.4).
     if (turn.parts.isEmpty() && !turn.running) return
 
     val scheme = MaterialTheme.colorScheme
@@ -1149,7 +1151,7 @@ private fun AssistantTurn(
         it.phase == PartPhase.Streaming || it.phase == PartPhase.Running
     }
 
-    // Un solo ticker per turno, attivo solo con part in corso (§4.4).
+    // One ticker per turn, active only while a part is in progress (§4.4).
     val now = produceState(
         initialValue = System.currentTimeMillis(),
         key1 = turn.id,
@@ -1161,9 +1163,9 @@ private fun AssistantTurn(
         }
     }
 
-    // Un solo cursore per turno: l'ultima part text ancora in streaming.
-    // Lampeggio a scatti 1 ↔ 0,35 su 900 ms: il glifo resta identico, quindi
-    // il testo non viene rimisurato a ogni frame (niente relayout in streaming).
+    // One cursor per turn: the last text part still streaming. Blinking in steps 1
+    // ↔ 0.35 over 900 ms: the glyph stays identical, so the text is not re-measured
+    // on every frame (no relayout during streaming).
     val cursorKey = parts.lastOrNull {
         it is TextPartUi && it.phase == PartPhase.Streaming
     }?.key
@@ -1232,8 +1234,8 @@ private fun AssistantTurn(
                                     }
                                 }
                             }
-                            // Pausa fra due part: niente tre puntini, un solo
-                            // arco con grazia di 400 ms (§2.4).
+                            // Pause between two parts: no ellipsis, a single arc
+                            // with a 400 ms grace period (§2.4).
                             if (index == parts.lastIndex && turn.running && !anyActive) {
                                 ThinkingPlaceholder()
                             }
@@ -1253,7 +1255,7 @@ private fun AssistantTurn(
     }
 }
 
-/** Fallback §2.4: nessuna part attiva, ma il turno sta ancora lavorando. */
+/** Fallback §2.4: no active part, but the turn is still working. */
 @Composable
 private fun ThinkingPlaceholder() {
     val oc = OpenColors.current
@@ -1284,7 +1286,7 @@ private fun ThinkingPlaceholder() {
     }
 }
 
-/** §2.1 — ragionamento collassato di default, anteprima e limite righe. */
+/** §2.1 — collapsed reasoning by default, preview, and line limit. */
 @Composable
 private fun ReasoningBlock(
     part: ReasoningPartUi,
@@ -1310,9 +1312,9 @@ private fun ReasoningBlock(
         minimumMs = 0L,
     )
 
-    // TUI: colore base in streaming, warningInk quando espanso, 60% se
-    // collassato e già concluso. Nel tema chiaro il 60% scenderebbe sotto AA,
-    // quindi l'inchiostro resta pieno.
+    // TUI: base color in streaming, warningInk when expanded, 60% if collapsed and
+    // already concluded. In the light theme, 60% would fall below AA, so the ink
+    // remains full.
     val headerColor = when {
         streaming -> oc.text
         expanded -> oc.warningInk
@@ -1367,8 +1369,8 @@ private fun ReasoningBlock(
             )
         }
 
-        // In streaming il corpo non si apre da solo: una riga di anteprima
-        // dà il segno di vita senza far saltare la chat a ogni token.
+        // In streaming, the body does not open automatically: a preview line
+        // signals activity without causing the chat to jump on every token.
         if (!expanded && streaming && preview.isNotBlank()) {
             Text(
                 text = preview,
@@ -1429,9 +1431,9 @@ private fun ReasoningBlock(
 }
 
 /**
- * §2.2 — card del tool, sempre aperta, senza dump JSON. Il comando non si
- * mostra da nessuna parte: nella card è rumore accanto all'output e il foglio
- * di dettaglio serve a leggere l'output per intero.
+ * §2.2 — tool card, always open, no JSON dump. The command is not shown anywhere:
+ * in the card it is noise next to the output, and the detail sheet is for reading
+ * the full output.
  */
 @Composable
 private fun ToolCard(
@@ -1445,8 +1447,8 @@ private fun ToolCard(
     val duration = toolDurationLabel(part, now.value)
     val output = remember(part.output) { outputTail(part.output) }
     val denied = !part.executed || part.phase == PartPhase.Denied
-    // L'unica azione della card conta le righe dell'output: senza output non
-    // c'è nulla da aprire, quindi niente riga (il comando non si mostra più).
+    // The card's only action counts the output lines: without output there is
+    // nothing to open, so no line (the command no longer shows).
     val actionLabel = if (output.totalLines > 0) {
         "show all · " + lineLabel(output.totalLines)
     } else {
@@ -1556,8 +1558,8 @@ private fun ToolCard(
                 }
             }
 
-            // L'azione apre l'output per intero: la sezione "command" non
-            // esiste più nel foglio.
+            // The action opens the full output: the "command" section no longer
+            // exists in the sheet.
             if (actionLabel != null) {
                 val name = part.name.ifBlank { "tool" }
                 ShowAllRow(
@@ -1582,8 +1584,8 @@ private fun ToolCard(
 }
 
 /**
- * Riga azione della card ("show all · N lines"): target 48dp, testo
- * interattivo (§2.2/§2.5).
+ * Card action row ("show all · N lines"): 48dp target, interactive text
+ * (§2.2/§2.5).
  */
 @Composable
 private fun ShowAllRow(
@@ -1614,7 +1616,7 @@ private fun ShowAllRow(
 }
 
 // ---------------------------------------------------------------------------
-// Foglio di dettaglio condiviso (§2.5): comando/output del tool, ragionamento.
+// Shared detail sheet (§2.5): tool command/output, reasoning.
 // ---------------------------------------------------------------------------
 
 private data class DetailSection(val label: String, val text: String)
@@ -1631,8 +1633,8 @@ private fun TurnDetailSheet(
     val oc = OpenColors.current
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    // Il foglio non supera l'80% dello schermo; se il contenuto è corto resta
-    // corto (nessun vuoto sopra il testo).
+    // The sheet does not exceed 80% of the screen; if the content is short, it
+    // stays short (no empty space above the text).
     val bodyMaxHeight = (LocalConfiguration.current.screenHeightDp * 0.8f).dp - 56.dp
     var copiedLabel by remember(request) { mutableStateOf<String?>(null) }
 
@@ -1776,12 +1778,12 @@ private fun copyToClipboard(context: Context, label: String, text: String) {
 }
 
 /**
- * URI `FileProvider` per una nuova foto: il file nasce in `cacheDir/camera` e lo
- * scrive l'app fotocamera di sistema, che riceve il permesso di scrittura con
- * l'intent (`TakePicture`). Nessun permesso runtime, nessuna copia in galleria.
+ * URI `FileProvider` for a new photo: the file is created in `cacheDir/camera` and
+ * written by the system camera app, which receives write permission via the intent
+ * (`TakePicture`). No runtime permissions, no copy to the gallery.
  *
- * Prima dello scatto si buttano le foto di oltre un giorno: la cartella di
- * cache non cresce senza limite e l'app non conserva nulla di utile.
+ * Before the shot, photos older than one day are deleted: the cache folder does not
+ * grow unbounded and the app retains nothing useful.
  */
 private fun cameraTargetUri(context: Context): Uri? = runCatching {
     val dir = File(context.cacheDir, "camera").apply { mkdirs() }
@@ -1867,22 +1869,22 @@ private fun MessageRow(
     }
 }
 
-/** Chiave di lista stabile: gli assistenti usano `turn:<id>` come il turno live. */
+/** Stable list key: assistants use `turn:<id>` as the live turn. */
 private fun MessageUi.listItemKey(): String = when (role) {
     MessageRole.Assistant -> "turn:$id"
     else -> "message:$id"
 }
 
 // ---------------------------------------------------------------------------
-// Raggruppamento di presentazione degli step assistente.
+// Presentation grouping of assistant steps.
 //
-// Il server emette un `assistantMessageID` per step: reasoning + tool in uno,
-// testo finale nel successivo. Nel TUI è un solo turno, quindi qui gli step
-// assistente consecutivi vengono fusi in una sola bolla. Non è stato del
-// reducer: è una proiezione della lista al momento del disegno.
+// The server emits an `assistantMessageID` per step: reasoning + tool in one, final
+// text in the next. In the TUI it is a single turn, so consecutive assistant steps
+// are merged into a single bubble here. This is not part of the reducer: it is a
+// projection of the list at render time.
 // ---------------------------------------------------------------------------
 
-/** Riga della chat: messaggio singolo (utente/meta) o turno fuso. */
+/** Chat row: single message (user/meta) or merged turn. */
 private sealed interface ChatRow {
     val key: String
 
@@ -1895,15 +1897,15 @@ private sealed interface ChatRow {
     }
 }
 
-/** Id usato come ancora per "carica precedenti": il primo messaggio della riga. */
+/** ID used as an anchor for "load previous": the first message in the row. */
 private fun ChatRow.anchorId(): String = when (this) {
     is ChatRow.Single -> message.id
     is ChatRow.Turn -> turn.id
 }
 
 /**
- * La riga contiene [id]? Un turno può aver assorbito il messaggio ancora
- * precedente (step assistente consecutivi): in quel caso si ancora al turno.
+ * Does the line contain [id]? A turn may have absorbed the previous message
+ * (consecutive assistant steps): in that case, it anchors to the turn.
  */
 private fun ChatRow.holdsMessage(id: String): Boolean = when (this) {
     is ChatRow.Single -> message.id == id
@@ -1912,14 +1914,13 @@ private fun ChatRow.holdsMessage(id: String): Boolean = when (this) {
 }
 
 /**
- * Fonde gli step assistente consecutivi in un solo [AssistantTurnUi], fermandosi
- * a ogni messaggio non assistente (utente o divisore). L'id del turno è quello
- * del primo step: è la chiave `turn:<primoId>` che il resync ritrova identica.
+ * Merges consecutive assistant steps into a single [AssistantTurnUi], stopping at
+ * every non-assistant message (user or divider). The turn id is that of the first
+ * step: it is the `turn:<firstId>` key that resync finds identical.
  *
- * Le part key si ripetono fra messaggi diversi (`reasoning:0`, `text:0`, …),
- * quindi ogni part viene ri-chiavata con l'id del messaggio di origine. Il
- * risultato è stabile live → materializzato → resync, perché l'id del messaggio
- * non cambia in quel passaggio.
+ * Part keys repeat across different messages (`reasoning:0`, `text:0`, …), so each
+ * part is re-keyed with the id of its source message. The result is stable live →
+ * materialized → resync, because the message id does not change in that transition.
  */
 private fun buildChatRows(
     messages: List<MessageUi>,
@@ -1934,7 +1935,7 @@ private fun buildChatRows(
 
     fun flush() {
         val id = firstId
-        // Gruppo senza part e non in corso: nessuna bolla (come §2.4).
+        // Group without part and not in progress: no bubble (as §2.4).
         if (id != null && (merged.isNotEmpty() || lastRunning || hasActive)) {
             rows += ChatRow.Turn(
                 AssistantTurnUi(
@@ -1964,7 +1965,7 @@ private fun buildChatRows(
         if (sourceParts.any { it.phase.isLive() }) {
             hasActive = true
         }
-        // Il timestamp della bolla è quello dell'ultimo step.
+        // The bubble's timestamp is that of the last step.
         if (time != null) createdAt = time
         lastRunning = running
     }
@@ -1989,10 +1990,10 @@ private fun buildChatRows(
 }
 
 /**
- * Aggiunge il turno live in coda. Se l'ultima riga è già un turno assistente
- * (step precedenti della stessa esecuzione, o due esecuzioni senza prompt in
- * mezzo) il live viene fuso lì, così la bolla resta una e la chiave
- * `turn:<primoId>` non cambia. Altrimenti il live è un turno a sé.
+ * Adds the live turn to the queue. If the last line is already an assistant turn
+ * (previous steps of the same execution, or two executions with no prompt in
+ * between), the live turn is merged there, so the bubble remains one and the key
+ * `turn:<primoId>` does not change. Otherwise, the live turn is a separate turn.
  */
 private fun withLiveTurn(
     rows: List<ChatRow>,
@@ -2000,7 +2001,7 @@ private fun withLiveTurn(
 ): List<ChatRow> {
     if (live == null) return rows
     if (live.parts.isEmpty() && !live.running) return rows
-    // Difesa: il live con lo stesso id di un messaggio è già rappresentato.
+    // Defense: the live with the same id as a message is already represented.
     if (rows.any { it is ChatRow.Turn && it.turn.id == live.id }) return rows
 
     val liveParts = rekeyParts(live.id, live.parts)
@@ -2031,11 +2032,11 @@ private fun withLiveTurn(
 private fun PartPhase.isLive(): Boolean =
     this == PartPhase.Streaming || this == PartPhase.Running
 
-/** Ordina per `order` e ri-chiava: la part key si ripete fra messaggi diversi. */
+/** Sort by `order` and re-key: the part key repeats across different messages. */
 private fun rekeyParts(id: String, parts: List<TurnPartUi>): List<TurnPartUi> =
     parts.sortedBy { it.order }.map { it.withDisplayKey("$id|${it.key}") }
 
-/** Re-key stabile: id del messaggio di origine + key già stabile della part. */
+/** Stable re-key: source message id + part's already stable key. */
 private fun TurnPartUi.withDisplayKey(key: String): TurnPartUi = when (this) {
     is ReasoningPartUi -> copy(key = key)
     is TextPartUi -> copy(key = key)
@@ -2043,9 +2044,9 @@ private fun TurnPartUi.withDisplayKey(key: String): TurnPartUi = when (this) {
 }
 
 /**
- * Messaggio persistito → stesso tipo del turno live (§1). `running` è vero solo
- * se il resync ha portato part ancora attive: un messaggio già chiuso non mostra
- * mai il fallback "sta scrivendo…".
+ * Persisted message → same type as the live turn (§1). `running` is true only if
+ * the resync brought back still-active parts: a closed message never shows the
+ * "writing…" fallback.
  */
 private fun MessageUi.asTurn(sessionRunning: Boolean): AssistantTurnUi {
     val active = parts.any {
@@ -2085,8 +2086,8 @@ private fun UserMessage(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    // Un messaggio con il solo allegato non mostra il "…":
-                    // il testo c'è solo se c'è qualcosa da leggere (M8 §4.2).
+                    // A message with only an attachment does not show the "…": the
+                    // text is present only if there is something to read (M8 §4.2).
                     if (message.text.isNotBlank() || message.files.isEmpty()) {
                         SelectionContainer {
                             Text(
@@ -2207,9 +2208,9 @@ private fun ChatSkeleton(bubbleMax: Dp) {
 }
 
 // ---------------------------------------------------------------------------
-// Markdown minimale per la chat: titoli, strong, corsivo, codice inline e
-// blocchi, citazioni, link. Nessuna dipendenza: si applicano solo gli stili
-// che il TUI mostra, senza introdurre un parser completo.
+// Minimal Markdown for chat: headings, bold, italics, inline code and code blocks,
+// blockquotes, links. No dependencies: only the styles the TUI displays are
+// applied, without introducing a full parser.
 // ---------------------------------------------------------------------------
 
 private sealed interface MdBlock {
@@ -2270,8 +2271,8 @@ private fun parseMarkdown(source: String): List<MdBlock> {
 }
 
 /**
- * Markdown memoizzato su (lunghezza, hash) del testo (§4.4): il cursore non fa
- * parte del testo parsato, quindi il blink non ricalcola il markdown.
+ * Markdown memoized on (length, hash) of the text (§4.4): the cursor is not part of
+ * the parsed text, so the blink does not recompute the markdown.
  */
 private object MarkdownCache {
     private const val MAX_ENTRIES = 32
@@ -2309,7 +2310,7 @@ private fun MarkdownBody(
 ) {
     val oc = OpenColors.current
     val blocks = remember(text) { MarkdownCache.blocks(text) }
-    // Letto qui: il blink invalida solo questa part text, non tutto il turno.
+    // Read here: the blink only invalidates this text part, not the entire turn.
     val alpha: Float? = cursorAlpha?.value
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         blocks.forEachIndexed { index, block ->
@@ -2402,7 +2403,7 @@ private fun MarkdownBody(
             }
         }
 
-        // Testo ancora vuoto: il cursore è comunque il segno di vita.
+        // Text is still empty: the cursor is the sign of life.
         if (blocks.isEmpty() && alpha != null) {
             Text(
                 text = "▌",
@@ -2505,8 +2506,8 @@ private fun inlineMarkdown(text: String, oc: OpenPalette): AnnotatedString =
     }
 
 // ---------------------------------------------------------------------------
-// Misure e formattazione delle part (§2, §4.2): niente misure a runtime, si
-// troncano le stringhe prima di passarle a `Text`.
+// Measure and format the part (§2, §4.2): no measurements at runtime, truncate the
+// strings before passing them to `Text`.
 // ---------------------------------------------------------------------------
 
 private const val REASONING_VISIBLE_LINES = 14
@@ -2519,7 +2520,7 @@ private data class LimitedText(
     val truncated: Boolean,
 )
 
-/** Prime `maxLines` righe (e al massimo 2400 caratteri) per il ragionamento. */
+/** First `maxLines` lines (and at most 2400 characters) for the reasoning. */
 private fun limitLines(text: String, maxLines: Int): LimitedText {
     if (text.isEmpty()) return LimitedText("", 0, false)
     val lines = text.lines()
@@ -2544,7 +2545,7 @@ private fun limitLines(text: String, maxLines: Int): LimitedText {
     return LimitedText(kept.joinToString("\n"), lines.size, cut)
 }
 
-/** Ultime 6 righe dell'output: il fondo è dove stanno gli errori. */
+/** Last 6 lines of the output: the bottom is where the errors are. */
 private fun outputTail(output: String?): LimitedText {
     if (output.isNullOrBlank()) return LimitedText("", 0, false)
     val lines = output.trimEnd().lines()
@@ -2580,7 +2581,7 @@ private fun formatElapsed(elapsedMs: Long): String {
     return if (seconds == 0L) "$minutes min" else "$minutes min $seconds s"
 }
 
-/** La durata di un tool compare solo da 1 s in su; per "negato" non c'è. */
+/** A tool's duration only appears from 1 s upward; there is none for "denied". */
 private fun toolDurationLabel(part: ToolPartUi, now: Long): String? {
     if (!part.executed || part.phase == PartPhase.Denied) return null
     if (isToolTerminal(part.phase) && part.endedAt == null) return null
@@ -2604,7 +2605,7 @@ private data class ToolStatusUi(
     val talkBack: String,
 )
 
-/** §2.2 — stato tipizzato dalla fase, mai ricavato dal JSON. */
+/** §2.2 — state typed from the phase, never derived from JSON. */
 @Composable
 private fun toolPhaseUi(part: ToolPartUi): ToolStatusUi {
     val oc = OpenColors.current
@@ -2657,8 +2658,8 @@ private fun toolPhaseUi(part: ToolPartUi): ToolStatusUi {
 }
 
 // ---------------------------------------------------------------------------
-// Auto-scroll (§4.4): la firma cambia con testo e struttura del turno, non con
-// la crescita dell'output di un tool.
+// Auto-scroll (§4.4): the signature changes with the turn's text and structure, not
+// with the growth of a tool's output.
 // ---------------------------------------------------------------------------
 
 private const val AUTO_SCROLL_DELAY_MS = 150L
@@ -2670,12 +2671,11 @@ private data class ScrollSnapshot(
 )
 
 /**
- * Firma di scroll della riga in coda. Include la crescita di testo e
- * ragionamento ma **non** quella dell'output di un tool: leggere un output
- * lungo non deve strappare la lista verso il basso.
+ * Scroll signature for the trailing row. Includes text and reasoning growth but
+ * **not** tool output growth: reading a long output must not pull the list down.
  *
- * Il turno live è già dentro `rows` (fuso in `withLiveTurn`), quindi questa
- * firma copre sia lo streaming sia il messaggio materializzato dopo il resync.
+ * The live turn is already in `rows` (merged in `withLiveTurn`), so this signature
+ * covers both streaming and the materialized message after resync.
  */
 private fun rowScrollSignal(row: ChatRow?): String = when (row) {
     is ChatRow.Single -> "m|${row.message.text.length}"
@@ -2684,13 +2684,13 @@ private fun rowScrollSignal(row: ChatRow?): String = when (row) {
 }
 
 /**
- * Porta la lista in fondo **davvero**.
+ * Bring the list to the bottom **for real**.
  *
- * `scrollToItem(ultimo)` allinea il *top* dell'item al top del viewport: se
- * l'ultimo item è più alto dello schermo (una bolla di turno con molti tool) si
- * finisce a mostrare l'inizio della bolla e la coda resta sotto il bordo. Qui
- * dopo l'allineamento si recupera lo scarto misurato, così l'ultima riga del
- * contenuto tocca il fondo del viewport.
+ * `scrollToItem(last)` aligns the item's *top* with the viewport top: if the last
+ * item is taller than the screen (a turn bubble with many tools), you end up
+ * showing the start of the bubble with the tail below the edge. Here, after
+ * alignment, we recover the measured offset so the last line of content touches the
+ * bottom of the viewport.
  */
 private suspend fun LazyListState.scrollToBottom() {
     val info = layoutInfo
@@ -2698,13 +2698,13 @@ private suspend fun LazyListState.scrollToBottom() {
     val lastIndex = info.totalItemsCount - 1
     val visible = info.visibleItemsInfo.lastOrNull()
     if (visible == null || visible.index < lastIndex) {
-        // Ultimo item non disegnato (lista lontana dal fondo): ci si porta
-        // sull'indice, poi la misura qui sotto chiude il conto.
+        // Last item not drawn (list far from the bottom): move to the index, then
+        // the measurement below closes the account.
         scrollToItem(lastIndex)
     }
-    // Un solo `scrollBy` con la distanza esatta: `scrollToItem` + correzione
-    // fanno due layout per frame e durante l'animazione della tastiera si
-    // vedono come jitter.
+    // A single `scrollBy` with the exact distance: `scrollToItem` + correction
+    // triggers two layouts per frame and shows up as jitter during the keyboard
+    // animation.
     val after = layoutInfo
     val last = after.visibleItemsInfo.lastOrNull() ?: return
     val end = after.viewportEndOffset - after.afterContentPadding
@@ -2712,7 +2712,7 @@ private suspend fun LazyListState.scrollToBottom() {
     if (remaining > 0) scrollBy(remaining.toFloat())
 }
 
-/** "Sei in fondo?" stretto: l'ultimo item deve essere visibile. */
+/** "Are you at the bottom?" tight: the last item must be visible. */
 private fun LazyListState.isAtBottom(): Boolean {
     val info = layoutInfo
     if (info.totalItemsCount == 0) return true

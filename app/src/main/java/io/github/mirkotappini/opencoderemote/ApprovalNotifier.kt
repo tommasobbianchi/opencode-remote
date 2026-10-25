@@ -13,17 +13,17 @@ import io.github.mirkotappini.opencoderemote.net.ApprovalNotificationTracker
 import io.github.mirkotappini.opencoderemote.net.ApprovalUi
 
 /**
- * Costruzione e dedupe delle notifiche di approvazione.
+ * Building and deduplicating approval notifications.
  *
- * Il tracker è condiviso a livello di processo: anche il receiver, che vive in
- * un'istanza diversa del notifier, vede lo stesso stato. Una notifica per
- * `requestID`, `setOnlyAlertOnce`, annullamento alla risoluzione.
+ * The tracker is shared at the process level: even the receiver, which lives in a
+ * different notifier instance, sees the same state. One notification per
+ * `requestID`, `setOnlyAlertOnce`, cancellation on resolution.
  */
 class ApprovalNotifier(private val context: Context) {
 
     private val manager = NotificationManagerCompat.from(context)
 
-    /** RequestID già notificati per sessione (per annullare quelli spariti). */
+    /** RequestIDs already notified per session (to cancel those that disappeared). */
     private val perSession = HashMap<String, Set<String>>()
 
     fun ensureChannels() {
@@ -47,7 +47,7 @@ class ApprovalNotifier(private val context: Context) {
         system.createNotificationChannels(listOf(approvals, service))
     }
 
-    /** Notifica persistente del foreground service. */
+    /** Persistent notification for the foreground service. */
     fun serviceNotification(): Notification {
         ensureChannels()
         val content = appIntent(null, null)
@@ -81,7 +81,8 @@ class ApprovalNotifier(private val context: Context) {
             .setContentIntent(appIntent(request.sessionId, request.id))
             .addAction(0, "Allow", replyIntent(request, "once"))
             .addAction(0, "Reject", replyIntent(request, "reject"))
-            // "Sempre" ha effetto permanente: mai da notifica, apre l'app.
+            // "Always" has a permanent effect: never from a notification, opens the
+            // app.
             .addAction(0, "Always…", appIntent(request.sessionId, request.id, "always"))
 
         manager.notify(ApprovalIds.notificationId(request.id), builder.build())
@@ -91,7 +92,7 @@ class ApprovalNotifier(private val context: Context) {
         cancelFor(context, requestId)
     }
 
-    /** Allinea le notifiche di una sessione alla lista autorevole del server. */
+    /** Align session notifications with the server's authoritative list. */
     fun sync(sessionId: String, requests: List<ApprovalUi>) {
         val ids = requests.mapTo(LinkedHashSet()) { it.id }
         val previous = perSession.put(sessionId, ids) ?: emptySet()
@@ -136,7 +137,7 @@ class ApprovalNotifier(private val context: Context) {
         )
     }
 
-    /** Tap e azione "Always": aprono l'app (la conferma esplicita è in-app). */
+    /** Tap and "Always" action: open the app (explicit confirmation is in-app). */
     private fun appIntent(
         sessionId: String?,
         requestId: String?,
@@ -173,7 +174,7 @@ class ApprovalNotifier(private val context: Context) {
 
         private val tracker = ApprovalNotificationTracker()
 
-        /** Usato anche dal ViewModel/receiver fuori dal servizio. */
+        /** Also used by the ViewModel/receiver outside the service. */
         fun cancelFor(context: Context, requestId: String) {
             tracker.markResolved(requestId)
             NotificationManagerCompat.from(context)
@@ -181,12 +182,12 @@ class ApprovalNotifier(private val context: Context) {
         }
 
         /**
-         * M5: annulla tutte le approvazioni note (401, disconnessione, stop del
-         * servizio). Le notifiche sono ricostruite alla prossima riconnessione.
+         * M5: cancel all pending approvals (401, disconnection, service stop).
+         * Notifications are rebuilt on the next reconnection.
          */
         fun cancelAll(context: Context) {
-            // cancelAll() copre anche le notifiche rimaste da un processo
-            // precedente, che il tracker in memoria non conosce più.
+            // cancelAll() also covers notifications left over from a previous
+            // process that the in-memory tracker no longer knows about.
             NotificationManagerCompat.from(context).cancelAll()
             tracker.clear()
         }

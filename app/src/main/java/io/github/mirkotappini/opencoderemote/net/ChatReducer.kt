@@ -3,8 +3,8 @@ package io.github.mirkotappini.opencoderemote.net
 import kotlin.math.abs
 
 /**
- * Vecchio modello testuale tenuto solo per compatibilità con il rendering
- * attuale (ChatScreen). La verità del turno è [ChatStream.liveTurn].
+ * Legacy text model kept only for compatibility with the current rendering
+ * (ChatScreen). The source of truth for the turn is [ChatStream.liveTurn].
  */
 data class LivePart(
     val ordinal: Int,
@@ -17,7 +17,7 @@ data class LiveMessage(
     val messageId: String,
     val parts: List<LivePart> = emptyList(),
 ) {
-    /** Testo concatenato per ordinal crescente (contratto API-M2 §2). */
+    /** Concatenated text in ascending ordinal order (API-M2 contract §2). */
     val text: String
         get() = parts.sortedBy { it.ordinal }
             .joinToString("\n") { it.text }
@@ -28,18 +28,19 @@ data class LiveMessage(
 }
 
 /**
- * Stato del turno live.
+ * Live turn state.
  *
- * - [liveTurn]: al massimo un turno per sessione, identificato da `assistantMessageID`.
- * - [closedParts]: part text chiuse da `ended` (coppia messaggio + ordinal).
- * - [closedReasoningParts]: part reasoning chiuse da `ended` (stessa coppia, set separato).
- * - [finishedMessages]: messaggi chiusi da `step.ended`/`step.failed`/fine esecuzione.
- * - [terminalToolCalls]: esiti tool già chiusi; blocca input/called tardivi.
- *   I success/failed duplicati su Ok/Failed sono ignorati confrontando la fase.
- * - [toolInputBuffers]: JSON parziale degli input tool, mai renderizzato.
- * - [materialized]: turni già spostati in `messages` (multi-step).
+ * - [liveTurn]: at most one turn per session, identified by `assistantMessageID`. -
+ * [closedParts]: text parts closed by `ended` (message + ordinal pair). -
+ * [closedReasoningParts]: reasoning parts closed by `ended` (same pair, separate
+ * set). - [finishedMessages]: messages closed by
+ * `step.ended`/`step.failed`/execution end. - [terminalToolCalls]: already closed
+ * tool outcomes; blocks late input/called. Duplicate success/failed on Ok/Failed
+ * are ignored by comparing the phase. - [toolInputBuffers]: partial JSON of tool
+ * inputs, never rendered. - [materialized]: turns already moved to `messages`
+ * (multi-step).
  *
- * `ChatStream.live` è un derivato deprecato per il vecchio renderer testuale.
+ * `ChatStream.live` is a deprecated derivative for the old textual renderer.
  */
 data class ChatStream(
     val liveTurn: AssistantTurnUi? = null,
@@ -67,12 +68,12 @@ data class OpenChatState(
 )
 
 /**
- * Riduzione pura degli eventi SSE per la chat aperta.
- * Un evento di un'altra sessione non modifica lo stato (M2, criterio 5).
+ * Pure SSE event reduction for the open chat. An event from another session does
+ * not modify state (M2, criterion 5).
  *
- * Nota performance (§4.4): qui i delta si accumulano soltanto; la pubblicazione
- * throttled (80–120 ms, eventi terminali immediati) è a carico di AppViewModel
- * tramite [PublishGate] e [publishedImmediately].
+ * Performance note (§4.4): deltas only accumulate here; throttled publication
+ * (80–120 ms, immediate terminal events) is handled by AppViewModel via
+ * [PublishGate] and [publishedImmediately].
  */
 object ChatReducer {
 
@@ -170,7 +171,7 @@ object ChatReducer {
                 } else if (part.phase == PartPhase.Done && part.text == event.text) {
                     null
                 } else {
-                    // Il server vince sui delta accumulati.
+                    // The server wins on the accumulated deltas.
                     part.copy(text = event.text, phase = PartPhase.Done)
                 }
             },
@@ -413,13 +414,14 @@ object ChatReducer {
                     ToolPartUi(
                         key = key,
                         order = order,
-                        // `executed` non significa "permesso di eseguire": un tool
-                        // chiamato è sempre in corso, l'esito arriva da success/failed.
+                        // `executed` does not mean "permission to execute": a
+                        // called tool is always in progress, and the outcome comes
+                        // from success/failed.
                         phase = PartPhase.Running,
                         callId = event.callId,
                         name = "tool",
                         command = command,
-                        // Valore UI-facing: `executed=false` non significa negato.
+                        // UI-facing value: `executed=false` does not mean denied.
                         executed = true,
                         startedAt = now,
                     )
@@ -533,8 +535,9 @@ object ChatReducer {
         val output = content.joinToString("").trimEnd().takeIf { it.isNotEmpty() }
         val buffer = stream.toolInputBuffers[callId].orEmpty()
         val command = ToolInputParsing.commandFromPartial(buffer)
-        // `Denied` solo se il fallimento lo dice esplicitamente. `executed` non
-        // partecipa: in 2.1.4 è false anche per tool completati con successo.
+        // `Denied` only if the failure explicitly states so. `executed` is not
+        // involved: in 2.1.4 it is false even for tools that completed
+        // successfully.
         val phase = when {
             !failed -> PartPhase.Ok
             isExplicitDenial(content, status, message) -> PartPhase.Denied
@@ -569,7 +572,7 @@ object ChatReducer {
                     if (part !is ToolPartUi) {
                         null
                     } else if (part.phase == PartPhase.Ok || part.phase == PartPhase.Failed) {
-                        // Primo esito terminale vince: nessun rimbalzo dell'output.
+                        // First terminal outcome wins: no output bounce.
                         null
                     } else {
                         part.copy(
@@ -608,7 +611,8 @@ object ChatReducer {
             )
         }
 
-        // Multi-step: il turno precedente non sparisce in attesa del resync.
+        // Multi-step: the previous turn does not disappear while waiting for the
+        // resync.
         val materializedState = materializeLive(state)
         val turn = AssistantTurnUi(
             id = event.messageId,
@@ -692,7 +696,7 @@ object ChatReducer {
             state
         }
         return materialized.copy(
-            // Se il resync fallisce (rete persa a fine turno) il contenuto resta.
+            // If resync fails (network lost at end of shift), the content remains.
             running = false,
             outcome = event.outcome,
             stream = materialized.stream.copy(
@@ -709,9 +713,8 @@ object ChatReducer {
     // --- helpers ------------------------------------------------------------
 
     /**
-     * Garantisce che il turno live sia quello del messaggio dell'evento.
-     * Un turno precedente non vuoto viene materializzato (multi-step o eventi
-     * arrivati con id diverso).
+     * Ensures the live turn is the one from the event message. A previous non-empty
+     * turn is materialized (multi-step or events arrived with a different id).
      */
     private fun ensureTurn(
         state: OpenChatState,
@@ -738,7 +741,10 @@ object ChatReducer {
         )
     }
 
-    /** Sposta il turno live (se ha part) in `messages` senza duplicare l'id. */
+    /**
+     * Move the live turn (if it has a part) into `messages` without duplicating the
+     * id.
+     */
     private fun materializeLive(state: OpenChatState): OpenChatState {
         val live = state.stream.liveTurn ?: return state
         if (live.parts.isEmpty()) return state
@@ -757,10 +763,10 @@ object ChatReducer {
     }
 
     /**
-     * Applica una trasformazione alla part `key` del turno live.
-     * Se la part non esiste viene creata con il cursore corrente; la lista
-     * resta sempre ordinata per `order`, quindi un aggiornamento tardivo di una
-     * part con order minore non la sposta in coda.
+     * Apply a transformation to the `key` part of the live turn. If the part does
+     * not exist, it is created with the current cursor; the list remains sorted by
+     * `order`, so a late update of a part with a lower order does not move it to
+     * the end.
      */
     private inline fun ChatStream.mutatePart(
         messageId: String,
@@ -798,7 +804,7 @@ object ChatReducer {
         else -> this
     }
 
-    /** Un fallimento è `Denied` solo se il testo/status lo dichiara esplicitamente. */
+    /** A failure is `Denied` only if the text/status explicitly states so. */
     private fun isExplicitDenial(
         content: List<String>,
         status: String?,
@@ -831,8 +837,8 @@ object ChatReducer {
 }
 
 /**
- * Aggiunge il messaggio in streaming alla lista solo se non è già presente:
- * al resync il server restituisce lo stesso `messageID` e la versione del server vince.
+ * Adds the streaming message to the list only if it is not already present: on
+ * resync the server returns the same `messageID` and the server version wins.
  */
 @Suppress("unused")
 private fun List<MessageUi>.withLive(live: LiveMessage?, expectedId: String?): List<MessageUi> {
@@ -848,11 +854,10 @@ private fun List<MessageUi>.withLive(live: LiveMessage?, expectedId: String?): L
 }
 
 /**
- * Riconcilia la verità del server con i messaggi locali.
- * - dedupe per id;
- * - un messaggio ottimistico viene sostituito dalla versione server con lo
- *   stesso id oppure dallo stesso testo entro [maxSkewMs];
- * - i pending non ancora presenti sul server restano in coda in fondo.
+ * Reconcile server truth with local messages. - dedupe by id; - an optimistic
+ * message is replaced by the server version with the same id or the same text
+ * within [maxSkewMs]; - pending messages not yet present on the server remain
+ * queued at the bottom.
  */
 fun reconcileMessages(
     server: List<MessageUi>,
@@ -885,9 +890,9 @@ private fun timeMatches(a: Long?, b: Long?, maxSkewMs: Long): Boolean {
 }
 
 /**
- * Eventi che devono arrivare alla UI **senza** attendere la finestra di
- * throttle (§4.4): cambi di fase e fine turno. Passano dal [PublishGate] solo
- * i delta puri, dove una perdita di frame è invisibile.
+ * Events that must reach the UI **without** waiting for the throttle window (§4.4):
+ * phase changes and turn end. Only pure deltas pass through [PublishGate], where a
+ * dropped frame is invisible.
  */
 internal fun ServerEvent.publishedImmediately(): Boolean = when (this) {
     is ServerEvent.TextDelta,

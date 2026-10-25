@@ -34,31 +34,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /*
- * Bubble del subagente appena attivato.
+ * Bubble for the just-activated subagent.
  *
- * È un avviso effimero, non un controllo: resta sopra il contenuto della chat
- * (overlay, non layout), non intercetta tocchi e sparisce da solo quando il
- * ViewModel azzera `subagentFlash` dopo un paio di secondi.
+ * It is an ephemeral notice, not a control: it overlays the chat content (overlay,
+ * not layout), does not intercept touches, and disappears on its own when the
+ * ViewModel resets `subagentFlash` after a couple of seconds.
  */
 
 /**
- * Entrata 170 ms (fade + breve salita), uscita 400 ms: dissolvenza lenta,
- * scelta dall'utente dopo averla provata a 260 ms.
+ * In 170 ms (fade + brief rise), out 400 ms: slow fade, chosen by the user after
+ * trying it at 260 ms.
  */
 private const val FLASH_IN_MS = 170
 private const val FLASH_OUT_MS = 400
 
 /**
- * Mostra il bubble finché `flash` non è nullo. La chiave è il `token`: una
- * nuova attivazione riavvia l'animazione anche quando l'agente è lo stesso
- * (orchestrator → designer → designer), senza far lampeggiare il testo.
+ * Show the bubble until `flash` is null. The key is the `token`: a new activation
+ * restarts the animation even when the agent is the same (orchestrator → designer →
+ * designer), without flickering the text.
  */
 @Composable
 fun SubagentFlashOverlay(
     flash: SubagentFlashUi?,
     modifier: Modifier = Modifier,
 ) {
-    // "Rimuovi animazioni" attivo: compare e sparisce di colpo, senza movimento.
+    // "Remove animations" enabled: appears and disappears instantly, without
+    // motion.
     val animated = ValueAnimator.areAnimatorsEnabled()
     val inMs = if (animated) FLASH_IN_MS else 0
     val outMs = if (animated) FLASH_OUT_MS else 0
@@ -66,12 +67,12 @@ fun SubagentFlashOverlay(
     AnimatedContent(
         targetState = flash,
         modifier = modifier,
-        // Ancorato in alto a destra: mentre il contenitore anima la misura, il
-        // bubble resta fermo sul bordo destro invece di scivolare.
+        // Anchored top right: while the container animates its size, the bubble
+        // stays fixed on the right edge instead of sliding.
         contentAlignment = Alignment.TopEnd,
         transitionSpec = {
-            // Arrivo: fade + salita breve dall'alto, così l'occhio lo nota
-            // senza che nulla sotto si sposti. Uscita: solo fade.
+            // Entry: fade + brief rise from the top, so the eye notices it without
+            // anything below shifting. Exit: fade only.
             val enter = fadeIn(tween(inMs)) +
                 slideInVertically(tween(inMs)) { height -> -height / 3 }
             val exit = fadeOut(tween(outMs))
@@ -81,8 +82,8 @@ fun SubagentFlashOverlay(
                 EnterTransition.None togetherWith exit
             }
             transform.using(
-                // Niente clip: il bubble resta intero mentre il contenitore
-                // cambia misura (0 → altezza piena e ritorno).
+                // No clipping: the bubble remains intact while the container
+                // resizes (0 → full height and back).
                 SizeTransform(clip = false) { _, _ -> tween(inMs) },
             )
         },
@@ -101,16 +102,16 @@ private fun SubagentFlashBubble(flash: SubagentFlashUi) {
     val title = flash.title?.takeIf { it.isNotBlank() }
     val tint = subagentTint(agent, oc)
     Surface(
-        // Un velo del colore dell'agente sopra la superficie alta: identifica il
-        // subagente senza perdere il tono del tema.
+        // A veil of the agent's color over the high surface: identifies the
+        // subagent without losing the theme's tone.
         color = lerp(scheme.surfaceContainerHigh, tint, 0.10f),
         contentColor = scheme.onSurface,
         shape = MaterialTheme.shapes.large,
         border = BorderStroke(1.dp, tint.copy(alpha = 0.55f)),
         modifier = Modifier
             .widthIn(max = 240.dp)
-            // Puramente informativo: nessun click, e TalkBack lo legge come una
-            // riga sola ("subagent designer active") quando compare.
+            // Purely informational: no click, and TalkBack reads it as a single
+            // line ("subagent designer active") when it appears.
             .clearAndSetSemantics {
                 contentDescription = "subagent $agent active"
                 liveRegion = LiveRegionMode.Polite
@@ -154,10 +155,10 @@ private fun SubagentFlashBubble(flash: SubagentFlashUi) {
 }
 
 /**
- * Tinta deterministica dal nome dell'agente: la stessa stringa dà sempre lo
- * stesso colore, così `designer` e `fixer` restano riconoscibili fra un turno
- * e l'altro. Solo token del tema — `warningInk` invece di `warning` perché in
- * chiaro è l'inchiostro leggibile della stessa famiglia.
+ * Deterministic tint from the agent name: the same string always yields the same
+ * color, so `designer` and `fixer` remain recognizable across turns. Theme tokens
+ * only — `warningInk` instead of `warning` because in light mode it is the readable
+ * ink of the same family.
  */
 private fun subagentTint(agent: String, palette: OpenPalette): Color {
     val tokens = listOf(
@@ -167,9 +168,9 @@ private fun subagentTint(agent: String, palette: OpenPalette): Color {
         palette.info,
         palette.warningInk,
     )
-    // FNV-1a: i nomi veri degli agenti (orchestrator, designer, fixer,
-    // explorer, oracle…) finiscono su tinte diverse, cosa che una somma
-    // pesata semplice non garantiva. Aritmetica su Int con overflow: è voluto.
+    // FNV-1a: the actual agent names (orchestrator, designer, fixer, explorer,
+    // oracle…) map to distinct hues, which a simple weighted sum did not guarantee.
+    // Int arithmetic with overflow: intentional.
     var hash = -2128831035 // 2166136261
     agent.lowercase().forEach { ch ->
         hash = hash xor ch.code

@@ -103,7 +103,7 @@ class M5Test {
         assertEquals(null, AuthPolicy.forHttpCode(403))
     }
 
-    // 4. Backoff con tetto e jitter ------------------------------------------
+    // 4. Backoff with cap and jitter ------------------------------------------
 
     @Test
     fun `backoff does not exceed 30s and jitter stays in range`() {

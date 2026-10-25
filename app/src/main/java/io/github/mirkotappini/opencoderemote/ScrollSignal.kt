@@ -6,14 +6,13 @@ import io.github.mirkotappini.opencoderemote.net.ToolPartUi
 import io.github.mirkotappini.opencoderemote.net.TurnPartUi
 
 /**
- * Firma del contenuto che fa scattare l'auto-scroll (§4.4).
+ * Signature of the content that triggers auto-scroll (§4.4).
  *
- * Crescita di testo e ragionamento contano; la crescita dell'**output di un
- * tool** no: leggere un output lungo non deve strappare la lista verso il
- * basso. Cambiare fase di un tool (in corso → ok/errore) invece conta, perché
- * cambia l'altezza della card.
+ * Text and reasoning growth count; growth of a **tool output** does not: reading a
+ * long output must not drag the list down. Changing a tool's phase (in progress →
+ * ok/error) does count, because it changes the card's height.
  *
- * Pura e separata dalla composable per poter essere verificata sulla JVM.
+ * Pure and separated from the composable so it can be verified on the JVM.
  */
 internal fun partsScrollSignal(running: Boolean, parts: List<TurnPartUi>): String = buildString {
     append("t|")

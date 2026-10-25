@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Test JVM di M2: eventi, accumulo streaming, dedupe, backoff e isolamento
+ * M2 JVM test: events, streaming accumulation, dedupe, backoff, and isolation
  * between sessions. All offline, inline payloads taken from docs/API-M2.md §2.
  */
 class M2Test {
@@ -63,7 +63,8 @@ class M2Test {
         assertEquals("PONG\nsecondo", state.stream.live?.text)
     }
 
-    // 2. Type sconosciuto: mai eccezioni --------------------------------------
+    // 2. Unknown type: never throw exceptions
+    // --------------------------------------
 
     @Test
     fun `unknown type becomes Unknown without exceptions`() {
@@ -142,11 +143,11 @@ class M2Test {
         assertFalse(merged.any { it.id == "local-1" })
         assertTrue(merged.any { it.id == "local-2" })
 
-        // Doppio resync con la stessa lista: nessuna crescita.
+        // Double resync with the same list: no growth.
         assertEquals(merged.size, reconcileMessages(server, merged).size)
     }
 
-    // 4. Backoff 1,2,4,…,30 con jitter nei limiti -----------------------------
+    // 4. Backoff 1,2,4,…,30 with jitter within limits -----------------------------
 
     @Test
     fun `backoff esponenziale con jitter nei limiti`() {

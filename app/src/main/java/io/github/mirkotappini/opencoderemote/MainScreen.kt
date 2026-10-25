@@ -35,8 +35,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
- * Navigazione senza libreria: setup → (lista | chat), con il log SSE come
- * schermata secondaria e il drawer OMO disponibile da lista e chat.
+ * Navigation without library: setup → (list | chat), with the SSE log as a
+ * secondary screen and the OMO drawer available from both list and chat.
  */
 @Composable
 fun MainScreen(viewModel: AppViewModel = viewModel()) {
@@ -45,7 +45,7 @@ fun MainScreen(viewModel: AppViewModel = viewModel()) {
         var showEventLog by rememberSaveable { mutableStateOf(false) }
 
         when {
-            // M5: la versione del server è bloccante: niente setup, niente lista.
+            // M5: the server version is blocking: no setup, no list.
             state.connection is Connection.Incompatible -> VersionMismatchScreen(
                 state = state,
                 onRetry = viewModel::retryConnect,
@@ -77,12 +77,12 @@ fun MainScreen(viewModel: AppViewModel = viewModel()) {
 }
 
 /**
- * Superficie connessa: lista o chat avvolte dal drawer laterale destro.
+ * Connected surface: list or chat wrapped by the right-side drawer.
  *
- * `ModalNavigationDrawer` in Material 3 àncora lo sheet a start; per averlo a
- * end il sottoalbero gira in layout RTL e ogni lato (drawer e contenuto) torna
- * subito in LTR. Il risultato è lo stesso drawer Material, specchiato a destra,
- * senza reimplementare gesture, scrim e predictive back.
+ * `ModalNavigationDrawer` in Material 3 anchors the sheet to start; to place it at
+ * end, the subtree is rendered in an RTL layout, and each side (drawer and content)
+ * immediately reverts to LTR. The result is the same Material drawer, mirrored to
+ * the right, without reimplementing gestures, scrim, and predictive back.
  */
 @Composable
 private fun ConnectedSurface(
@@ -95,8 +95,8 @@ private fun ConnectedSurface(
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
     val closeDrawer: () -> Unit = { scope.launch { drawerState.close() } }
 
-    // Promemoria non modale per POST_NOTIFICATIONS (Android 13+). Il permesso
-    // di sistema si apre una sola volta, al primo connect riuscito.
+    // Non-modal reminder for POST_NOTIFICATIONS (Android 13+). The system
+    // permission dialog opens only once, on the first successful connect.
     val context = LocalContext.current
     var notificationPrompt by remember { mutableStateOf<NotificationPromptUi?>(null) }
     var autoLaunchNotification by remember { mutableStateOf(true) }
@@ -145,7 +145,7 @@ private fun ConnectedSurface(
         notificationPrompt = null
     }
 
-    // TTL del catalogo (5 minuti) e task: refresh quando il pannello si apre.
+    // Catalog TTL (5 minutes) and task: refresh when the panel opens.
     LaunchedEffect(drawerState.isOpen, state.openSession?.id) {
         if (drawerState.isOpen) {
             viewModel.loadCatalog()
@@ -156,10 +156,10 @@ private fun ConnectedSurface(
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         ModalNavigationDrawer(
             drawerState = drawerState,
-            // A drawer chiuso il gesto Material sarebbe attivo anche lui: lo
-            // spegniamo e lasciamo fare a `drawerOpenSwipe`, che riconosce lo
-            // swipe senza rubare tap e scroll. Da aperto restano attivi swipe
-            // di chiusura, tap sullo scrim e back.
+            // When the drawer is closed, the Material gesture would also be active:
+            // we disable it and let `drawerOpenSwipe` handle the swipe without
+            // stealing taps and scrolls. When open, the close swipe, scrim tap, and
+            // back remain active.
             gesturesEnabled = drawerState.targetValue == DrawerValue.Open,
             drawerContent = {
                 OmoDrawerSheet(
@@ -192,10 +192,10 @@ private fun ConnectedSurface(
                     modifier = Modifier
                         .fillMaxSize()
                         .drawerOpenSwipe(
-                            // Con una domanda aperta il gesto resta spento: la
-                            // risposta è il compito del momento e il pannello
-                            // non deve finire sotto il drawer. L'icona in top
-                            // bar resta la via per aprire.
+                            // With an open question, the gesture remains disabled:
+                            // the response is the current task, and the panel must
+                            // not end up under the drawer. The icon in the top bar
+                            // remains the way to open it.
                             enabled = drawerState.targetValue == DrawerValue.Closed &&
                                 !(state.openSession != null && state.forms.isNotEmpty()),
                             onOpen = openDrawer,
@@ -250,30 +250,27 @@ private fun ConnectedSurface(
 }
 
 /**
- * Swipe orizzontale verso sinistra, su tutta la superficie, per aprire il
- * drawer.
+ * Swipe left across the entire surface to open the drawer.
  *
- * Prima il gesto valeva solo negli ultimi 22 dp dal bordo destro: preciso, ma
- * facile da mancare al primo colpo, soprattutto a chat aperta. Ora si può
- * partire da qualsiasi punto della lista o della chat; a tenere separati gli
- * altri gesti è il riconoscimento, non la zona di partenza:
+ * Previously, the gesture only worked within the last 22 dp from the right edge:
+ * precise, but easy to miss on the first try, especially with a chat open. Now you
+ * can start from any point in the list or chat; gesture recognition, not the
+ * starting zone, keeps other gestures separate:
  *
- * - si resta in attesa del touch slop: tap, click e long press arrivano ai
- *   figli senza nessun evento consumato;
- * - appena il movimento è verticale (o diagonale) si abbandona subito e senza
- *   consumare nulla, quindi lo scroll della chat continua a funzionare;
- * - si apre solo con uno spostamento orizzontale dominante verso sinistra
- *   (|dx| > |dy| * 1.4) di almeno 48 dp complessivi; verso destra non scatta
- *   mai;
- * - il trascinamento deve iniziare subito: un dito fermo oltre il long press e
- *   poi trascinato è una selezione di testo, non uno swipe;
- * - due dita (pinch, zoom) non aprono niente.
+ * - It waits for the touch slop: tap, click, and long press reach the children
+ * without any event being consumed; - As soon as the movement is vertical (or
+ * diagonal), it aborts immediately without consuming anything, so chat scrolling
+ * continues to work; - It only opens with a dominant leftward horizontal
+ * displacement (|dx| > |dy| * 1.4) of at least 48 dp total; it never triggers to
+ * the right; - The drag must start immediately: a finger held beyond the long press
+ * threshold and then dragged is a text selection, not a swipe; - Two fingers
+ * (pinch, zoom) do not open anything.
  *
- * Il rilevatore sta sul contenitore (non su una striscia sopra la UI) e
- * consuma solo l'evento che fa scattare l'apertura: a quel punto i figli hanno
- * già annullato il proprio gesto. Le soglie in dp sono indipendenti dalla
- * densità; slop e timeout del long press vengono dalla configurazione di
- * sistema, quindi seguono le impostazioni di accessibilità del dispositivo.
+ * The detector sits on the container (not on a strip over the UI) and only consumes
+ * the event that triggers the opening: at that point, the children have already
+ * canceled their own gesture. The dp thresholds are density-independent; slop and
+ * long press timeout come from system configuration, so they follow the device's
+ * accessibility settings.
  */
 private fun Modifier.drawerOpenSwipe(
     enabled: Boolean,
@@ -290,17 +287,17 @@ private fun Modifier.drawerOpenSwipe(
             requireUnconsumed = false,
             pass = PointerEventPass.Initial,
         )
-        // Uptime del primo movimento oltre lo slop: serve a distinguere uno
-        // swipe da un drag iniziato dopo una pressione prolungata.
+        // Uptime of the first movement beyond the slop: used to distinguish a swipe
+        // from a drag initiated after a long press.
         var movedAt = -1L
 
         while (true) {
             val event = awaitPointerEvent(PointerEventPass.Initial)
-            // Il dito che ha iniziato il gesto deve essere ancora giù.
+            // The finger that started the gesture must still be down.
             val change = event.changes.firstOrNull { it.id == down.id }
                 ?: return@awaitEachGesture
             if (!change.pressed) return@awaitEachGesture
-            // Un secondo dito = pinch o zoom: non è il gesto di apertura.
+            // A second finger = pinch or zoom: it is not the open gesture.
             if (event.changes.any { it.pressed && it.id != down.id }) {
                 return@awaitEachGesture
             }
@@ -316,13 +313,14 @@ private fun Modifier.drawerOpenSwipe(
                 }
             }
 
-            // Verticale o diagonale: è uno scroll (o un drag), si lascia tutto
-            // ai figli senza consumare.
+            // Vertical or diagonal: it's a scroll (or a drag), so leave it all to
+            // the children without consuming it.
             if (abs(dy) >= slop && abs(dy) > abs(dx) * SWIPE_DOMINANCE) {
                 return@awaitEachGesture
             }
 
-            // Orizzontale dominante verso sinistra oltre soglia: è il gesto.
+            // Dominant horizontal swipe to the left beyond threshold: this is the
+            // gesture.
             if (dx <= -trigger && abs(dx) > abs(dy) * SWIPE_DOMINANCE) {
                 change.consume()
                 onOpen()
@@ -333,7 +331,8 @@ private fun Modifier.drawerOpenSwipe(
 }
 
 /**
- * Rapporto minimo fra i due assi perché il gesto conti come orizzontale (o
- * verticale). Sotto questa dominanza il movimento è ambiguo e non si decide.
+ * Minimum ratio between the two axes for the gesture to count as horizontal (or
+ * vertical). Below this dominance, the movement is ambiguous and no decision is
+ * made.
  */
 private const val SWIPE_DOMINANCE = 1.4f

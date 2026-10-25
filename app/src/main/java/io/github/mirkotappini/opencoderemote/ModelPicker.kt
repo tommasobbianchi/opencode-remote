@@ -62,9 +62,9 @@ import io.github.mirkotappini.opencoderemote.net.SessionUi
 import java.util.Locale
 
 /**
- * Picker del modello a schermo intero, con ricerca e gruppi per provider.
- * Funziona anche quando la sessione non ha ancora un modello (caso reale:
- * `GET /api/session/{id}` non espone `model` finché non c'è un cambio o un turno).
+ * Full-screen model picker with search and provider groups. Works even when the
+ * session has no model yet (real case: `GET /api/session/{id}` does not expose
+ * `model` until there is a change or a turn).
  */
 @Composable
 fun ModelPickerDialog(

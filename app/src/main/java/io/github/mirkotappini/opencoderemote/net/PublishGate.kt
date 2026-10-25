@@ -1,31 +1,29 @@
 package io.github.mirkotappini.opencoderemote.net
 
 /**
- * Throttle di pubblicazione degli snapshot live (§4.4 di `docs/UI-M6-LIVE.md`).
+ * Publishing throttle for live snapshots (§4.4 of `docs/UI-M6-LIVE.md`).
  *
- * Il reducer accumula i delta senza costo di rendering; questo cancello decide
- * quando lo snapshot arriva alla UI: al massimo uno ogni [intervalMs], tranne
- * gli eventi terminali (`immediate = true`) che passano subito e riaprono la
- * finestra. L'ultimo valore offerto non viene mai perso: resta in [pending]
- * finché qualcuno non lo preleva con [takePending] o lo scarta con
- * [dropPending].
+ * The reducer accumulates deltas with no rendering cost; this gate decides when the
+ * snapshot reaches the UI: at most one every [intervalMs], except terminal events
+ * (`immediate = true`) which pass through immediately and reset the window. The
+ * last offered value is never lost: it stays in [pending] until someone retrieves
+ * it with [takePending] or discards it with [dropPending].
  *
- * Puro e senza orologio interno (`now` è un parametro) per essere testabile
- * sulla JVM.
+ * Pure and clock-free (`now` is a parameter) to be testable on the JVM.
  */
 internal class PublishGate<T>(private val intervalMs: Long) {
 
     private var lastPublishAt = NEVER
     private var held: T? = null
 
-    /** Snapshot accumulato e non ancora pubblicato. */
+    /** Accumulated snapshot not yet published. */
     val pending: T? get() = held
 
     /**
-     * Offre uno snapshot.
+     * Provides a snapshot.
      *
-     * @return `true` = pubblicare subito [value]; `false` = tenerlo in
-     *   [pending] e pubblicarlo fra [dueIn] ms.
+     * @return `true` = publish [value] immediately; `false` = keep it in [pending]
+     * and publish it after [dueIn] ms.
      */
     fun offer(value: T, immediate: Boolean, now: Long): Boolean {
         if (immediate || dueIn(now) == 0L) {
@@ -37,25 +35,28 @@ internal class PublishGate<T>(private val intervalMs: Long) {
         return false
     }
 
-    /** Millisecondi che mancano alla fine della finestra corrente (0 = libero). */
+    /** Milliseconds remaining until the end of the current window (0 = free). */
     fun dueIn(now: Long): Long {
         if (lastPublishAt == NEVER) return 0L
         return (lastPublishAt + intervalMs - now).coerceAtLeast(0L)
     }
 
-    /** Prende lo snapshot accumulato (o `null` se non c'è). Non tocca la finestra. */
+    /**
+     * Takes the accumulated snapshot (or `null` if none). Does not touch the
+     * window.
+     */
     fun takePending(): T? {
         val value = held
         held = null
         return value
     }
 
-    /** Scarta lo snapshot accumulato mantenendo la finestra corrente. */
+    /** Discard the accumulated snapshot, keeping the current window. */
     fun dropPending() {
         held = null
     }
 
-    /** Azzera tutto: pending e finestra. */
+    /** Reset everything: pending and window. */
     fun reset() {
         held = null
         lastPublishAt = NEVER

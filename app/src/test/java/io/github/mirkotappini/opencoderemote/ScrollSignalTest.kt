@@ -9,9 +9,9 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
- * §4.4: la firma di auto-scroll deve cambiare quando arriva testo nuovo
- * (la lista deve seguire) e **non** quando cresce l'output di un tool
- * (leggere un output lungo non deve trascinare la vista in basso).
+ * §4.4: the auto-scroll signature must change when new text arrives (the list must
+ * follow) and **not** when a tool's output grows (reading a long output must not
+ * drag the view down).
  */
 class ScrollSignalTest {
 

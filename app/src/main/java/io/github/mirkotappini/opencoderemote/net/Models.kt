@@ -19,7 +19,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 
 // ---------------------------------------------------------------------------
-// DTO grezzi (rispecchiano il contratto API, tutti i campi opzionali)
+// Raw DTOs (mirror the API contract, all fields optional)
 // ---------------------------------------------------------------------------
 
 @Serializable
@@ -31,7 +31,7 @@ data class TimeDto(
     val archived: Long? = null,
     val start: Long? = null,
     val end: Long? = null,
-    /** Parti REST: `reasoning`/`text` usano `completed`, i tool anche `ran`. */
+    /** REST parts: `reasoning`/`text` use `completed`, tools also use `ran`. */
     val completed: Long? = null,
     val ran: Long? = null,
     val streamed: Long? = null,
@@ -80,8 +80,8 @@ data class MessageFileSourceDto(
 )
 
 /**
- * Allegato di un messaggio salvato. Gli inline portano `data` (base64), quelli
- * da percorso server portano `source.type = "uri"` e `source.uri`.
+ * Attachment of a saved message. Inline ones carry `data` (base64), server-path
+ * ones carry `source.type = "uri"` and `source.uri`.
  */
 @Serializable
 data class MessageFileDto(
@@ -104,7 +104,7 @@ data class MessageDto(
     val outcome: String? = null,
     val finish: String? = null,
     val cost: Double? = null,
-    /** Allegati del messaggio: assenti nei messaggi precedenti a M8. */
+    /** Message attachments: absent in messages prior to M8. */
     val files: List<MessageFileDto>? = null,
 )
 
@@ -120,7 +120,7 @@ data class SessionsEnvelope(
     val cursor: CursorDto? = null,
 )
 
-/** `GET /api/session/{id}` risponde con l'involucro `{data: Session.Info}`. */
+/** `GET /api/session/{id}` responds with the `{data: Session.Info}` envelope. */
 @Serializable
 data class SessionEnvelope(
     val data: SessionDto? = null,
@@ -132,7 +132,7 @@ data class MessagesEnvelope(
     val cursor: CursorDto? = null,
 )
 
-/** `GET /api/session/active` restituisce `{"data":{}}` quando non c'è sessione. */
+/** `GET /api/session/active` returns `{"data":{}}` when there is no session. */
 @Serializable
 data class ActiveData(
     val id: String? = null,
@@ -145,7 +145,7 @@ data class ActiveEnvelope(
 )
 
 // ---------------------------------------------------------------------------
-// Part polimorfiche: discriminator `type`, fallback generico per gli ignoti
+// Polymorphic parts: `type` discriminator, generic fallback for unknowns
 // ---------------------------------------------------------------------------
 
 @Serializable(with = PartDtoSerializer::class)
@@ -176,7 +176,7 @@ sealed interface PartDto {
         val time: TimeDto? = null,
     ) : PartDto
 
-    /** Qualunque `type` non previsto: non fa fallire il parsing. */
+    /** Any unexpected `type`: does not cause parsing to fail. */
     data class Unknown(val type: String = "") : PartDto
 }
 
@@ -207,13 +207,13 @@ object PartDtoSerializer : KSerializer<PartDto> {
     }
 
     override fun serialize(encoder: Encoder, value: PartDto) {
-        // M1 è sola lettura: non serializziamo mai part verso il server.
+        // M1 is read-only: we never serialize part to the server.
         encoder.encodeString(value::class.simpleName ?: "unknown")
     }
 }
 
 // ---------------------------------------------------------------------------
-// Modello normalizzato per la UI (i composable non vedono JSON)
+// Normalized model for the UI (composables do not see JSON)
 // ---------------------------------------------------------------------------
 
 enum class Role { User, Assistant, Meta }
@@ -223,7 +223,7 @@ data class ToolChip(
     val state: String?,
 )
 
-/** Contatori di token normalizzati per la lista sessioni. */
+/** Normalized token counters for the session list. */
 data class TokenUsage(
     val input: Long? = null,
     val output: Long? = null,
@@ -249,9 +249,9 @@ data class SessionUi(
 )
 
 /**
- * Allegato normalizzato di un messaggio utente. `dataBase64` è il contenuto
- * inline, `uri` la sorgente `file://…` lato server: almeno uno dei due può
- * mancare, e in quel caso la UI mostra solo il chip con il nome.
+ * Normalized attachment of a user message. `dataBase64` is the inline content,
+ * `uri` the server-side `file://…` source: at least one of the two may be missing,
+ * in which case the UI shows only the chip with the name.
  */
 @Serializable
 data class MessageFileUi(
@@ -271,11 +271,11 @@ data class MessageUi(
     val createdAt: Long? = null,
     val finish: String? = null,
     val metaLabel: String? = null,
-    /** Messaggio utente ottimistico non ancora confermato dalla sessione. */
+    /** Optimistic user message not yet confirmed by the session. */
     val pending: Boolean = false,
-    /** Part ordinate per `order`; è la fonte di verità del renderer del turno. */
+    /** Part is ordered by `order`; it is the source of truth for the turn renderer. */
     val parts: List<TurnPartUi> = emptyList(),
-    /** Allegati del messaggio (M8); vuoto per i messaggi senza file. */
+    /** Message attachments (M8); empty for messages without files. */
     val files: List<MessageFileUi> = emptyList(),
 )
 
@@ -285,7 +285,7 @@ data class SessionsPage(
     val next: String? = null,
 )
 
-/** `messages` è in ordine cronologico (più vecchio → più recente). */
+/** `messages` is in chronological order (oldest → newest). */
 data class MessagesPage(
     val messages: List<MessageUi>,
     val previous: String? = null,
@@ -332,7 +332,7 @@ object ApiParsing {
             ?: envelope.data?.sessionID?.takeIf { it.isNotBlank() }
     }
 
-    /** `GET /api/session/{id}`; `null` se l'involucro non contiene una sessione. */
+    /** `GET /api/session/{id}`; `null` if the envelope does not contain a session. */
     fun parseSession(body: String): SessionUi? {
         val envelope = json.decodeFromString<SessionEnvelope>(body)
         return envelope.data?.let(::normalizeSession)
@@ -442,7 +442,7 @@ object ApiParsing {
                 )
             }
 
-            // idle/status e ogni type ignoto: divisore, mai un crash.
+            // idle/status and any unknown type: divider, never a crash.
             else -> MessageUi(
                 id = dto.id,
                 role = Role.Meta,
@@ -454,8 +454,8 @@ object ApiParsing {
     }
 
     /**
-     * Un file è inline (`data`) oppure riferito per `uri` lato server. I campi
-     * sconosciuti sono già ignorati dal `Json` del parser.
+     * A file is either inline (`data`) or referenced by `uri` on the server side.
+     * Unknown fields are already ignored by the parser's `Json`.
      */
     fun normalizeMessageFile(dto: MessageFileDto): MessageFileUi = MessageFileUi(
         name = dto.name?.takeIf { it.isNotBlank() },
@@ -468,7 +468,7 @@ object ApiParsing {
             ?.takeIf { it.isNotBlank() },
     )
 
-    /** Conserva l'indice originale: `order` al resync è l'indice in `content[]`. */
+    /** Preserve the original index: `order` at resync is the index in `content[]`. */
     private fun parsePartsIndexed(content: JsonElement?): List<Pair<Int, PartDto>> {
         val array = content as? JsonArray ?: return emptyList()
         return array.mapIndexedNotNull { index, element ->
@@ -517,8 +517,8 @@ object ApiParsing {
             truncated = metadata?.bool("truncated")
                 ?: stateObj?.bool("truncated")
                 ?: false,
-            // Campo UI-facing: `executed=false` solo per un diniego esplicito.
-            // La fase non deriva mai da questo valore.
+            // UI-facing field: `executed=false` only for an explicit denial. The
+            // phase never derives from this value.
             executed = phase != PartPhase.Denied,
             startedAt = stateTime?.long("start") ?: time?.start ?: time?.ran ?: time?.created,
             endedAt = stateTime?.long("end") ?: time?.end ?: time?.completed,
@@ -542,8 +542,8 @@ object ApiParsing {
     }
 
     /**
-     * Compatibilità col vecchio chip: usa il JSON derivato dai campi strutturati.
-     * Solo per state non riconosciuti si ricade sul vecchio summarize.
+     * Compatibility with the old chip: use the JSON derived from the structured
+     * fields. Only for unrecognized states, fall back to the old summarize.
      */
     private fun legacyToolState(part: ToolPartUi, raw: JsonElement?): String? {
         val obj = raw as? JsonObject
@@ -571,7 +571,7 @@ object ApiParsing {
     private fun JsonObject.bool(key: String): Boolean? =
         (this[key] as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull()
 
-    /** Stato del tool come JSON compatto e troncato per il chip espandibile. */
+    /** Tool state as compact, truncated JSON for the expandable chip. */
     fun summarize(state: JsonElement?): String? {
         if (state == null || state is JsonNull) return null
         val raw = state.toString()
@@ -580,7 +580,7 @@ object ApiParsing {
 }
 
 // ---------------------------------------------------------------------------
-// M9: domande del server ("form")
+// M9: server questions ("form")
 // ---------------------------------------------------------------------------
 
 @Serializable
@@ -591,8 +591,8 @@ data class FormOptionDto(
 )
 
 /**
- * `Form.Field`. `when` e le altre proprietà non previste sono ignorate dal
- * parser; `hidden` esclude il campo dalla UI.
+ * `Form.Field`. `when` and other unsupported properties are ignored by the parser;
+ * `hidden` excludes the field from the UI.
  */
 @Serializable
 data class FormFieldDto(
@@ -605,7 +605,7 @@ data class FormFieldDto(
     val minimum: Double? = null,
     val maximum: Double? = null,
     val options: List<FormOptionDto>? = null,
-    /** `url` del contratto; `externalURL` accettato come variante difensiva. */
+    /** Contract `url`; `externalURL` accepted as a defensive variant. */
     val url: String? = null,
     val externalURL: String? = null,
 )
@@ -616,7 +616,7 @@ data class FormDetailDto(
     val sessionID: String = "",
     val title: String? = null,
     val description: String? = null,
-    /** Non interpretato: la UI mostra le domande pendenti, non lo stato grezzo. */
+    /** Not interpreted: the UI shows pending questions, not the raw state. */
     val state: JsonElement? = null,
     val fields: List<FormFieldDto>? = null,
 )
@@ -637,7 +637,7 @@ enum class FormFieldType(val wire: String) {
     ;
 
     companion object {
-        /** Tipi non previsti → `null`: il campo viene escluso dalla UI. */
+        /** Unexpected types → `null`: the field is excluded from the UI. */
         fun fromWire(value: String?): FormFieldType? =
             entries.firstOrNull { it.wire == value?.trim()?.lowercase() }
     }
@@ -651,7 +651,7 @@ data class FormOptionUi(
 
 data class FormFieldUi(
     val key: String,
-    /** Tipo del contratto, già validato: `string`, `boolean`, `integer`, … */
+    /** Contract type, already validated: `string`, `boolean`, `integer`, … */
     val type: String,
     val title: String? = null,
     val description: String? = null,
@@ -659,7 +659,7 @@ data class FormFieldUi(
     val options: List<FormOptionUi> = emptyList(),
     val minimum: Double? = null,
     val maximum: Double? = null,
-    /** Solo per `external`: link da aprire sul server, non componibile qui. */
+    /** Only for `external`: links to open on the server, not composable here. */
     val externalUrl: String? = null,
 )
 
@@ -680,27 +680,31 @@ object FormParsing {
         coerceInputValues = true
     }
 
-    /** Voci di `GET /api/form`, tolleranti anche a payload parziali. */
+    /** Entries for `GET /api/form`, tolerant of partial payloads as well. */
     fun parseInfos(body: String): List<FormDetailDto> =
         runCatching { json.decodeFromString<FormsEnvelope>(body).data }
             .getOrDefault(emptyList())
 
-    /** Solo per listati che contengono già i campi; altrimenti serve il dettaglio. */
+    /**
+     * Only for lists that already contain the fields; otherwise, the detail is
+     * required.
+     */
     fun parseForms(body: String): List<FormUi> =
         parseInfos(body)
             .filter { !it.fields.isNullOrEmpty() }
             .mapNotNull(::normalizeForm)
             .distinctBy { it.id }
 
-    /** Risposta di `GET …/form/{formID}`: accetta sia `Form.Detail` sia `{data:…}`. */
+    /** Response of `GET …/form/{formID}`: accepts both `Form.Detail` and `{data:…}`. */
     fun parseDetailBody(body: String): FormUi? =
         runCatching { json.parseToJsonElement(body) }
             .getOrNull()
             ?.let(::parseDetail)
 
     /**
-     * Payload di `form.created`. Accetta il `Form.Detail` diretto e, per
-     * difesa, le varianti `{form:…}` / `{data:…}`. Payload inatteso → `null`.
+     * Payload for `form.created`. Accepts the direct `Form.Detail` and,
+     * defensively, the `{form:…}` / `{data:…}` variants. Unexpected payload →
+     * `null`.
      */
     fun parseDetail(element: JsonElement?): FormUi? {
         val obj = element as? JsonObject ?: return null
@@ -718,7 +722,8 @@ object FormParsing {
         return FormUi(
             id = id,
             sessionId = dto.sessionID.trim(),
-            // Titolo vuoto se il server non lo manda: l'eyebrow dice già "domanda".
+            // Empty title if the server doesn't send one: the eyebrow already says
+            // "question".
             title = dto.title?.trim().orEmpty(),
             fields = dto.fields.orEmpty().mapNotNull(::normalizeField),
             description = dto.description?.takeIf { it.isNotBlank() },
@@ -735,8 +740,8 @@ object FormParsing {
             title = dto.title?.takeIf { it.isNotBlank() },
             description = dto.description?.takeIf { it.isNotBlank() },
             required = dto.required,
-            // Il tool "question" manda `string` **con** le opzioni: vanno
-            // tenute, è una scelta singola e non un campo di testo libero.
+            // The "question" tool sends a `string` **with** options: they must be
+            // kept, it is a single choice and not a free-text field.
             options = when (fieldType) {
                 FormFieldType.MultiSelect,
                 FormFieldType.Text,
@@ -763,9 +768,9 @@ object FormParsing {
 }
 
 /**
- * Valore di una risposta (`Form.Value`): stringa, numero, booleano o lista.
- * La serializzazione distingue i tipi JSON, quindi non passa da DTO con
- * default: si costruisce direttamente l'albero JSON.
+ * Value of a response (`Form.Value`): string, number, boolean, or list.
+ * Serialization distinguishes JSON types, so it does not go through a DTO with
+ * defaults: the JSON tree is built directly.
  */
 sealed interface FormValue {
     data class Text(val value: String) : FormValue
@@ -778,7 +783,8 @@ sealed interface FormValue {
         is Bool -> JsonPrimitive(value)
         is Multi -> JsonArray(values.map { JsonPrimitive(it) })
         is FormValue.Number -> when {
-            // I campi `integer` non accettano `42.0`: i valori interi restano interi.
+            // `integer` fields do not accept `42.0`: integer values remain
+            // integers.
             !value.isFinite() -> JsonNull
             value.toLong().toDouble() == value -> JsonPrimitive(value.toLong())
             else -> JsonPrimitive(value)
@@ -790,7 +796,7 @@ object FormReply {
 
     private val json = Json { explicitNulls = false }
 
-    /** `{"answer":{…}}`, con i valori nei tipi JSON corretti. */
+    /** `{"answer":{…}}`, with values in the correct JSON types. */
     fun bodyJson(answer: Map<String, FormValue>): String {
         val body = buildJsonObject {
             put(
@@ -805,7 +811,7 @@ object FormReply {
 }
 
 // ---------------------------------------------------------------------------
-// M9: comandi slash
+// M9: slash commands
 // ---------------------------------------------------------------------------
 
 @Serializable
@@ -843,7 +849,7 @@ object CommandParsing {
             .distinctBy { it.name }
 }
 
-/** Comando riconosciuto nel draft: nome e resto della riga (argomenti). */
+/** Command recognized in the draft: name and the rest of the line (arguments). */
 data class CommandCall(
     val name: String,
     val text: String = "",
@@ -852,8 +858,8 @@ data class CommandCall(
 object SlashCommands {
 
     /**
-     * Riconosce `/<nome>` o `/<nome> <argomenti>` solo se `<nome>` è nel
-     * catalogo del server. Comando sconosciuto → `null` (invio come prompt).
+     * Recognizes `/<name>` or `/<name> <arguments>` only if `<name>` is in the
+     * server catalog. Unknown command → `null` (sent as prompt).
      */
     fun parse(draft: String, commands: List<CommandUi>): CommandCall? {
         val trimmed = draft.trim()

@@ -8,12 +8,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Test JVM di M3 (layer dati del drawer): cataloghi, parsing difensivo e
- * sequenza POST → GET degli switch. Tutto offline, payload inline.
+ * M3 JVM test (drawer data layer): catalogs, defensive parsing, and the POST → GET
+ * sequence for the switches. All offline, inline payloads.
  */
 class M3Test {
 
-    // 1. Agenti: nascosti fuori dal drawer, subagent in sezione separata ------
+    // 1. Agents: hidden outside the drawer, subagents in a separate section ------
 
     @Test
     fun `hidden agents excluded from the drawer and subagents separate`() {
@@ -86,7 +86,7 @@ class M3Test {
         assertFalse(model.toString().contains("sk-segreto"))
     }
 
-    // 3. MCP: status.status e fallback "unknown" ------------------------------
+    // 3. MCP: status.status and "unknown" fallback ------------------------------
 
     @Test
     fun `status mcp normalizzato con fallback unknown`() {
@@ -106,7 +106,7 @@ class M3Test {
         assertEquals("failed", mcps.first { it.name == "guasto" }.status)
     }
 
-    // 4. Sessioni figlie: mapping e parentID assente --------------------------
+    // 4. Child sessions: mapping and parentID missing --------------------------
 
     @Test
     fun `children mapped and missing parentID does not break`() {
@@ -134,7 +134,7 @@ class M3Test {
         assertNull(orphan.modelId)
     }
 
-    // 5. TTL di 5 minuti ------------------------------------------------------
+    // 5. 5-minute TTL ------------------------------------------------------
 
     @Test
     fun `catalogo fresco sotto cinque minuti e stantio sopra`() {
@@ -148,7 +148,7 @@ class M3Test {
         assertFalse(Catalog().isFresh(now))
     }
 
-    // 6. switchAgent: POST seguito da GET /api/session/{id} -------------------
+    // 6. switchAgent: POST followed by GET /api/session/{id} -------------------
 
     @Test
     fun `switchAgent rereads the session after success`() {

@@ -12,8 +12,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Test JVM della risposta a un form: i `Form.Value` devono arrivare al server
- * nei tipi JSON giusti (stringa, numero, booleano, array di stringhe).
+ * JVM test for form response: `Form.Value` must reach the server in the correct
+ * JSON types (string, number, boolean, array of strings).
  */
 class FormsReplyTest {
 

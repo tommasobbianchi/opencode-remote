@@ -76,10 +76,10 @@ import kotlinx.coroutines.delay
 import java.util.Locale
 
 // ---------------------------------------------------------------------------
-// Drawer "sidebar OMO": agenti, skill, MCP. La sessione aperta e i suoi task in
-// background sono contesto (riga in testa + bottom sheet), non una seconda lista
-// di sessioni. Layer dati: UiState.catalog / children / openSession (ViewModel).
-// Qui c'è solo presentazione: nessuna chiamata di rete diretta.
+// Drawer "sidebar OMO": agents, skills, MCP. The open session and its background
+// tasks are context (header row + bottom sheet), not a second list of sessions.
+// Data layer: UiState.catalog / children / openSession (ViewModel). This is
+// presentation only: no direct network calls.
 // ---------------------------------------------------------------------------
 
 private enum class DrawerTab(val label: String) {
@@ -88,13 +88,13 @@ private enum class DrawerTab(val label: String) {
     Mcp("MCP"),
 }
 
-/** Conferma effimera di un'azione (agente, modello, skill). */
+/** Ephemeral confirmation of an action (agent, model, skill). */
 private data class DrawerNotice(val text: String, val success: Boolean = true)
 
 /**
- * Contenitore del drawer sul lato end. Il `ModalNavigationDrawer` lavora in
- * layout RTL (vedi `MainScreen`), quindi lo sheet è specchiato a destra; il
- * corpo torna in LTR subito dopo, per testo, icone e allineamenti.
+ * End-side drawer container. `ModalNavigationDrawer` operates in an RTL layout (see
+ * `MainScreen`), so the sheet is mirrored to the right; the body reverts to LTR
+ * immediately after, for text, icons, and alignments.
  */
 @Composable
 fun OmoDrawerSheet(
@@ -151,7 +151,7 @@ private fun OmoDrawerBody(
     val scheme = MaterialTheme.colorScheme
     val oc = OpenColors.current
 
-    // Le tab restano dove sono finché il drawer è aperto (e oltre la rotazione).
+    // Tabs stay in place while the drawer is open (and across rotation).
     var tabName by rememberSaveable { mutableStateOf(DrawerTab.Agents.name) }
     val tab = runCatching { DrawerTab.valueOf(tabName) }.getOrDefault(DrawerTab.Agents)
 
@@ -165,7 +165,8 @@ private fun OmoDrawerBody(
     val session = state.openSession
     val canSwitch = session != null
 
-    // Il server è la verità: la conferma arriva dal valore riletto dopo lo switch.
+    // The server is the source of truth: confirmation comes from the value re-read
+    // after the switch.
     LaunchedEffect(session?.agent, pendingAgent) {
         val target = pendingAgent ?: return@LaunchedEffect
         if (session?.agent == target) {
@@ -505,9 +506,9 @@ private fun ConnectionPill(
     suspended: Boolean,
 ) {
     val oc = OpenColors.current
-    // Con la REST connessa il drawer mostra lo stato effettivo del canale SSE:
-    // stesse parole della lista e della chat, così non sembra "tutto ok"
-    // mentre i dati sono fermi o in riconnessione.
+    // When REST is connected, the drawer shows the actual SSE channel state: same
+    // wording as the list and chat, so it doesn't look "all good" while data is
+    // stale or reconnecting.
     val stream = streamStatusUi(streamState, secondsLeft, suspended)
     val (color, label, pulsing) = when (connection) {
         is Connection.Connected -> Triple(
@@ -830,7 +831,7 @@ private fun OpenSessionCard(
     }
 }
 
-/** Stato compatto della sessione: live (pallino pulsante) oppure esito. */
+/** Compact session state: live (pulsing dot) or outcome. */
 private data class SessionStatusSpec(
     val label: String,
     val color: Color,
@@ -855,7 +856,7 @@ private fun sessionStatusSpec(session: SessionUi): SessionStatusSpec {
 }
 
 // ---------------------------------------------------------------------------
-// Task in background: bottom sheet aperto dal badge della sessione
+// Background task: bottom sheet opened from the session badge
 // ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -872,8 +873,8 @@ private fun TasksSheet(
     val children = state.childrenWithActivity
     val running = children.count { it.isActive }
 
-    // I task possono essere cambiati mentre il drawer era aperto: il foglio
-    // rilegge i figli all'apertura, senza aspettare il refresh manuale.
+    // Tasks can change while the drawer is open: the sheet re-reads its children on
+    // open, without waiting for a manual refresh.
     LaunchedEffect(Unit) { onRefresh() }
 
     ModalBottomSheet(
@@ -977,7 +978,7 @@ private fun tasksSummary(running: Int, total: Int): String {
     }
 }
 
-/** Chip compatto con l'agente che sta lavorando (o "predefinito"). */
+/** Compact chip with the agent that is working (or "default"). */
 @Composable
 private fun AgentChip(label: String, muted: Boolean = false) {
     val oc = OpenColors.current
@@ -998,7 +999,7 @@ private fun AgentChip(label: String, muted: Boolean = false) {
     }
 }
 
-/** Stato di un task figlio: live in corso, oppure esito concluso. */
+/** State of a child task: live in progress, or concluded outcome. */
 private data class TaskStateSpec(
     val label: String,
     val color: Color,
@@ -1100,7 +1101,7 @@ private fun TaskRow(
 }
 
 // ---------------------------------------------------------------------------
-// Tab Agenti (con switch modello)
+// Agents tab (with model switch)
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -1118,8 +1119,8 @@ private fun AgentsTab(
     val canSwitch = session != null
     val loading = state.catalogLoading && catalog.agents.isEmpty()
     val empty = catalog.agents.isEmpty()
-    // Mappatura agente → figli attivi: l'indicatore animato mostra chi sta
-    // lavorando davvero (la delega la decide l'agente primario).
+    // Agent → active children mapping: the animated indicator shows who is actually
+    // working (the primary agent decides the delegation).
     val workingByAgent = state.childrenWithActivity
         .filter { it.isActive }
         .mapNotNull { it.agent?.takeIf { id -> id.isNotBlank() } }
@@ -1233,9 +1234,9 @@ private fun AgentsTab(
 }
 
 /**
- * Contesto dell'agente nella tab Agenti: è la riga in testa e chiarisce chi
- * guida la sessione. La spunta verde (attivo) compare solo per un agente
- * primario; un subagent impostato da fuori resta dichiarato, senza spunta.
+ * Agent context in the Agents tab: it's the header row and clarifies who is driving
+ * the session. The green checkmark (active) only appears for a primary agent; an
+ * externally configured subagent remains declared, without a checkmark.
  */
 @Composable
 private fun SessionAgentRow(state: UiState) {
@@ -1601,7 +1602,7 @@ private fun SkillsTab(
 }
 
 // ---------------------------------------------------------------------------
-// Tab MCP (sola lettura)
+// MCP tab (read-only)
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -1719,7 +1720,7 @@ private fun mcpStatusSpec(status: String): McpStatusSpec {
 }
 
 // ---------------------------------------------------------------------------
-// Stati condivisi: banner, hint, vuoto, skeleton
+// Shared states: banner, hint, empty, skeleton
 // ---------------------------------------------------------------------------
 
 @Composable

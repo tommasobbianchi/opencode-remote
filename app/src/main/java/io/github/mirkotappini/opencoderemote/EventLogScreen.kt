@@ -45,8 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Log SSE di M0, raggiungibile dalla lista sessioni.
- * In M1 lo stream resta disponibile ma non pilota la timeline.
+ * M0 SSE log, accessible from the sessions list. In M1 the stream remains available
+ * but does not drive the timeline.
  */
 @Composable
 fun EventLogScreen(

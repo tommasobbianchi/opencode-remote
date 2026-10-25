@@ -6,8 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Test JVM del parsing dei form (M9): payload reale-like, tipi misti,
- * campi `hidden`/`when` ignorati e payload rotto mai crashante.
+ * JVM test for form parsing (M9): realistic payload, mixed types, `hidden`/`when`
+ * fields ignored, and broken payload never crashes.
  */
 class FormParsingTest {
 
@@ -128,7 +128,7 @@ class FormParsingTest {
 
         assertTrue(form.fields.none { it.key == "nascosto" })
         assertTrue(form.fields.none { it.key == "ignoto" })
-        // `when` non blocca il campo: in v1 le condizioni sono ignorate.
+        // `when` does not block the field: in v1, conditions are ignored.
         assertTrue(form.fields.any { it.key == "condizionale" })
     }
 
@@ -225,7 +225,7 @@ class FormParsingTest {
 
     @Test
     fun `string con options conserva le scelte (tool question)`() {
-        // Payload come lo manda il tool "question": tipo string + options.
+        // Payload as sent by the "question" tool: string type + options.
         val payload = """
             {
               "id": "frm_q",

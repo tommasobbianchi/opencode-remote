@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-/** Metadati di delivery dell'evento (sequence monotona per sessione). */
+/** Event delivery metadata (monotonic sequence per session). */
 @Serializable
 data class DurableDto(
     val aggregateID: String? = null,
@@ -15,7 +15,7 @@ data class DurableDto(
     val version: Int? = null,
 )
 
-/** Envelope SSE reale: `id, created, type, data, durable, location`. */
+/** Real SSE envelope: `id, created, type, data, durable, location`. */
 @Serializable
 data class SseEnvelope(
     val id: String? = null,
@@ -26,7 +26,7 @@ data class SseEnvelope(
     val durable: DurableDto? = null,
 )
 
-/** Evento normalizzato per la UI. Mai un'eccezione per un `type` ignoto. */
+/** Normalized event for the UI. Never throw an exception for an unknown `type`. */
 sealed interface ServerEvent {
     val sessionId: String?
 
@@ -129,9 +129,12 @@ sealed interface ServerEvent {
         val executed: Boolean,
         val exitCode: Int?,
         val truncated: Boolean,
-        /** `metadata.status` (o `status` top-level), per riconoscere un diniego esplicito. */
+        /**
+         * `metadata.status` (or top-level `status`), to recognize an explicit
+         * denial.
+         */
         val status: String? = null,
-        /** Messaggio d'errore del server, se presente. */
+        /** Server error message, if present. */
         val message: String? = null,
     ) : ServerEvent
 
@@ -151,7 +154,7 @@ sealed interface ServerEvent {
         val tokens: TokenUsage?,
     ) : ServerEvent
 
-    /** `session.step.failed`: il turno si chiude, le part attive diventano Interrupted. */
+    /** `session.step.failed`: the turn closes, active parts become Interrupted. */
     data class StepFailed(
         override val sessionId: String,
         val messageId: String?,
@@ -185,43 +188,43 @@ sealed interface ServerEvent {
         val inboxId: String?,
     ) : ServerEvent
 
-    /** `permission.asked`: `data` è l'intero Permission.Request. */
+    /** `permission.asked`: `data` is the entire Permission.Request. */
     data class PermissionAsked(
         override val sessionId: String,
         val approval: ApprovalUi,
     ) : ServerEvent
 
-    /** `permission.replied`: conferma di risoluzione (id richiesta facoltativo). */
+    /** `permission.replied`: resolution confirmation (request id optional). */
     data class PermissionReplied(
         override val sessionId: String?,
         val requestId: String?,
     ) : ServerEvent
 
-    /** `form.created`: il payload è un `Form.Detail` già normalizzato. */
+    /** `form.created`: the payload is an already normalized `Form.Detail`. */
     data class FormCreated(
         override val sessionId: String,
         val form: FormUi,
     ) : ServerEvent
 
-    /** `form.replied`: la domanda è stata risposta, va tolta dalla UI. */
+    /** `form.replied`: the question has been answered, remove it from the UI. */
     data class FormReplied(
         override val sessionId: String?,
         val formId: String,
     ) : ServerEvent
 
-    /** `form.cancelled`: la domanda è stata annullata, va tolta dalla UI. */
+    /** `form.cancelled`: the request has been cancelled, remove it from the UI. */
     data class FormCancelled(
         override val sessionId: String?,
         val formId: String,
     ) : ServerEvent
 
     /**
-     * Un subagente è stato attivato: il server ha creato una sessione figlia
-     * (`session.created`) o l'ha aggiornata (`session.updated`).
+     * A subagent has been activated: the server created a child session
+     * (`session.created`) or updated it (`session.updated`).
      *
-     * `sessionId` è la sessione **madre** — cioè quella aperta — così i filtri
-     * esistenti (`event.sessionId == openId`) funzionano senza casi speciali;
-     * il figlio arriva in [childId].
+     * `sessionId` is the **parent** session — i.e., the open one — so existing
+     * filters (`event.sessionId == openId`) work without special cases; the child
+     * arrives in [childId].
      */
     data class ChildAgentStarted(
         override val sessionId: String,
@@ -236,7 +239,7 @@ sealed interface ServerEvent {
     ) : ServerEvent
 }
 
-/** Envelope interpretato: `wireType` serve solo al log, mai al rendering. */
+/** Envelope interpreted: `wireType` is for logging only, never for rendering. */
 data class IncomingEvent(
     val id: String?,
     val created: Long?,
@@ -245,9 +248,9 @@ data class IncomingEvent(
 )
 
 /**
- * Parser tollerante dell'envelope SSE (docs/API-M2.md §2).
- * Regole: type ignoto → [ServerEvent.Unknown]; `data.sessionID` assente per un
- * evento di sessione → evento scartato (`null`); JSON malformato → `null`.
+ * Tolerant SSE envelope parser (docs/API-M2.md §2). Rules: unknown type →
+ * [ServerEvent.Unknown]; missing `data.sessionID` for a session event → event
+ * discarded (`null`); malformed JSON → `null`.
  */
 object EventParsing {
 
@@ -423,9 +426,9 @@ object EventParsing {
                 )
             }
 
-            // Sessione figlia creata o aggiornata: se ha un `parentID` è un
-            // subagente attivato dalla sessione madre. `sessionID` qui è il
-            // figlio, quindi l'evento viene riportato sulla madre.
+            // Child session created or updated: if it has a `parentID`, it is a
+            // subagent activated by the parent session. `sessionID` here is the
+            // child, so the event is reported on the parent.
             "session.created", "session.updated" -> {
                 val childId = payload?.string("sessionID")
                 val parentId = payload?.string("parentID")
@@ -540,7 +543,7 @@ object EventParsing {
                 val formSessionId = form?.sessionId?.takeIf { it.isNotBlank() }
                     ?: sessionId
                 if (form == null || formSessionId == null) {
-                    // Payload non riconosciuto: mai un crash, solo un ignoto.
+                    // Unrecognized payload: never a crash, only an unknown.
                     ServerEvent.Unknown(type, sessionId)
                 } else {
                     ServerEvent.FormCreated(formSessionId, form)
@@ -572,7 +575,7 @@ object EventParsing {
         )
     }
 
-    /** Comodità per i test: solo l'evento normalizzato. */
+    /** Convenience for testing: only the normalized event. */
     fun parseEvent(raw: String): ServerEvent? = parse(raw)?.event
 
     private fun modelIdOf(element: JsonElement?): String? = when (element) {
@@ -614,7 +617,7 @@ object EventParsing {
         )
     }
 
-    /** `content:[{type:"text",text}]`; un payload mancante produce una lista vuota. */
+    /** `content:[{type:"text",text}]`; a missing payload produces an empty list. */
     private fun parseContentTexts(element: JsonElement?): List<String> =
         (element as? kotlinx.serialization.json.JsonArray)
             ?.mapNotNull { (it as? JsonObject)?.string("text") }

@@ -5,8 +5,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Il pulsante di invio si sblocca solo con almeno una lettera o una cifra:
- * spazi, punteggiatura e simboli da soli non bastano.
+ * The submit button unlocks only with at least one letter or digit: spaces,
+ * punctuation, and symbols alone are not enough.
  */
 class SendableTextTest {
 

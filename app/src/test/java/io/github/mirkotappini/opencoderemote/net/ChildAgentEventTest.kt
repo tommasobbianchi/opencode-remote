@@ -5,10 +5,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * `session.created` / `session.updated` di una sessione figlia: il payload
- * porta `sessionID` del **figlio** e `parentID` della madre. L'evento deve
- * riportare la madre come sessione di riferimento, così il filtro della chat
- * aperta funziona senza casi speciali.
+ * `session.created` / `session.updated` for a child session: the payload carries
+ * the **child's** `sessionID` and the mother's `parentID`. The event must report
+ * the mother as the reference session, so the open chat filter works without
+ * special cases.
  */
 class ChildAgentEventTest {
 

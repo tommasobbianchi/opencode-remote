@@ -5,32 +5,32 @@ import kotlin.math.roundToLong
 import kotlin.math.roundToInt
 
 /**
- * Regole degli allegati, pure e verificabili su JVM: nessun import Android.
+ * Attachment rules, pure and verifiable on the JVM: no Android imports.
  *
- * Il contenuto dei file non passa mai da qui: si manipolano solo mime, nomi,
- * dimensioni e il passo di compressione.
+ * File content never passes through here: only mime types, names, sizes, and
+ * compression steps are manipulated.
  */
 object AttachmentRules {
 
-    /** Oltre questa soglia il file non si legge nemmeno. */
+    /** Beyond this threshold, the file cannot be read at all. */
     const val MAX_INPUT_BYTES: Long = 50L * 1024 * 1024
 
-    /** Tetto sicuro per l'invio inline: 4 MB di byte decodificati. */
+    /** Safe ceiling for inline submission: 4 MB of decoded bytes. */
     const val MAX_INLINE_BYTES: Long = 4L * 1024 * 1024
 
-    /** Passo di ridimensionamento: primo tentativo, poi ritentativo più leggero. */
+    /** Resize step: first attempt, then a lighter retry. */
     data class ResizeStep(
         val maxSidePx: Int,
         val quality: Int,
     )
 
-    /** In ordine di tentativo; esauriti i passi l'allegato è troppo grande. */
+    /** In order of attempt; once steps are exhausted, the attachment is too large. */
     val RESIZE_STEPS: List<ResizeStep> = listOf(
         ResizeStep(maxSidePx = 1600, quality = 80),
         ResizeStep(maxSidePx = 1280, quality = 70),
     )
 
-    /** Mime accettati dal server; gli altri producono un 400. */
+    /** Mimes accepted by the server; others produce a 400. */
     private val ACCEPTED_EXACT = setOf(
         "application/pdf",
         "application/json",
@@ -64,13 +64,13 @@ object AttachmentRules {
 
     private val UNSAFE_NAME = Regex("[\\\\/:*?\"<>|\\p{Cntrl}]")
 
-    /** Mime normalizzato: minuscolo e senza parametri (`; charset=…`). */
+    /** Normalized MIME: lowercase and without parameters (`; charset=…`). */
     fun normalizeMime(mime: String?): String =
         mime?.substringBefore(';')?.trim()?.lowercase().orEmpty()
 
     fun isImageMime(mime: String?): Boolean = normalizeMime(mime).startsWith("image/")
 
-    /** Il server accetta immagini, PDF, JSON, testo e binari generici. */
+    /** The server accepts images, PDFs, JSON, text, and generic binaries. */
     fun isAcceptedMime(mime: String?): Boolean {
         val normalized = normalizeMime(mime)
         if (normalized.isEmpty()) return false
@@ -80,8 +80,8 @@ object AttachmentRules {
     }
 
     /**
-     * Mime usato per l'invio: quello dichiarato se accettato, altrimenti una
-     * deduzione dall'estensione, altrimenti `application/octet-stream`.
+     * MIME used for sending: the declared one if accepted, otherwise inferred from
+     * the extension, otherwise `application/octet-stream`.
      */
     fun outboundMime(mime: String?, name: String?): String {
         val declared = normalizeMime(mime)
@@ -94,7 +94,7 @@ object AttachmentRules {
         }
     }
 
-    /** Mime dedotto dall'estensione; `null` se non riconosciuta. */
+    /** Mime inferred from the extension; `null` if unrecognized. */
     fun mimeForName(name: String?): String? {
         val extension = name
             ?.substringAfterLast('.', "")
@@ -104,7 +104,10 @@ object AttachmentRules {
         return MIME_BY_EXTENSION[extension]
     }
 
-    /** Estensione per il mime noto, altrimenti quella del nome, altrimenti `bin`. */
+    /**
+     * Extension for the known mime, otherwise the one from the name, otherwise
+     * `bin`.
+     */
     fun extensionFor(mime: String?, name: String? = null): String {
         EXTENSIONS[normalizeMime(mime)]?.let { return it }
         val fromName = name
@@ -116,9 +119,8 @@ object AttachmentRules {
     }
 
     /**
-     * Nome presentabile per il server: niente percorsi, niente caratteri di
-     * controllo. Se il nome originale non ha estensione si aggiunge quella
-     * coerente col mime.
+     * Presentable name for the server: no paths, no control characters. If the
+     * original name has no extension, append one consistent with the mime.
      */
     fun fileNameFor(mime: String?, originalName: String?): String {
         val extension = extensionFor(mime, originalName)
@@ -136,7 +138,7 @@ object AttachmentRules {
         }
     }
 
-    /** Data URI inline come lo vuole il server. */
+    /** Inline Data URI as the server requires. */
     fun dataUri(mime: String, base64: String): String =
         "data:${normalizeMime(mime)};base64,$base64"
 
@@ -144,15 +146,15 @@ object AttachmentRules {
 
     fun isWithinInlineLimit(bytes: Long): Boolean = bytes in 0..MAX_INLINE_BYTES
 
-    /** Passo di ridimensionamento per tentativo; `null` = nessun altro passo. */
+    /** Resize step per attempt; `null` = no further step. */
     fun resizeStep(attempt: Int): ResizeStep? = RESIZE_STEPS.getOrNull(attempt)
 
-    /** Lunghezza della codifica base64 (senza padding extra) per [bytes]. */
+    /** Length of the base64 encoding (without extra padding) for [bytes]. */
     fun base64Length(bytes: Long): Long = if (bytes <= 0L) 0L else ceil(bytes / 3.0).toLong() * 4
 
     /**
-     * Peso leggibile in inglese, base 1000 come il sistema: "840 kB",
-     * "1.2 MB". Sotto il kB restano i byte.
+     * Human-readable weight in English, base 1000 like the system: "840 kB", "1.2
+     * MB". Below kB, bytes remain.
      */
     fun formatSize(bytes: Long): String {
         val safe = bytes.coerceAtLeast(0L)
@@ -165,7 +167,7 @@ object AttachmentRules {
     }
 
     private fun unit(value: Double, suffix: String): String {
-        // Sotto 10 si tiene un decimale (punto), sopra si arrotonda.
+        // Below 10, keep one decimal place; above 10, round.
         val text = if (value < 10.0) {
             val tenths = (value * 10.0).roundToLong()
             val whole = tenths / 10L
